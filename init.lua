@@ -40,4 +40,7 @@ function OnPlayerSpawned( hooman )
 	GameAddFlagRun( initer )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
+	
+	local x, y = EntityGetTransform( hooman )
+	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
 end

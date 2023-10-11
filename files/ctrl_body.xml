@@ -1,0 +1,12 @@
+<Entity name="index_ctrl" >
+	<LuaComponent
+		script_source_file="mods/index_core/files/inv_ctrl.lua"
+		execute_every_n_frame="1"
+		vm_type="ONE_PER_COMPONENT_INSTANCE"
+	></LuaComponent>
+    
+	<VariableStorageComponent
+		name="forced_state"
+		value_int="0"
+	></VariableStorageComponent>
+</Entity>
