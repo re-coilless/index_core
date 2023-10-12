@@ -1,3 +1,18 @@
+dofile_once( "data/scripts/lib/utilities.lua" )
+
+font_tbl = {
+	vanilla_small = {
+		default = { 4, 4 },
+		space = 0,
+		height = 6,
+	},
+	[""] = { 
+		default = { 6, 6, },
+		space = 4,
+		height = 7,
+	},
+}
+
 function get_storage( hooman, name )
 	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
 	if( #comps > 0 ) then
@@ -77,6 +92,33 @@ function t2w( str )
 	end
 	
 	return t
+end
+
+function get_text_dim( text, char_table )
+	local w, h = 0, 0
+	
+	if( char_table == nil ) then
+		local gui = GuiCreate()
+		GuiStartFrame( gui )
+		w, h = GuiGetTextDimensions( gui, text, 1, 2 )
+		GuiDestroy( gui )
+	else
+		h = char_table.height or 0
+		for chr in string.gmatch( text, "." ) do
+			w = w + ( chr == " " and ( char_table.space or 1 ) or ( char_table[chr] or char_table.default[ 1 + b2n( tonumber( chr ) ~= nil )]))
+		end
+	end
+	
+	return w, h
+end
+
+function get_pic_dim( path )
+	local gui = GuiCreate()
+	GuiStartFrame( gui )
+	local w, h = GuiGetImageDimensions( gui, path, 1 )
+	GuiDestroy( gui )
+	
+	return w, h
 end
 
 function liner( text, length, height, length_k, clean_mode, forced_reverse )
@@ -260,36 +302,18 @@ function play_sound( event )
 end
 
 function colourer( gui, c_type, alpha )
+	c_type = c_type or {}
+	if( #c_type == 0 and alpha == nil ) then
+		return
+	end
+
 	local color = { r = 0, g = 0, b = 0 }
 	if( type( c_type ) == "table" ) then
-		color.r = c_type[1] or 1
-		color.g = c_type[2] or 1
-		color.b = c_type[3] or 1
-	else
-		if( c_type == nil or c_type == 1 ) then
-			color.r = 232
-			color.g = 59
-			color.b = 59
-		elseif( c_type == 2 ) then
-			color.r = 98
-			color.g = 85
-			color.b = 101
-		elseif( c_type == 3 ) then
-			color.r = 199
-			color.g = 220
-			color.b = 208
-		elseif( c_type == 4 ) then
-			color.r = 251
-			color.g = 185
-			color.b = 84
-		elseif( c_type == 5 ) then
-			color.r = 30
-			color.g = 188
-			color.b = 115
-		end
+		color.r = c_type[1] or 255
+		color.g = c_type[2] or 255
+		color.b = c_type[3] or 255
 	end
-	
-	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, alpha or 1 )
+	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, alpha or c_type[4] or 1 )
 end
 
 function gui_killer( gui )
@@ -335,7 +359,7 @@ function new_text( gui, pic_x, pic_y, pic_z, text, colours, alpha )
 	end
 	
 	for i,line in ipairs( out_str ) do
-		colourer( gui, colours or 1, alpha )
+		colourer( gui, colours, alpha )
 		GuiZSetForNextWidget( gui, pic_z )
 		GuiText( gui, pic_x, pic_y, line )
 		pic_y = pic_y + 9
@@ -363,4 +387,29 @@ function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
 	GuiOptionsAddForNextWidget( gui, 47 ) --NoSound
 	local clicked, r_clicked = GuiImageButton( gui, uid, pic_x, pic_y, "", pic )
 	return uid, clicked, r_clicked
+end
+
+function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
+	uid = uid + 1
+	txt = tostring( txt )
+	colours = colours or {}
+
+	local drift = 0
+	local data = dofile( font_path.."data.lua" )
+	for c in string.gmatch( txt, "." ) do
+		if( c == " " ) then
+			drift = drift + data.space
+		else
+			local pic = font_path..( data[string.byte(c)] or c )..".png"
+			colourer( gui, colours )
+			new_image( gui, uid, pic_x + drift, pic_y, pic_z, pic, 1, 1, colours[4])
+			drift = drift + get_pic_dim( pic ) + data.step
+		end
+	end
+
+	return uid
+end
+
+function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, txt, colours )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_small/", txt, colours )
 end
