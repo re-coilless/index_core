@@ -9,4 +9,35 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="low_hp_flashing_threshold"
+		value_float="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_threshold_min"
+		value_float="0.2"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_period"
+		value_int="15"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_intensity"
+		value_float="0.75"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="fancy_potion_bar"
+		value_bool="1"
+	></VariableStorageComponent>
+	
+	<VariableStorageComponent
+		name="reload_threshold"
+		value_int="30"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="delay_threshold"
+		value_int="30"
+	></VariableStorageComponent>
 </Entity>

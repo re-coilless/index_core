@@ -34,12 +34,12 @@ local ITEM_TYPES = {
 local INV_STRUCT = {
     bars = {
         hp = new_generic_hp,
-        flight = new_generic_flight,
         air = new_generic_air,
+        flight = new_generic_flight,
         action = {
             mana = new_generic_mana,
+            reload = new_generic_reload,
             delay = new_generic_delay,
-            recharge = new_generic_recharge,
         },
     },
 
@@ -49,6 +49,7 @@ local INV_STRUCT = {
     wands = {
         --slot count
         --slot func
+        --wand func (for full inv)
         --macro_func
     },
     items = {
@@ -61,6 +62,7 @@ local INV_STRUCT = {
         --slot func
         --macro func
     },
+    full_inv = f,
 
     info = f, --DEBUG_SHOW_MOUSE_MATERIAL
     

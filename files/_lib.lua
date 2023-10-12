@@ -237,6 +237,25 @@ function liner( text, length, height, length_k, clean_mode, forced_reverse )
 	return formated
 end
 
+function get_sign( a )
+	if( a < 0 ) then
+		return -1
+	else
+		return 1
+	end
+end
+
+function limiter( value, limit, max_mode )
+	max_mode = max_mode or false
+	limit = math.abs( limit )
+	
+	if(( max_mode and math.abs( value ) < limit ) or ( not( max_mode ) and math.abs( value ) > limit )) then
+		return get_sign( value )*limit
+	end
+	
+	return value
+end
+
 function generic_random( a, b, macro_drift, bidirectional )
 	bidirectional = bidirectional or false
 	
@@ -287,6 +306,35 @@ function access_list( storage, tbl )
 	end
 end
 
+function get_matter( matters, id )
+	local max_matter = { 0, 0 }
+	if( #matters > 0 ) then
+		for i,matter in ipairs( matters ) do
+			if( id ~= nil and id == i - 1 ) then
+				return { id, matter }
+			elseif( matter > max_matter[2] ) then
+				max_matter[1] = i - 1
+				max_matter[2] = matter
+			end
+		end
+	end
+	return max_matter
+end
+
+function get_matters( matters )
+	local mttrs = {}
+	local got_some = 0
+	if( #matters > 0 ) then
+		for i,mttr in ipairs( matters ) do
+			if( mttr > 0 ) then
+				mttrs[ i - 1 ] = mttr
+				got_some = got_some + mttr
+			end
+		end 
+	end
+	return got_some, mttrs
+end
+
 function get_active_wand( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( inv_comp ~= nil ) then
@@ -296,9 +344,28 @@ function get_active_wand( hooman )
 	return 0
 end
 
+function get_discrete_button( entity_id, comp, btn )
+	local id = entity_id..btn
+	local state = false
+	if( ComponentGetValue2( comp, btn )) then
+		if( not( dscrt_btn[id])) then
+			state = true
+		end
+		dscrt_btn[id] = true
+	else
+		dscrt_btn[id] = false
+	end
+	
+	return state
+end
+
 function play_sound( event )
 	local c_x, c_y = GameGetCameraPos()
 	GamePlaySound( "mods/mrshll_core/mrshll.bank", event, c_x, c_y )
+end
+
+function get_uint_color( color )
+	return { bit.band( color, 0xff ), bit.band( bit.rshift( color, 8 ), 0xff ), bit.band( bit.rshift( color, 16 ), 0xff )}
 end
 
 function colourer( gui, c_type, alpha )
@@ -339,6 +406,39 @@ function world2gui( x, y, not_pos )
 	end
 	
 	return x, y, shit_from_ass
+end
+
+function get_short_num( num, negative_inf )
+	negative_inf = negative_inf or false
+
+	if( num < 0 and negative_inf ) then
+		return "i"
+	else
+		num = math.max( num, 0 )
+	end
+	if( num < 999e12 ) then
+		local sstr = string.format( "%.0f", num )
+		
+		local ender = { 12, "T" }
+		if( num < 10^4 ) then
+			ender = { 0, ""}
+		elseif( num < 10^6 ) then
+			ender = { 3, "K" }
+		elseif( num < 10^9 ) then
+			ender = { 6, "M" }
+		elseif( num < 10^12 ) then
+			ender = { 9, "B" }
+		end
+
+		num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
+	elseif( num < 9e99 ) then
+		num = tostring( string.format("%e", num ))
+		local _, pos = string.find( num, "+", 1, true )
+		num = string.sub( num, 1, 1 ).."e"..string.sub( 100 + tonumber( string.sub( num, pos+1, #num )), 2 )
+	else
+		num = "i"
+	end
+	return num
 end
 
 function get_mouse_pos()
@@ -412,4 +512,34 @@ end
 
 function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, txt, colours )
 	return new_font( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_small/", txt, colours )
+end
+
+function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
+	local will_shake = shake_frame ~= nil
+	if( will_shake ) then
+		if( shake_frame < 0 ) then
+			shake_frame = shake_frame + 1
+			pic_x = pic_x + 10*math.sin( shake_frame*math.pi/6 )/shake_frame
+		else
+			pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 )
+		end
+	end
+	
+	local w, h = get_pic_dim( bar_pic )
+	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[2], bar_pic, dims[3]/w, dims[2]/h, bar_alpha )
+	
+	local pic = "mods/index_core/files/pics/vanilla_bar_bg_"
+	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", dims[1], dims[2])
+	for i = 1,2 do
+		local new_z = zs[1] + ( i == 1 and 0.001 or 0 )
+		uid = new_image( gui, uid, pic_x, pic_y, new_z, pic..i..".xml", 1, dims[2] + 2 )
+		uid = new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, new_z, pic..i..".xml", 1, dims[2] + 2 )
+		uid = new_image( gui, uid, pic_x - dims[1], pic_y, new_z, pic..i..".xml", dims[1], 1 )
+		uid = new_image( gui, uid, pic_x - dims[1], pic_y + dims[2] + 1, new_z, pic..i..".xml", dims[1], 1 )
+	end
+	if( will_shake ) then
+		uid = new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1] - 0.001, "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", dims[1]/2 + 1, dims[2]/2 + 1 )
+	end
+
+	return uid
 end
