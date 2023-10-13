@@ -327,10 +327,13 @@ function get_matters( matters )
 	if( #matters > 0 ) then
 		for i,mttr in ipairs( matters ) do
 			if( mttr > 0 ) then
-				mttrs[ i - 1 ] = mttr
+				table.insert( mttrs, {i-1,mttr})
 				got_some = got_some + mttr
 			end
 		end 
+		table.sort( mttrs, function( a, b )
+			return a[2] > b[2]
+		end)
 	end
 	return got_some, mttrs
 end
@@ -441,6 +444,27 @@ function get_short_num( num, negative_inf )
 	return num
 end
 
+function capitalizer( text )
+	text = tostring( text )
+	return string.upper( string.sub( text, 1, 1 ))..string.sub( text, 2 )
+end
+
+function hud_text_fix( key )
+	local txt = tostring( GameTextGetTranslatedOrNot( key ))
+	local _, pos = string.find( txt, ":", 1, true )
+	if( pos ~= nil ) then
+		txt = string.sub( txt, 1, pos-1 )
+	end
+	return txt..":@"
+end
+
+function hud_num_fix( a, b, zeros )
+	zeros = zeros or 0
+	a = string.format( "%."..zeros.."f", a )
+	b = string.format( "%."..zeros.."f", b )
+	return a.."/"..b
+end
+
 function get_mouse_pos()
 	local m_x, m_y = DEBUG_GetMouseWorld()
 	return world2gui( m_x, m_y )
@@ -506,12 +530,139 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
 			drift = drift + get_pic_dim( pic ) + data.step
 		end
 	end
-
-	return uid
+	
+	return uid, drift
 end
 
 function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, txt, colours )
 	return new_font( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_small/", txt, colours )
+end
+
+function new_tooltip( gui, uid, z, text, extra_func, is_triggered )
+	is_triggered = is_triggered or false
+
+	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+	if( is_hovered or is_triggered ) then
+		if( not( tip_going )) then
+			tip_going = true
+
+			local frame_num = GameGetFrameNum()
+			tip_anim[2] = frame_num
+			if( tip_anim[1] == 0 ) then
+				tip_anim[1] = frame_num
+				return uid
+			end
+			local anim_frame = tip_anim[3]
+
+			if( type( text ) ~= "table" ) then
+				text = { text }
+			end
+			
+			local w, h = GuiGetScreenDimensions( gui )
+			local pic_x, pic_y = get_mouse_pos()
+			pic_x, pic_y = text[2] or ( pic_x + 5 ), text[3] or ( pic_y + 5 )
+			
+			local length = 0
+			if( text[1] ~= "" ) then
+				text[1] = string.gsub( text[1], "\n", "@" )
+				text[1] = liner( text[1], w*0.9, h - 2, 5.8 )
+				for i,line in ipairs( text[1]) do
+					local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
+					if( current_length > length ) then
+						length = current_length
+					end
+				end
+			end
+			
+			local edge_spacing = 3
+			local x_offset, y_offset = text[4] or length, text[5] or 9*#text[1]
+			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
+			
+			local is_right = extra_func == "is_right"
+			if( is_right ) then
+				pic_x = pic_x - x_offset - 1
+			else
+				if( w < pic_x + x_offset + 1 ) then
+					pic_x = w - x_offset - 1
+				end
+				if( h < pic_y + y_offset + 1 ) then
+					pic_y = h - y_offset - 1
+				end
+			end
+
+			local inter_alpha = math.sin( math.min( anim_frame, 10 )*math.pi/20 )
+			if( type( extra_func or "" ) == "function" ) then
+				uid = extra_func( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha )
+			else
+				new_text( gui, pic_x + 3, pic_y + 1, z - 0.01, text[1], { 255, 255, 255 }, inter_alpha )
+				new_text( gui, pic_x + 3, pic_y + 2, z, text[1], { 0, 0, 0 }, inter_alpha )
+			end
+			
+			anim_frame = anim_frame + 1
+			local inter_size = 30*math.sin( anim_frame*0.3937 )/anim_frame
+			pic_x, pic_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
+			x_offset, y_offset = x_offset - inter_size, y_offset - inter_size
+			inter_alpha = math.max( 1 - inter_alpha/6, 0.1 )
+
+			local gui_core = "mods/index_core/files/pics/vanilla_tooltip_"
+			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, inter_alpha )
+			local lines = {{0,-1,x_offset-1,1},{-1,0,1,y_offset-1},{1,y_offset,x_offset-1,1},{x_offset,1,1,y_offset-1}}
+			for i,line in ipairs( lines ) do
+				uid = new_image( gui, uid, pic_x + line[1], pic_y + line[2], z, gui_core.."1.xml", line[3], line[4], inter_alpha )
+			end
+			local dots = {{-1,-1},{x_offset-1,-1},{x_offset,0},{-1,y_offset-1},{0,y_offset},{x_offset,y_offset}}
+			for i,dot in ipairs( dots ) do
+				uid = new_image( gui, uid, pic_x + dot[1], pic_y + dot[2], z, gui_core.."2.xml", 1, 1, inter_alpha )
+			end
+		end
+	end
+	
+	return uid
+end
+
+function tipping( gui, uid, pos, tip, zs, is_right, is_debugging )
+	if( type( zs ) ~= "table" ) then
+		zs = {zs}
+	end
+	local x, y, s_x, s_y = pos[1], pos[2], math.abs( pos[3] or 1 ), math.abs( pos[4] or 1 )
+
+	local is_vertical = s_x < s_y
+	local width = is_vertical and s_x or s_y
+	local clicked, r_clicked, hovered = false, false, false
+	
+	local function do_interface( p_x, p_y )
+		new_image( gui, uid, p_x, p_y, zs[1], "data/ui_gfx/empty"..( is_debugging and "_white" or "" )..".png", width/2, width/2, 0.75, true )
+		local c, r_c, h = GuiGetPreviousWidgetInfo( gui )
+		clicked, r_clicked, hovered = clicked or c, r_clicked or r_c, hovered or h
+	end
+	
+	if( s_x ~= 0 and s_y ~= 0 ) then
+		local count = math.floor( is_vertical and s_y/s_x or s_x/s_y )
+		for i = 1,count do
+			do_interface( x, y )
+			if( is_vertical ) then
+				y = y + width
+			else
+				x = x + width
+			end
+		end
+		local leftover = ( is_vertical and s_y or s_x ) - count*width
+		if( leftover > 0 ) then
+			local drift = width - leftover
+			if( is_vertical ) then
+				y = y - drift
+			else
+				x = x - drift
+			end
+			do_interface( x, y )
+		end
+	end
+
+	if( zs[2] ~= nil and hovered ) then
+		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", s_x/2, s_y/2, 0.5 )
+	end
+	is_right = is_right or false
+	return new_tooltip( gui, uid + 1, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, is_right and "is_right" or nil, hovered )
 end
 
 function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
@@ -529,7 +680,6 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[2], bar_pic, dims[3]/w, dims[2]/h, bar_alpha )
 	
 	local pic = "mods/index_core/files/pics/vanilla_bar_bg_"
-	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", dims[1], dims[2])
 	for i = 1,2 do
 		local new_z = zs[1] + ( i == 1 and 0.001 or 0 )
 		uid = new_image( gui, uid, pic_x, pic_y, new_z, pic..i..".xml", 1, dims[2] + 2 )
@@ -540,6 +690,7 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	if( will_shake ) then
 		uid = new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1] - 0.001, "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", dims[1]/2 + 1, dims[2]/2 + 1 )
 	end
+	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", dims[1], dims[2])
 
 	return uid
 end

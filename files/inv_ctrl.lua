@@ -2,6 +2,15 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 
 ctrl_data = ctrl_data or {}
 dscrt_btn = dscrt_btn or {}
+tip_going = false
+tip_anim = tip_anim or {0,0,0}
+
+local current_frame = GameGetFrameNum()
+if( current_frame - tip_anim[2] > 20 ) then
+    tip_anim[1] = 0
+else
+    tip_anim[3] = math.min( current_frame - tip_anim[1], 15 )
+end
 
 local controller_id = GetUpdatedEntityID()
 local hooman = EntityGetParent( controller_id )
@@ -39,15 +48,16 @@ if( is_going ) then
     local data = {
         memo = ctrl_data,
         pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
-        
+
         player_id = hooman,
-        frame_num = GameGetFrameNum(),
+        frame_num = current_frame,
         orbs = GameGetOrbCountThisRun(),
         active_item = get_active_wand( hooman ),
 
         just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
         no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" )) == hooman,
         
+        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp_value" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
         hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
@@ -55,6 +65,7 @@ if( is_going ) then
         fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
         reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
         delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
+        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold_value" ), "value_bool" ),
 
         Controls = {},
         DamageModel = {},
@@ -62,6 +73,7 @@ if( is_going ) then
         CharacterPlatforming = {},
         Wallet = {},
         Ability = {},
+        Item = {},
         MaterialInventory = {},
     }
     local pos_tbl = {}
@@ -131,13 +143,31 @@ if( is_going ) then
                 math.max( ComponentGetValue2( abil_comp, "mNextFrameUsable" ) - data.frame_num, 0 ),
             }
         end
+        local item_comp = EntityGetFirstComponentIncludingDisabled( data.active_item, "ItemComponent" )
+        if( item_comp ~= nil ) then
+            data.Item = {
+                item_comp,
+
+                ComponentGetValue2( item_comp, "preferred_inventory" ),
+                ComponentGetValue2( item_comp, "inventory_slot" ),
+
+                ComponentGetValue2( item_comp, "ui_sprite" ),
+                ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ),
+                ComponentGetValue2( item_comp, "item_name" ),
+                ComponentGetValue2( item_comp, "ui_description" ),
+
+                ComponentGetValue2( item_comp, "uses_remaining" ),
+                ComponentGetValue2( item_comp, "is_frozen" ),
+                ComponentGetValue2( item_comp, "drinkable" ),
+            }
+        end
         local matter_comp = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialInventoryComponent" )
         if( matter_comp ~= nil ) then
             data.MaterialInventory = {
                 matter_comp,
                 
                 ComponentGetValue2( matter_comp, "max_capacity" ),
-                get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )),
+                { get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
             }
         end
     end

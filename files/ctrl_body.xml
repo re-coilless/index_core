@@ -9,7 +9,11 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
-
+	
+	<VariableStorageComponent
+		name="short_hp_value"
+		value_bool="1"
+	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="low_hp_flashing_threshold"
 		value_float="1"
@@ -39,5 +43,10 @@
 	<VariableStorageComponent
 		name="delay_threshold"
 		value_int="30"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="short_gold_value"
+		value_bool="0"
 	></VariableStorageComponent>
 </Entity>
