@@ -64,7 +64,7 @@ local INV_STRUCT = {
     },
     full_inv = f,
 
-    info = f, --DEBUG_SHOW_MOUSE_MATERIAL
+    info = new_generic_info,
     
     perks = {
         --max count

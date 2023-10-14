@@ -306,6 +306,20 @@ function access_list( storage, tbl )
 	end
 end
 
+function get_most_often( tbl )
+	local count = {}
+	for n,v in pairs( tbl ) do
+		count[v] = ( count[v] or 0 ) + 1
+	end
+	local best = {0,0}
+	for n,v in pairs( count ) do
+		if( best[2] < v ) then
+			best = {n,v}
+		end
+	end
+	return unpack( best )
+end
+
 function get_matter( matters, id )
 	local max_matter = { 0, 0 }
 	if( #matters > 0 ) then
@@ -338,6 +352,36 @@ function get_matters( matters )
 	return got_some, mttrs
 end
 
+function closest_getter( x, y, stuff, check_sight, limits, extra_check )
+	check_sight = check_sight or false
+	limits = limits or { 0, 0, }
+	if( #( stuff or {}) == 0 ) then
+		return 0
+	end
+	
+	local actual_thing = 0
+	local min_dist = -1
+	for i,raw_thing in ipairs( stuff ) do
+		local thing = type( raw_thing ) == "table" and raw_thing[1] or raw_thing
+
+		local t_x, t_y = EntityGetTransform( thing )
+		if( not( check_sight ) or not( RaytracePlatforms( x, y, t_x, t_y ))) then
+			local d_x, d_y = math.abs( t_x - x ), math.abs( t_y - y )
+			if(( d_x < limits[1] or limits[1] == 0 ) and ( d_y < limits[2] or limits[2] == 0 )) then
+				local dist = math.sqrt( d_x^2 + d_y^2 )
+				if( min_dist == -1 or dist < min_dist ) then
+					if( extra_check == nil or extra_check( raw_thing )) then
+						min_dist = dist
+						actual_thing = raw_thing
+					end
+				end
+			end
+		end
+	end
+	
+	return actual_thing
+end
+
 function get_active_wand( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( inv_comp ~= nil ) then
@@ -345,6 +389,26 @@ function get_active_wand( hooman )
 	end
 	
 	return 0
+end
+
+function get_item_name( entity_id, item_comp )
+	return GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) and ( EntityGetName( entity_id ) or "" ) or ComponentGetValue2( item_comp, "item_name" ))
+end
+
+function get_potion_info( entity_id, name, max_count, total_count, matters )
+	local info = ""
+
+	local cnt = 1
+	for i,mtr in ipairs( matters ) do
+		if( i == 1 or mtr[2] > 5 ) then
+			info = info..( i == 1 and "" or "+" )..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
+			cnt = cnt + 1
+			if( cnt > 3 ) then break end
+		end
+	end
+	
+	local v = tostring( math.floor( 100*total_count/max_count + 0.5 ))
+	return info..( info == "" and info or " " )..GameTextGetTranslatedOrNot( name ), GameTextGet( "$item_potion_fullness", v )
 end
 
 function get_discrete_button( entity_id, comp, btn )
@@ -530,7 +594,7 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
 			drift = drift + get_pic_dim( pic ) + data.step
 		end
 	end
-	
+
 	return uid, drift
 end
 

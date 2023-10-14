@@ -4,6 +4,10 @@ ctrl_data = ctrl_data or {}
 dscrt_btn = dscrt_btn or {}
 tip_going = false
 tip_anim = tip_anim or {0,0,0}
+mouse_memo = mouse_memo or {}
+mouse_memo_world = mouse_memo_world or {}
+mtr_probe = mtr_probe or 0
+mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0}
 
 local current_frame = GameGetFrameNum()
 if( current_frame - tip_anim[2] > 20 ) then
@@ -40,6 +44,48 @@ if( is_going ) then
 		gui = GuiCreate()
 	end
 	GuiStartFrame( gui )
+    
+    local m_x, m_y = DEBUG_GetMouseWorld()
+    local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
+    mouse_memo_world = { m_x, m_y }
+    local mui_x, mui_y = world2gui( m_x, m_y )
+    local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
+    mouse_memo = { mui_x, mui_y }
+
+    local pointer_mtr = 0
+    if( not( EntityGetIsAlive( mtr_probe ))) then
+        mtr_probe = EntityLoad( "mods/index_core/files/matter_test.xml", m_x, m_y )
+    end
+    if( mtr_probe > 0 ) then
+        local mtr_list = {}
+        
+        local jitter_mag = 1
+        EntitySetTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-1,0)), m_y + jitter_mag*get_sign( math.random(-1,0)))
+        
+        local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
+        local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
+        local count = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterialCountsThisFrame" )
+        for i,v in ipairs( count ) do
+            if( v > 0 ) then
+                local id = matter[i]
+                mtr_list[id] = mtr_list[id] and ( mtr_list[id] + v ) or v
+            end
+        end
+        local cells = {}
+        for id,cnt in pairs( mtr_list ) do
+            table.insert( cells, { id, cnt })
+        end
+        if( #cells > 0 ) then
+            table.sort( cells, function( a, b )
+                return a[2] > b[2]
+            end)
+            pointer_mtr = cells[1][1]
+        end
+    end
+    table.remove( mtr_probe_memo, 1 )
+    table.insert( mtr_probe_memo, pointer_mtr )
+    local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
+    pointer_mtr = most_mtr_count > 5 and most_mtr or 0
 
     local uid = 0
 	local screen_w, screen_h = GuiGetScreenDimensions( gui )
@@ -52,12 +98,18 @@ if( is_going ) then
         player_id = hooman,
         frame_num = current_frame,
         orbs = GameGetOrbCountThisRun(),
-        active_item = get_active_wand( hooman ),
 
+        pointer_world = {m_x,m_y},
+        pointer_ui = {mui_x,mui_y},
+        pointer_delta = {muid_x,muid_y,math.sqrt( muid_x^2 + muid_y^2 )},
+        pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
+        pointer_matter = pointer_mtr,
+
+        active_item = get_active_wand( hooman ),
         just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
         no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" )) == hooman,
         
-        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp_value" ), "value_bool" ),
+        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
         hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
@@ -65,7 +117,11 @@ if( is_going ) then
         fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
         reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
         delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
-        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold_value" ), "value_bool" ),
+        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
+        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
+        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
+        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
+        info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
 
         Controls = {},
         DamageModel = {},
@@ -152,9 +208,8 @@ if( is_going ) then
                 ComponentGetValue2( item_comp, "inventory_slot" ),
 
                 ComponentGetValue2( item_comp, "ui_sprite" ),
-                ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ),
-                ComponentGetValue2( item_comp, "item_name" ),
                 ComponentGetValue2( item_comp, "ui_description" ),
+                get_item_name( data.active_item, item_comp ),
 
                 ComponentGetValue2( item_comp, "uses_remaining" ),
                 ComponentGetValue2( item_comp, "is_frozen" ),
@@ -200,6 +255,14 @@ if( is_going ) then
     if( inv.orbs ~= nil ) then
         uid, pos_tbl.orbs = inv.orbs( gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
     end
+
+    if( inv.info ~= nil ) then
+        uid, pos_tbl.info = inv.info( gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+    end
 else
     gui = gui_killer( gui )
+    if( EntityGetIsAlive( mtr_probe )) then
+       EntityKill( mtr_probe )
+       mtr_probe_memo = nil
+    end
 end

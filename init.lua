@@ -2,7 +2,19 @@
 
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
+
+penman_r = penman_r or function() return end
+penman_w = penman_w or function() return end
+
 function OnModInit()
+	for name,func in pairs(_G) do
+		if( name == "ModTextFileGetContent" ) then
+			penman_r = func
+		elseif( name == "ModTextFileSetContent" ) then
+			penman_w = func
+		end
+	end
+
 	-- magic_pause = function( is_paused )
 	-- 	local ffi = require( "ffi" )
 	-- 	local gg = ffi.cast( "char**", 0x01020024 )[0]
@@ -42,6 +54,28 @@ end
 -- end
 
 --DO NOT forget to write special thanks to dextercd
+
+function OnWorldPreUpdate()
+	if( not( matter_test_set or false )) then
+		matter_test_set = true
+		
+		local full_list = ""
+		local full_matters = {
+			CellFactory_GetAllLiquids(),
+			CellFactory_GetAllSands(),
+			CellFactory_GetAllGases(),
+			CellFactory_GetAllFires(),
+			CellFactory_GetAllSolids(),
+		}
+		for	i,list in ipairs( full_matters ) do
+			for e,mtr in ipairs( list ) do
+				full_list = full_list..mtr..(( i == #full_matters and e == #list ) and "" or "," )
+			end
+		end
+		local matter_test = "mods/index_core/files/matter_test.xml"
+		penman_w( matter_test, string.gsub( penman_r( matter_test ), "_MATTERLISTHERE_", full_list ))
+	end
+end
 
 function OnWorldPostUpdate()
 	if( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" ) ~= "0" ) then

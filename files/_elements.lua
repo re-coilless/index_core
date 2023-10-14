@@ -144,7 +144,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             if( shake_frame < 0 ) then
                 data.memo.mana_shake[data.active_item] = nil
             end
-        elseif( #data.Item > 0 ) then
+        elseif( not( EntityHasTag( entity_id, "not_a_potion" )) and #data.Item > 0 ) then
             this_data = data.MaterialInventory
             if( #this_data > 0 ) then
                 local barrel_size = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialSuckerComponent" )
@@ -171,17 +171,8 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
 
             local tip = ""
             if( potion_data[3] ~= nil ) then
-                local cnt = 1
-                for i,mtr in ipairs( this_data[3][2]) do
-                    if( i == 1 or mtr[2] > 5 ) then
-                        tip = tip..( i == 1 and "" or "+" )..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
-                        cnt = cnt + 1
-                        if( cnt > 3 ) then break end
-                    end
-                end
-                
-                local v = tostring( math.floor( 100*value[1]/value[2] + 0.5 ))
-                tip = tip..( tip == "" and tip or " " )..GameTextGetTranslatedOrNot( data.Item[6]).."@"..GameTextGet( "$item_potion_fullness", v )
+                local v1, v2 = get_potion_info( entity_id, data.Item[6], value[2], value[1], this_data[3][2])
+                tip = v1.."@"..v2
             else
                 tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
             end
@@ -295,7 +286,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
             data.memo.money = data.memo.money + limiter( limiter( 0.1*delta, 1, true ), delta )
             god_i_love_money_holy_fuck = data.memo.money
         end
-        
+
         local v = get_short_num( god_i_love_money_holy_fuck )
         local final_length = 0
         uid = new_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png" )
@@ -338,5 +329,112 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
+    return uid, {pic_x,pic_y}
+end
+
+function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = 10, 10
+
+    function do_info( gui, p_x, p_y, txt, alpha, is_right )
+        txt = capitalizer( txt )
+        if( is_right ) then
+            local w,h = get_text_dim( txt )
+            p_x = p_x - ( w + 1 )
+        end
+        new_text( gui, p_x, p_y, zs.tips_back - 0.01, txt, { 255, 255, 255 }, alpha )
+        new_text( gui, p_x, p_y + 1, zs.tips_back, txt, { 0, 0, 0 }, alpha )
+    end
+
+    if( data.pointer_delta[3] < data.info_threshold ) then
+        local info = ""
+
+        local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
+        if( #entities > 0 ) then
+            local best_kind = 0
+            local dist_tbl = {}
+            for i,entity_id in ipairs( entities ) do
+                if( EntityGetRootEntity( entity_id ) == entity_id and entity_id ~= data.player_id ) then
+                    local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
+                    local item_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemComponent" )
+                    local matter_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "MaterialInventoryComponent" )
+                    local abil_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "AbilityComponent" )
+                    local action_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemActionComponent" )
+                    
+                    local v = ""
+                    if( info_comp ~= nil ) then
+                        v = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
+                    end
+
+                    local kind = {}
+                    if( #v > 0 ) then
+                        kind = { 1, v }
+                    elseif( not( EntityHasTag( entity_id, "not_a_potion" )) and item_comp ~= nil and matter_comp ~= nil ) then
+                        kind = { 2, {entity_id,item_comp,matter_comp}}
+                    elseif( abil_comp ~= nil and item_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )) then
+                        kind = { 3, {entity_id,item_comp}}
+                    elseif( action_comp ~= nil ) then
+                        kind = { 4, "Spell" }
+                    end
+                    if( #kind > 0 ) then
+                        if( best_kind < kind[1]) then best_kind = kind[1] end
+                        table.insert( dist_tbl, { entity_id, unpack( kind )})
+                    end
+                end
+            end
+            if( #dist_tbl > 0 ) then
+                local the_one = closest_getter( data.pointer_world[1], data.pointer_world[2], dist_tbl, nil, nil, function( thing )
+                    return thing[2] == best_kind
+                end)
+                if( the_one ~= 0 ) then
+                    local msg_list = {
+                        function(v) return v end,
+                        function( v )
+                            local barrel_size = EntityGetFirstComponentIncludingDisabled( v[1], "MaterialSuckerComponent" )
+                            barrel_size = barrel_size == nil and ComponentGetValue2( v[3], "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
+
+                            local v1, v2 = get_potion_info( entity_id, get_item_name(v[1],v[2]), barrel_size, get_matters( ComponentGetValue2( v[3], "count_per_material_type" )))
+                            return v1..v2
+                        end,
+                        function( v )
+                            v = get_item_name( v[1], v[2] ) or ""
+                            return v == "" and "Relic" or v
+                        end,
+                        function(v) return v end,
+                    }
+                    info = msg_list[best_kind]( the_one[3])
+                end
+            end
+        end
+        if( info ~= "" ) then
+            local inter_alpha = 0.9
+            if( data.info_pointer ) then
+                pic_x, pic_y = unpack( data.pointer_ui )
+                pic_x, pic_y = pic_x + 8, pic_y + 3
+                inter_alpha = inter_alpha*0.3
+            end
+            do_info( gui, pic_x, pic_y, info, inter_alpha )
+        end
+    end
+    
+    local fading = 0.3
+    data.memo.mtr_prb = data.memo.mtr_prb or { 0, 0 }
+    local matter = data.memo.mtr_prb[1]
+    if( data.pointer_matter > 0 ) then
+        matter = data.pointer_matter
+        data.memo.mtr_prb = { data.pointer_matter, data.frame_num }
+    elseif( data.memo.mtr_prb[1] > 0 ) then
+        local delta = data.frame_num - data.memo.mtr_prb[2]
+        if( delta > 2*data.info_mtr_fading ) then
+            data.memo.mtr_prb = nil
+            matter = 0
+        elseif( delta > data.info_mtr_fading ) then
+            fading = math.max( fading*math.sin(( 2*data.info_mtr_fading - delta )*math.pi/( 2*data.info_mtr_fading )), 0.01 )
+        end
+    end
+    if( matter > 0 ) then
+        pic_x, pic_y = unpack( xys.delay )
+        do_info( gui, pic_x + 3, pic_y - 2, GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter )), fading, true )
+    end
+    
     return uid, {pic_x,pic_y}
 end

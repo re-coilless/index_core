@@ -9,9 +9,9 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
-	
+
 	<VariableStorageComponent
-		name="short_hp_value"
+		name="short_hp"
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
@@ -44,9 +44,26 @@
 		name="delay_threshold"
 		value_int="30"
 	></VariableStorageComponent>
+	
+	<VariableStorageComponent
+		name="short_gold"
+		value_bool="0"
+	></VariableStorageComponent>
 
 	<VariableStorageComponent
-		name="short_gold_value"
-		value_bool="0"
+		name="info_pointer"
+		value_bool="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_radius"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_threshold"
+		value_float="3"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_mtr_fading"
+		value_int="10"
 	></VariableStorageComponent>
 </Entity>
