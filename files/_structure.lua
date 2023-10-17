@@ -31,7 +31,7 @@ local ITEM_TYPES = {
     --tablet
 }
 
-local INV_STRUCT = {
+local GUI_STRUCT = {
     bars = {
         hp = new_generic_hp,
         air = new_generic_air,
@@ -45,35 +45,28 @@ local INV_STRUCT = {
 
     gold = new_generic_gold,
     orbs = new_generic_orbs,
+    info = new_generic_info,
 
+     --make a universal "slot" fucntion that allows dragging, and displays all the shit automatically and has item type callbacks
+    full_inv = f,
     wands = {
         --slot count
-        --slot func
-        --wand func (for full inv)
+
         --macro_func
+        --wand func (for full inv)
+        --wand func (for pickup)
     },
-    items = {
-        --slot count
-        --slot func
-        --macro func
-    },
-    spells = {
-        --slot count
-        --slot func
-        --macro func
-    },
-    full_inv = f,
-
-    info = new_generic_info,
     
-    perks = {
-        --max count
+    icons = {
+        ingestions = new_generic_ingestions,
+        stains = new_generic_stains,
+        effects = new_generic_effects,
+        perks = new_generic_perks,
     },
-    effects = f,
-
-    custom = {}, --table of string-indexed funcs
+    
+    custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }
 
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { INV_STRUCT, Z_LAYERS, ITEM_TYPES }
+return { GUI_STRUCT, Z_LAYERS, ITEM_TYPES }

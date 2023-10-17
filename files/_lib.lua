@@ -13,6 +13,10 @@ font_tbl = {
 	},
 }
 
+function b2n( a )
+	return a and 1 or 0
+end
+
 function get_storage( hooman, name )
 	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
 	if( #comps > 0 ) then
@@ -278,32 +282,55 @@ function generic_random( a, b, macro_drift, bidirectional )
 	return bidirectional and ( Random( a, b*2 ) - b ) or Random( a, b )
 end
 
-function access_list( storage, tbl )
-	if( tbl == nil ) then
-		local data_raw = ComponentGetValue2( storage, "value_string" )
-		if( data_raw == "@" ) then
+function from_tbl_with_id( tbl, id, subtract, custom_key )
+	local stuff = 0
+	local tbl_id = nil
+
+	local key = custom_key or "id"
+	if( type( id ) == "table" ) then
+		stuff = {}
+		if( subtract ) then
+			if( #id < #tbl ) then
+				if( #id > 0 ) then
+					for i = #tbl,1,-1 do
+						for e,dud in ipairs( id ) do
+							if( dud == ( tbl[i][key] or tbl[i][1] or tbl[i])) then
+								table.remove( tbl, i )
+								table.remove( id, e )
+								break
+							end
+						end
+					end
+				end
+				return tbl
+			end
 			return {}
-		end
-		
-		local data = {}
-		
-		for style in string.gmatch( data_raw, "([^@]+)" ) do
-			table.insert( data, style )
-		end
-		
-		return data
-	else
-		local storage_styles = storage
-		local value = "@"
-		if( #tbl > 0 ) then
-			for i,style in ipairs( tbl ) do
-				value = value..style.."@"
+		else
+			for i,dud in ipairs( tbl ) do
+				for e,bub in ipairs( id ) do
+					if(( dud[key] or dud[1] or dud ) == bub ) then
+						table.insert( stuff, dud )
+						break
+					end
+				end
 			end
 		end
-		ComponentSetValue2( storage_styles, "value_string", value )
-		
-		return value
+	else
+		local gonna_stuff = true
+		for i,dud in ipairs( tbl ) do
+			if( gonna_stuff and type( dud ) == "table" ) then
+				stuff = {}
+				gonna_stuff = false
+			end
+			if(( dud[key] or dud[1] or dud ) == id ) then
+				stuff = dud
+				tbl_id = i
+				break
+			end
+		end
 	end
+	
+	return stuff, tbl_id
 end
 
 function get_most_often( tbl )
@@ -318,6 +345,25 @@ function get_most_often( tbl )
 		end
 	end
 	return unpack( best )
+end
+
+function child_play( entity_id, action )
+	local children = EntityGetAllChildren( entity_id ) or {}
+	if( #children > 0 ) then
+		for i,child in ipairs( children ) do
+			local value = action( entity_id, child, i ) or false
+			if( value ) then
+				return value
+			end
+		end
+	end
+end
+
+function child_play_full( dude_id, func, params )
+	func( dude_id, params )
+	return child_play( dude_id, function( parent, child )
+		return child_play_full( child, func, params )
+	end)
 end
 
 function get_matter( matters, id )
@@ -475,6 +521,23 @@ function world2gui( x, y, not_pos )
 	return x, y, shit_from_ass
 end
 
+function space_obliterator( txt )
+	return tostring( string.gsub( tostring( txt ), "%s+$", "" ))
+end
+
+function get_effect_timer( secs, skip_num )
+	if( secs < 0 ) then
+		return ""
+	else
+		local is_tiny = secs < 1
+		secs = string.format( "%."..b2n( is_tiny ).."f", secs )
+		if( not( skip_num or false )) then
+			secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" )
+		end
+		return is_tiny and string.sub( secs, 2 ) or secs
+	end
+end
+
 function get_short_num( num, negative_inf )
 	negative_inf = negative_inf or false
 
@@ -529,6 +592,38 @@ function hud_num_fix( a, b, zeros )
 	return a.."/"..b
 end
 
+function get_effect_duration( duration, effect_info, eps )
+	effect_info = effect_info or {}
+	duration = duration - 60*( effect_info.ui_timer_offset_normalized or 0 )
+	if( math.abs( duration*60 ) <= eps ) then
+		duration = 0
+	end
+	return duration < 0 and -1 or duration
+end
+
+function get_thresholded_effect( effects, v )
+	if( #effects < 2 ) then
+		return effects[1] or {}
+	end
+	table.sort( effects, function( a, b )
+		return ( a.min_threshold_normalized or 0 ) < ( b.min_threshold_normalized or 0 )
+	end)
+
+	local final_id = #effects
+	for i,effect in ipairs( effects ) do
+		if( v < 60*( effect.min_threshold_normalized or 0 )) then
+			final_id = math.max( i-1, 1 )
+			break
+		end
+	end
+	return effects[final_id]
+end
+
+function get_stain_perc( perc )
+	local some_cancer = 14/99
+	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
+end
+
 function get_mouse_pos()
 	local m_x, m_y = DEBUG_GetMouseWorld()
 	return world2gui( m_x, m_y )
@@ -554,13 +649,18 @@ function new_text( gui, pic_x, pic_y, pic_z, text, colours, alpha )
 	end
 end
 
+function new_shadow_text( gui, pic_x, pic_y, pic_z, text, alpha )
+	new_text( gui, pic_x, pic_y, pic_z - 0.01, text, { 255, 255, 255 }, alpha )
+	new_text( gui, pic_x, pic_y + 1, pic_z, text, { 0, 0, 0 }, alpha )
+end
+
 function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive )
 	if( not( interactive or false )) then
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	end
 	GuiZSetForNextWidget( gui, pic_z )
-	uid = uid + 1
-	GuiIdPush( gui, uid )
+	if( uid >= 0 ) then GuiIdPush( gui, uid ) end
+	uid = math.abs( uid ) + 1
 	GuiImage( gui, uid, pic_x, pic_y, pic, alpha or 1, s_x or 1, s_y or 1 )
 	return uid
 end
@@ -590,7 +690,7 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
 		else
 			local pic = font_path..( data[string.byte(c)] or c )..".png"
 			colourer( gui, colours )
-			new_image( gui, uid, pic_x + drift, pic_y, pic_z, pic, 1, 1, colours[4])
+			new_image( gui, -uid, pic_x + drift, pic_y, pic_z, pic, 1, 1, colours[4])
 			drift = drift + get_pic_dim( pic ) + data.step
 		end
 	end
@@ -602,11 +702,49 @@ function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, txt, colours )
 	return new_font( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_small/", txt, colours )
 end
 
-function new_tooltip( gui, uid, z, text, extra_func, is_triggered )
-	is_triggered = is_triggered or false
+function new_interface( gui, uid, pos, pic_z, is_debugging )
+	local x, y, s_x, s_y = pos[1], pos[2], math.abs( pos[3] or 1 ), math.abs( pos[4] or 1 )
 
-	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
-	if( is_hovered or is_triggered ) then
+	local is_vertical = s_x < s_y
+	local width = is_vertical and s_x or s_y
+	local clicked, r_clicked, hovered = false, false, false
+	
+	local function do_interface( p_x, p_y )
+		uid = new_image( gui, uid, p_x, p_y, pic_z, "data/ui_gfx/empty"..( is_debugging and "_white" or "" )..".png", width/2, width/2, 0.75, true )
+		local c, r_c, h = GuiGetPreviousWidgetInfo( gui )
+		clicked, r_clicked, hovered = clicked or c, r_clicked or r_c, hovered or h
+	end
+	
+	if( s_x ~= 0 and s_y ~= 0 ) then
+		local count = math.floor( is_vertical and s_y/s_x or s_x/s_y )
+		for i = 1,count do
+			do_interface( x, y )
+			if( is_vertical ) then
+				y = y + width
+			else
+				x = x + width
+			end
+		end
+		local leftover = ( is_vertical and s_y or s_x ) - count*width
+		if( leftover > 0 ) then
+			local drift = width - leftover
+			if( is_vertical ) then
+				y = y - drift
+			else
+				x = x - drift
+			end
+			do_interface( x, y )
+		end
+	end
+
+	return uid, clicked, r_clicked, hovered
+end
+
+function new_tooltip( gui, uid, z, text, extra_func, is_triggered, is_right, is_up )
+	if( is_triggered == nil ) then
+		_, _, is_triggered = GuiGetPreviousWidgetInfo( gui )
+	end
+	if( is_triggered ) then
 		if( not( tip_going )) then
 			tip_going = true
 
@@ -620,6 +758,10 @@ function new_tooltip( gui, uid, z, text, extra_func, is_triggered )
 
 			if( type( text ) ~= "table" ) then
 				text = { text }
+			end
+			extra_func = extra_func or ""
+			if( type( extra_func ) ~= "table" ) then
+				extra_func = { extra_func }
 			end
 			
 			local w, h = GuiGetScreenDimensions( gui )
@@ -642,9 +784,13 @@ function new_tooltip( gui, uid, z, text, extra_func, is_triggered )
 			local x_offset, y_offset = text[4] or length, text[5] or 9*#text[1]
 			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
 			
-			local is_right = extra_func == "is_right"
-			if( is_right ) then
-				pic_x = pic_x - x_offset - 1
+			if( is_right or is_up ) then
+				if( is_right ) then
+					pic_x = pic_x - x_offset - 1
+				end
+				if( is_up ) then
+					pic_y = pic_y - y_offset + 9 + edge_spacing
+				end
 			else
 				if( w < pic_x + x_offset + 1 ) then
 					pic_x = w - x_offset - 1
@@ -655,11 +801,10 @@ function new_tooltip( gui, uid, z, text, extra_func, is_triggered )
 			end
 
 			local inter_alpha = math.sin( math.min( anim_frame, 10 )*math.pi/20 )
-			if( type( extra_func or "" ) == "function" ) then
-				uid = extra_func( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha )
+			if( type( extra_func[1] ) == "function" ) then
+				uid = extra_func[1]( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha, extra_func[2])
 			else
-				new_text( gui, pic_x + 3, pic_y + 1, z - 0.01, text[1], { 255, 255, 255 }, inter_alpha )
-				new_text( gui, pic_x + 3, pic_y + 2, z, text[1], { 0, 0, 0 }, inter_alpha )
+				new_shadow_text( gui, pic_x + 3, pic_y + 1, z, text[1], inter_alpha )
 			end
 			
 			anim_frame = anim_frame + 1
@@ -688,45 +833,13 @@ function tipping( gui, uid, pos, tip, zs, is_right, is_debugging )
 	if( type( zs ) ~= "table" ) then
 		zs = {zs}
 	end
-	local x, y, s_x, s_y = pos[1], pos[2], math.abs( pos[3] or 1 ), math.abs( pos[4] or 1 )
-
-	local is_vertical = s_x < s_y
-	local width = is_vertical and s_x or s_y
-	local clicked, r_clicked, hovered = false, false, false
-	
-	local function do_interface( p_x, p_y )
-		new_image( gui, uid, p_x, p_y, zs[1], "data/ui_gfx/empty"..( is_debugging and "_white" or "" )..".png", width/2, width/2, 0.75, true )
-		local c, r_c, h = GuiGetPreviousWidgetInfo( gui )
-		clicked, r_clicked, hovered = clicked or c, r_clicked or r_c, hovered or h
-	end
-	
-	if( s_x ~= 0 and s_y ~= 0 ) then
-		local count = math.floor( is_vertical and s_y/s_x or s_x/s_y )
-		for i = 1,count do
-			do_interface( x, y )
-			if( is_vertical ) then
-				y = y + width
-			else
-				x = x + width
-			end
-		end
-		local leftover = ( is_vertical and s_y or s_x ) - count*width
-		if( leftover > 0 ) then
-			local drift = width - leftover
-			if( is_vertical ) then
-				y = y - drift
-			else
-				x = x - drift
-			end
-			do_interface( x, y )
-		end
-	end
-
+	local hovered = false
+	uid, _, _, hovered = new_interface( gui, uid, pos, zs[1], is_debugging )
 	if( zs[2] ~= nil and hovered ) then
-		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", s_x/2, s_y/2, 0.5 )
+		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
 	end
 	is_right = is_right or false
-	return new_tooltip( gui, uid + 1, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, is_right and "is_right" or nil, hovered )
+	return new_tooltip( gui, uid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, hovered, is_right )
 end
 
 function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
@@ -757,4 +870,93 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", dims[1], dims[2])
 
 	return uid
+end
+
+function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
+	local pic_off_x, pic_off_y = 0, 0
+	if( kind == 2 ) then
+		pic_off_x, pic_off_y = 0.5, 0.5
+	elseif( kind == 4 ) then
+		pic_off_x, pic_off_y = -2.5, 0
+	end
+
+    local w, h = get_pic_dim( info.pic )
+	uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, info.pic, nil, nil, kind == 2 and math.min( 0.15*( 3 + 5*info.amount ), 1 ) or 1, true )
+	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+
+	if( kind == 2 and info.amount > 0 ) then
+		GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 )
+		uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z + 0.003, info.pic, nil, nil, 0.5 )
+		
+		local scale = 10*info.amount
+		local pos = 10*( 1 - info.amount )
+		local pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png"
+		GuiColorSetForNextWidget( gui, 0.7, 0.7, 0.7, 1 )
+		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, pixel, 10, pos, 0.15 )
+		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 10, scale, 0.25 )
+
+		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
+		uid = new_image( gui, uid, pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 1, scale, 0.15 )
+		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
+		uid = new_image( gui, uid, pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 1, scale, 0.15 )
+		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
+		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pixel, 10, 1, 0.15 )
+	end
+
+	local txt_off_x, txt_off_y = 0, 0
+	if( kind == 2 ) then
+		txt_off_x, txt_off_y = 1, 1
+	elseif( kind == 4 ) then
+		txt_off_x, txt_off_y = 1, 2
+	end
+
+	info.txt = space_obliterator( info.txt )
+	info.desc = space_obliterator( info.desc )
+
+	local tip_x, tip_y = pic_x - 3, pic_y
+	if( info.txt ~= "" ) then
+		local t_x, t_h = get_text_dim( info.txt )
+		t_x = t_x - txt_off_x
+		new_shadow_text( gui, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, info.txt, is_hovered and 1 or 0.5 )
+		tip_x = tip_x - t_x
+	end
+	if(( info.count or 0 ) > 1 ) then
+		new_shadow_text( gui, pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..info.count, is_hovered and 1 or 0.5 )
+	end
+	if( kind == 4 ) then
+		pic_y = pic_y - 3
+	end
+	if( info.desc ~= "" and is_hovered and tip_anim[1] > 0 ) then
+		local anim = math.sin( math.min( tip_anim[3], 10 )*math.pi/20 )
+		local t_x, t_h = get_text_dim( info.desc )
+		new_text( gui, pic_x - t_x + w, pic_y + h + 2, pic_z, info.desc, info.is_danger and {224,96,96} or nil, anim )
+		
+		local bg_x = pic_x - ( t_x + 2 ) + w
+		local bg_pic = "mods/index_core/files/pics/vanilla_tooltip_"
+		uid = new_image( gui, uid, bg_x, pic_y + h + 2, pic_z + 0.01, bg_pic.."2.xml", t_x + 3, 1, anim*0.5 )
+		uid = new_image( gui, uid, bg_x, pic_y + h + 3, pic_z + 0.01, bg_pic.."0.xml", t_x + 3, 8, anim*0.8 )
+		uid = new_image( gui, uid, bg_x, pic_y + h + 11, pic_z + 0.01, bg_pic.."2.xml", t_x + 3, 1, anim*0.5 )
+		
+		h = h + t_h + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 )
+	end
+	if( info.tip ~= "" ) then
+		local is_func = type( info.tip ) == "function"
+		local v = { is_func and "" or space_obliterator( info.tip ), tip_x, tip_y + ( kind == 4 and 1 or 0 ), }
+		if( is_func ) then
+			v[4] = math.min( #info.other_perks, 10 )*14-1
+			v[5] = 14*math.max( math.ceil(( #info.other_perks )/10 ), 1 )
+		end
+		uid = new_tooltip( gui, uid, pic_z - 5, v, { info.tip, info.other_perks }, is_hovered, true, true )
+	end
+
+	if( kind == 1 ) then
+		uid = new_image( gui, uid, pic_x, pic_y, pic_z + 0.002, "data/ui_gfx/status_indicators/bg_ingestion.png" )
+
+		local d_frame = info.digestion_delay
+		if( info.is_stomach and d_frame > 0 ) then
+			uid = new_image( gui, uid, pic_x + 1, pic_y + 1 + 12*( 1 - d_frame ), pic_z + 0.001, "mods/index_core/files/pics/vanilla_stomach_bg.xml", 10, 10*d_frame, 0.3 )
+		end
+	end
+
+	return uid, w, h
 end

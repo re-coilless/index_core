@@ -333,16 +333,19 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
 end
 
 function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
-    local pic_x, pic_y = 10, 10
+    local pic_x, pic_y = 0,0
 
-    function do_info( gui, p_x, p_y, txt, alpha, is_right )
+    function do_info( gui, p_x, p_y, txt, alpha, is_right, hover_func )
+        local offset_x = 0
+
         txt = capitalizer( txt )
         if( is_right ) then
             local w,h = get_text_dim( txt )
-            p_x = p_x - ( w + 1 )
+            offset_x = w + 1
+            p_x = p_x - offset_x
         end
-        new_text( gui, p_x, p_y, zs.tips_back - 0.01, txt, { 255, 255, 255 }, alpha )
-        new_text( gui, p_x, p_y + 1, zs.tips_back, txt, { 0, 0, 0 }, alpha )
+        if( hover_func ~= nil ) then hover_func( offset_x ) end
+        new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
     end
 
     if( data.pointer_delta[3] < data.info_threshold ) then
@@ -415,13 +418,13 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             do_info( gui, pic_x, pic_y, info, inter_alpha )
         end
     end
-    
-    local fading = 0.3
+
+    local fading = 0.5
     data.memo.mtr_prb = data.memo.mtr_prb or { 0, 0 }
     local matter = data.memo.mtr_prb[1]
     if( data.pointer_matter > 0 ) then
         matter = data.pointer_matter
-        data.memo.mtr_prb = { data.pointer_matter, data.frame_num }
+        data.memo.mtr_prb = { data.pointer_matter, math.max( data.memo.mtr_prb[2], data.frame_num )}
     elseif( data.memo.mtr_prb[1] > 0 ) then
         local delta = data.frame_num - data.memo.mtr_prb[2]
         if( delta > 2*data.info_mtr_fading ) then
@@ -431,10 +434,122 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             fading = math.max( fading*math.sin(( 2*data.info_mtr_fading - delta )*math.pi/( 2*data.info_mtr_fading )), 0.01 )
         end
     end
-    if( matter > 0 ) then
+    if( matter > 0 or data.info_mtr_static ) then
+        if( data.info_mtr_static ) then
+            fading = 1
+        elseif( data.memo.mtr_prb[2] > data.frame_num ) then
+            fading = math.min( fading*4, 1 )
+        end
+        
         pic_x, pic_y = unpack( xys.delay )
-        do_info( gui, pic_x + 3, pic_y - 2, GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter )), fading, true )
+        local alphaer = function( offset_x )
+            local hovered = false
+            uid, _, _, hovered = new_interface( gui, uid, { pic_x + 2 - offset_x, pic_y - 1, offset_x, 8 }, zs.tips )
+            if( hovered ) then data.memo.mtr_prb = { matter, data.frame_num + 300 } end
+        end
+        
+        local txt = "air"
+        if( not( data.info_mtr_static and matter == 0 )) then
+            txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
+        end
+        do_info( gui, pic_x + 3, pic_y - 2.5, txt, fading, true, alphaer )
     end
     
+    return uid, {pic_x,pic_y}
+end
+
+function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = unpack( xys.orbs )
+
+    local this_data = data.icon_data.ings
+    if( #this_data > 0 ) then
+        pic_y = pic_y + 3
+        for i,this_one in ipairs( this_data ) do
+            local step_x, step_y = 0, 0
+            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 1 )
+            pic_x, pic_y = pic_x, pic_y + step_y - 1
+        end
+        pic_y = pic_y + 4
+    end
+
+    return uid, {pic_x,pic_y}
+end
+
+function new_generic_stains( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = unpack( xys.ingestions )
+
+    local this_data = data.icon_data.stains
+    if( #this_data > 0 ) then
+        for i,this_one in ipairs( this_data ) do
+            local step_x, step_y = 0, 0
+            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 2 )
+            pic_x, pic_y = pic_x, pic_y + step_y
+        end
+        pic_y = pic_y + 3
+    end
+
+    return uid, {pic_x,pic_y}
+end
+
+function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = unpack( xys.stains )
+
+    local this_data = data.icon_data.misc
+    if( #this_data > 0 ) then
+        for i,this_one in ipairs( this_data ) do
+            local step_x, step_y = 0, 0
+            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 3 )
+            pic_x, pic_y = pic_x, pic_y + step_y
+        end
+        pic_y = pic_y + 3
+    end
+
+    return uid, {pic_x,pic_y}
+end
+
+function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = unpack( xys.effects )
+    
+    local this_data = data.perk_data
+    if( #this_data > 0 ) then
+        local perk_tbl_short = {}
+        if( #this_data > data.max_perks ) then
+            local extra_perk = {
+                pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
+                txt = "",
+                desc = "",
+                tip = function( gui, uid, pic_x, pic_y, pic_z, alpha, v )
+                    for i,pic in ipairs( v ) do
+                        local drift_x = 14*(( i - 1 )%10 )
+                        local drift_y = 14*math.floor(( i - 1 )/10 )
+                        uid = new_image( gui, uid, pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, nil, nil, alpha )
+                    end
+                    
+                    return uid
+                end,
+                other_perks = {},
+            }
+            for i,perk in ipairs( this_data ) do
+                if( #perk_tbl_short < data.max_perks ) then
+                    table.insert( perk_tbl_short, perk )
+                else
+                    for k = 1,( perk.count or 1 ) do
+                        table.insert( extra_perk.other_perks, perk.pic )
+                    end
+                end
+            end
+            table.insert( perk_tbl_short, extra_perk )
+        else
+            perk_tbl_short = this_data
+        end
+
+        for i,this_one in ipairs( perk_tbl_short ) do
+            local step_x, step_y = 0, 0
+            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 4 )
+            pic_x, pic_y = pic_x, pic_y + step_y - 2
+        end
+        pic_y = pic_y + 5
+    end
+
     return uid, {pic_x,pic_y}
 end

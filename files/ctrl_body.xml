@@ -9,6 +9,10 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="override_settings"
+		value_bool="0"
+	></VariableStorageComponent>
 
 	<VariableStorageComponent
 		name="short_hp"
@@ -64,6 +68,19 @@
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="info_mtr_fading"
-		value_int="10"
+		value_int="20"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_mtr_static"
+		value_bool="0"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="min_effect_duration"
+		value_float="0.001"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="max_perk_count"
+		value_int="5"
 	></VariableStorageComponent>
 </Entity>
