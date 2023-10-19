@@ -1,4 +1,8 @@
 <Entity name="index_ctrl" >
+	<InheritTransformComponent
+		only_position="0"
+	></InheritTransformComponent>
+
 	<LuaComponent
 		script_source_file="mods/index_core/files/inv_ctrl.lua"
 		execute_every_n_frame="1"
@@ -12,6 +16,28 @@
 	<VariableStorageComponent
 		name="override_settings"
 		value_bool="0"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="slot_pic_bg"
+		value_string="data/ui_gfx/inventory/full_inventory_box.png"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="slot_pic_bg_alt"
+		value_string="data/ui_gfx/inventory/hover_info_empty_slot.png"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="slot_pic_hl"
+		value_string="data/ui_gfx/inventory/full_inventory_box_highlight.png"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="slot_pic_active"
+		value_string="data/ui_gfx/inventory/highlight.xml"
+	></VariableStorageComponent>
+	
+	<VariableStorageComponent
+		name="hide_on_empty"
+		value_bool="1"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent

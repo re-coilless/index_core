@@ -437,8 +437,11 @@ function get_active_wand( hooman )
 	return 0
 end
 
-function get_item_name( entity_id, item_comp )
-	return GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) and ( EntityGetName( entity_id ) or "" ) or ComponentGetValue2( item_comp, "item_name" ))
+function get_item_name( entity_id, abil_comp, item_comp )
+	local name = abil_comp ~= nil and ComponentGetValue2( abil_comp, "ui_name" ) or ""
+	name = name == "" and EntityGetName( entity_id ) or name
+	name = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or name=="" ) and ComponentGetValue2( item_comp, "item_name" ) or name
+	return string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) --what a pile of horseshit
 end
 
 function get_potion_info( entity_id, name, max_count, total_count, matters )
@@ -624,6 +627,84 @@ function get_stain_perc( perc )
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
 end
 
+function get_slot_id( slot, is_full )
+	return ( is_full and "F" or "" )..slot[1]..":"..slot[2]
+end
+
+function get_inventory_data( hooman, data )
+	local item_tbl = {quick={},full={}}
+	local invy_kids = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
+	for i,invy_kid in ipairs( invy_kids ) do
+		child_play( invy_kid, function( parent, child, j )
+			local slot_info = { id = child, }
+
+			local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
+			if( item_comp == nil ) then
+				return
+			end
+
+			local abil_comp = EntityGetFirstComponentIncludingDisabled( child, "AbilityComponent" )
+			if( abil_comp ~= nil ) then
+				slot_info.AbilityC = abil_comp
+				slot_info.charges = {
+					ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
+					ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
+					ComponentGetValue2( abil_comp, "amount_in_inventory" ),
+				}
+				slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" ) --probably try getting the png
+			end
+			if( item_comp ~= nil ) then
+				slot_info.ItemC = item_comp
+
+				local invs = { QUICK=-1, FULL=1, TRUE_QUICK=-0.5, ANY=0 }
+				local inv_kind = ComponentGetValue2( item_comp, "preferred_inventory" ) --get the preferred_inventory varstorage
+				slot_info.inv_type = invs[inv_kind]
+				
+				local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
+				if( ui_pic ~= "" ) then
+					slot_info.pic = ui_pic
+				end
+
+				slot_info.desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
+				slot_info.uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
+				slot_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
+				slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name to stack
+				slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+
+				local slot_num = { ComponentGetValue2( item_comp, "inventory_slot" )}
+				if( not( EntityHasTag( child, "index_processed" ))) then
+					--obliterate hardcoded tags (add them back on unparent)
+					--do proper slot func (has to be the same as pickup except it checks for is there parent)
+					slot_num = { j-1, 0 }
+					ComponentSetValue2( item_comp, "inventory_slot", unpack( slot_num ))
+					EntityAddTag( child, "index_processed" )
+				end
+				slot_info.inv_slot = slot_num
+			end
+			
+			for k,kind in ipairs( data.inv_types ) do
+				if( kind.on_check( child, data, slot_info )) then
+					slot_info.kind = k
+					if( kind.on_data ~= nil ) then
+						slot_info = kind.on_data( child, data, slot_info )
+					end
+					break
+				end
+			end
+			slot_info.name = get_item_name( child, abil_comp, item_comp )
+			if( slot_info.kind == nil ) then
+				return
+			elseif(( slot_info.name or "" ) == "" ) then
+				slot_info.name = data.inv_types[slot_info.kind].name
+			end
+			slot_info.name = capitalizer( slot_info.name )
+			
+			table.insert( item_tbl[ i == 1 and "quick" or "full" ], slot_info )
+		end)
+	end
+	return item_tbl
+end
+
 function get_mouse_pos()
 	local m_x, m_y = DEBUG_GetMouseWorld()
 	return world2gui( m_x, m_y )
@@ -654,14 +735,14 @@ function new_shadow_text( gui, pic_x, pic_y, pic_z, text, alpha )
 	new_text( gui, pic_x, pic_y + 1, pic_z, text, { 0, 0, 0 }, alpha )
 end
 
-function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive )
+function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
 	if( not( interactive or false )) then
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 	end
 	GuiZSetForNextWidget( gui, pic_z )
 	if( uid >= 0 ) then GuiIdPush( gui, uid ) end
 	uid = math.abs( uid ) + 1
-	GuiImage( gui, uid, pic_x, pic_y, pic, alpha or 1, s_x or 1, s_y or 1 )
+	GuiImage( gui, uid, pic_x, pic_y, pic, alpha or 1, s_x or 1, s_y or 1, angle )
 	return uid
 end
 
@@ -959,4 +1040,31 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	end
 
 	return uid, w, h
+end
+
+function new_slot( gui, uid, pic_x, pic_y, zs, data, info, kind_tbl, is_full, is_active )
+	kind_tbl = kind_tbl or {}
+	--dragging
+	
+	--on dragging check these stats via hover shit
+	--on dragging write mouse xy, inv type, item id
+	--do dragging anim via lerp
+
+	--dragger zone is sized after the bg image
+	local pic_bg = if_full and data.slot_pic.bg_alt or data.slot_pic.bg
+	local w, h = get_pic_dim( pic_bg )
+	uid = new_image( gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
+	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+
+	pic_x, pic_y = pic_x + w/2, pic_y + h/2
+	if( is_active ) then
+		uid = new_image( gui, uid, pic_x, pic_y, zs.main, data.slot_pic.active )
+	end
+	if( kind_tbl.on_slot ~= nil ) then
+		kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, is_hovered and kind_tbl.on_tooltip or nil, is_full, is_active )
+	end
+
+	-- hl (this one on drag attempt)
+
+	return uid, data, w, h
 end

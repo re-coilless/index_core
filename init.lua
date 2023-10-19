@@ -60,6 +60,14 @@ end
 --DO NOT forget to write special thanks to dextercd
 
 function OnWorldPreUpdate()
+	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0
+	if( hooman > 0 ) then
+		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+		if( iui_comp ~= nil and ComponentGetIsEnabled( iui_comp )) then
+			EntitySetComponentIsEnabled( hooman, iui_comp, false )
+		end
+	end
+
 	if( not( matter_test_set or false )) then
 		matter_test_set = true
 		
@@ -82,6 +90,14 @@ function OnWorldPreUpdate()
 end
 
 function OnWorldPostUpdate()
+	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0
+	if( hooman > 0 ) then
+		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+		if( iui_comp ~= nil and ComponentGetIsEnabled( iui_comp )) then
+			EntitySetComponentIsEnabled( hooman, iui_comp, false )
+		end
+	end
+
 	if( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" ) ~= "0" ) then
 		GlobalsSetValue( "INDEX_FUCKYOUMANA", "0" )
 	end
@@ -96,6 +112,11 @@ function OnPlayerSpawned( hooman )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 	
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+	if( inv_comp ~= nil ) then
+		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
+	end
+
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
 end

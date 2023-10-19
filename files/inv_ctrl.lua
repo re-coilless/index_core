@@ -22,9 +22,12 @@ if( not( EntityGetIsAlive( hooman ))) then
     return
 end
 
+local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
 local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
 local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
+
+--InventoryGuiComponent
 
 local comp_nuker = { iui_comp,  }--pick_comp
 for i,comp in ipairs( comp_nuker ) do
@@ -39,7 +42,7 @@ if( forced_state == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" )
 end
 
-if( is_going ) then
+if( is_going and inv_comp ~= nil ) then
     if( gui == nil ) then
 		gui = GuiCreate()
 	end
@@ -60,11 +63,10 @@ if( is_going ) then
         mtr_probe = EntityLoad( "mods/index_core/files/matter_test.xml", m_x, m_y )
     end
     if( mtr_probe > 0 ) then
-        local mtr_list = {}
-        
         local jitter_mag = 0.5
-        EntityApplyTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-1,0)), m_y + jitter_mag*get_sign( math.random(-1,0)))
-
+        EntityApplyTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-2,1)), m_y + jitter_mag*get_sign( math.random(-2,1)))
+        
+        local mtr_list = {}
         local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
         local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
         local count = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterialCountsThisFrame" )
@@ -89,7 +91,7 @@ if( is_going ) then
     table.insert( mtr_probe_memo, pointer_mtr )
     local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
     pointer_mtr = most_mtr_count > 5 and most_mtr or 0
-
+    
     local epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" )
 
     local perk_tbl, effect_tbl = {}, {ings={},stains={},misc={}}
@@ -334,6 +336,8 @@ if( is_going ) then
         end)
     end
 
+    --track all full slots in a global (redo if is nil)
+    
     local uid = 0
     local pos_tbl = {}
 	local screen_w, screen_h = GuiGetScreenDimensions( gui )
@@ -342,6 +346,7 @@ if( is_going ) then
         the_gui = gui,
         memo = ctrl_data,
         pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+        is_opened = ComponentGetValue2( iui_comp, "mActive" ),
 
         player_id = hooman,
         frame_num = current_frame,
@@ -354,12 +359,25 @@ if( is_going ) then
         pointer_matter = pointer_mtr,
 
         active_item = get_active_wand( hooman ),
+        active_info = {},
         just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
         no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" )) == hooman,
         
         icon_data = effect_tbl,
         perk_data = perk_tbl,
 
+        inv_types = item_types,
+        inv_list = {},
+        inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ),
+        inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+
+        slot_pic = {
+            bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
+            bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
+            hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
+            active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
+        },
+        hide_on_empty = ComponentGetValue2( get_storage( controller_id, "hide_on_empty" ), "value_bool" ),
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
@@ -382,9 +400,6 @@ if( is_going ) then
         CharacterData = {},
         CharacterPlatforming = {},
         Wallet = {},
-        Ability = {},
-        Item = {},
-        MaterialInventory = {},
     }
 
     if( ctrl_comp ~= nil ) then
@@ -430,54 +445,28 @@ if( is_going ) then
             ComponentGetValue2( wallet_comp, "money" ),
         }
     end
+    data.inv_list = get_inventory_data( hooman, data )
     if( data.active_item > 0 ) then
-        local abil_comp = EntityGetFirstComponentIncludingDisabled( data.active_item, "AbilityComponent" )
-        if( abil_comp ~= nil ) then
-            data.memo.shot_count = data.memo.shot_count or {}
-            local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
-            data.just_fired = data.just_fired or (( data.memo.shot_count[ data.active_item ] or shot_count ) < shot_count )
-            if( data.just_fired ) then
-                data.memo.shot_count[ data.active_item ] = shot_count
+        data.active_info = from_tbl_with_id( data.inv_list.quick, data.active_item ) or {}
+        if( data.active_info.id ~= nil ) then
+            local abil_comp = data.active_info.AbilityC
+            if( abil_comp ~= nil ) then --reset shot_count on item swap
+                data.memo.shot_count = data.memo.shot_count or {}
+                local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
+                data.just_fired = data.just_fired or (( data.memo.shot_count[ data.active_item ] or shot_count ) < shot_count )
+                if( data.just_fired ) then
+                    data.memo.shot_count[ data.active_item ] = shot_count
+                end
             end
-
-            data.Ability = {
-                abil_comp,
-
-                ComponentGetValue2( abil_comp, "use_gun_script" ),
-                ComponentGetValue2( abil_comp, "mana_max" ),
-                ComponentGetValue2( abil_comp, "mana" ),
-                
-                ComponentGetValue2( abil_comp, "never_reload" ),
-                math.max( ComponentGetValue2( abil_comp, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
-                math.max( ComponentGetValue2( abil_comp, "mNextFrameUsable" ) - data.frame_num, 0 ),
-            }
+        else
+            data.active_item = 0
         end
-        local item_comp = EntityGetFirstComponentIncludingDisabled( data.active_item, "ItemComponent" )
-        if( item_comp ~= nil ) then
-            data.Item = {
-                item_comp,
+    end
 
-                ComponentGetValue2( item_comp, "preferred_inventory" ),
-                ComponentGetValue2( item_comp, "inventory_slot" ),
-
-                ComponentGetValue2( item_comp, "ui_sprite" ),
-                ComponentGetValue2( item_comp, "ui_description" ),
-                get_item_name( data.active_item, item_comp ),
-
-                ComponentGetValue2( item_comp, "uses_remaining" ),
-                ComponentGetValue2( item_comp, "is_frozen" ),
-                ComponentGetValue2( item_comp, "drinkable" ),
-            }
-        end
-        local matter_comp = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialInventoryComponent" )
-        if( matter_comp ~= nil ) then
-            data.MaterialInventory = {
-                matter_comp,
-                
-                ComponentGetValue2( matter_comp, "max_capacity" ),
-                { get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
-            }
-        end
+    --add and ability to refresh the spell list (on vanilla level) for real time editing
+    --test actions materialized
+    if( inv.full_inv ~= nil ) then
+        uid, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
     end
 
     local bars = inv.bars or {}

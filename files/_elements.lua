@@ -1,5 +1,46 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
+function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x, pic_y = 0, 0
+
+    --clicking on item should switch to it
+    local this_data = data.inv_list
+    if( not( data.hide_on_empty ) or #this_data.quick > 0 or #this_data.full > 0 ) then
+        if( data.is_opened ) then
+            uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
+        end
+
+        local slot_array = {}
+        for k = 1,2 do
+            for i,item in ipairs( this_data[ k == 1 and "quick" or "full" ]) do
+                local type_callbacks = data.inv_types[item.kind]
+                if( type_callbacks.ctrl_script ~= nil ) then
+                    type_callbacks.ctrl_script( item.id, data, item, item.id == data.active_item )
+                end
+
+                local inv_slot = item.inv_slot
+                if( not( inv_slot[1] < 0 or inv_slot[2] < 0 )) then
+                    slot_array[ get_slot_id( inv_slot, k == 2 )] = { item, type_callbacks }
+                    if( type_callbacks.on_inventory ~= nil ) then
+                        uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, data.is_opened, item.id == data.active_item )
+                    end
+                end
+            end
+        end
+
+        pic_x, pic_y = pic_x + 19, pic_y + 20
+        local w, h, step = 0, 0, 0
+        for i = 1,data.inv_count_quick do
+            local item = slot_array[ get_slot_id({i-1,0})] or {{id=0}}
+            uid, data, w, h = new_slot( gui, uid, pic_x, pic_y, zs, data, item[1], item[2], false, item[1].id == data.active_item )
+            pic_x, pic_y = pic_x + w + step, pic_y
+            if( i == math.floor( data.inv_count_quick/2 )) then pic_x = pic_x + 2 end
+        end
+    end
+
+    return uid, {pic_x,pic_y}
+end
+
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = screen_w - 41, 20
     local red_shift = 0
@@ -126,14 +167,17 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.flight )
     data.memo.mana_shake = data.memo.mana_shake or {}
 
-    local this_data = data.Ability
-    if( #this_data > 0 ) then
+    local this_data = data.active_info
+    if( this_data.id ~= nil ) then
         local potion_data = {}
         local throw_it_back = nil
         
         local value = {0,0}
-        if( this_data[2]) then
-            value = { math.min( math.max( this_data[4], 0 ), this_data[3]), this_data[3]}
+        if( this_data.wand_info ~= nil ) then
+            local mana_max = this_data.wand_info.main[6]
+            local mana = this_data.wand_info.main[8]
+
+            value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( data.memo.mana_shake[data.active_item] == nil ) then
                 if( data.no_mana_4life ) then
                     data.memo.mana_shake[data.active_item] = data.frame_num + 20
@@ -144,19 +188,16 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             if( shake_frame < 0 ) then
                 data.memo.mana_shake[data.active_item] = nil
             end
-        elseif( not( EntityHasTag( entity_id, "not_a_potion" )) and #data.Item > 0 ) then
-            this_data = data.MaterialInventory
-            if( #this_data > 0 ) then
-                local barrel_size = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialSuckerComponent" )
-                barrel_size = barrel_size == nil and this_data[2] or ComponentGetValue2( barrel_size, "barrel_size" )
-                if( barrel_size >= 0 ) then
-                    value = { math.min( math.max( this_data[3][1], 0 ), barrel_size ), barrel_size }
-                    potion_data = { "data/ui_gfx/hud/potion.png", }
-                    if( data.fancy_potion_bar ) then
-                        table.insert( potion_data, data.pixel )
-                        table.insert( potion_data, get_uint_color( GameGetPotionColorUint( data.active_item )))
-                        table.insert( potion_data, 0.8 )
-                    end
+        elseif( this_data.matter_info ~= nil ) then
+            local barrel_size = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialSuckerComponent" )
+            barrel_size = barrel_size == nil and this_data.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
+            if( barrel_size >= 0 ) then
+                value = { math.min( math.max( this_data.matter_info[2][1], 0 ), barrel_size ), barrel_size }
+                potion_data = { "data/ui_gfx/hud/potion.png", }
+                if( data.fancy_potion_bar ) then
+                    table.insert( potion_data, data.pixel )
+                    table.insert( potion_data, get_uint_color( GameGetPotionColorUint( data.active_item )))
+                    table.insert( potion_data, 0.8 )
                 end
             end
         end
@@ -171,7 +212,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
 
             local tip = ""
             if( potion_data[3] ~= nil ) then
-                local v1, v2 = get_potion_info( entity_id, data.Item[6], value[2], value[1], this_data[3][2])
+                local v1, v2 = get_potion_info( entity_id, this_data.name, value[2], value[1], this_data.matter_info[2][2])
                 tip = v1.."@"..v2
             else
                 tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
@@ -197,11 +238,12 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.reload_shake = data.memo.reload_shake or {}
     data.memo.reload_max = data.memo.reload_max or {}
     
-    local this_data = data.Ability
-    if( #this_data > 0 and not( this_data[5])) then
-        data.memo.reload_max[data.active_item] = ( data.memo.reload_max[data.active_item] or -1 ) < this_data[6] and this_data[6] or data.memo.reload_max[data.active_item]
+    local this_data = data.active_info
+    if( this_data.wand_info ~= nil and not( this_data.wand_info.main[9])) then
+        local reloading = this_data.wand_info.main[10]
+        data.memo.reload_max[data.active_item] = ( data.memo.reload_max[data.active_item] or -1 ) < reloading and reloading or data.memo.reload_max[data.active_item]
         if( data.memo.reload_max[data.active_item] > data.reload_threshold ) then
-            if( data.memo.reload_max[data.active_item] ~= this_data[6]) then
+            if( data.memo.reload_max[data.active_item] ~= reloading ) then
                 if( data.memo.reload_shake[data.active_item] == nil and data.just_fired ) then
                     data.memo.reload_shake[data.active_item] = data.frame_num + 20
                 end
@@ -209,10 +251,10 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local shake_frame = ( data.memo.reload_shake[data.active_item] or data.frame_num ) - data.frame_num
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png" )
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*this_data[6]/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and 20-shake_frame or nil )
+            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and 20-shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
-            local tip = hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", this_data[6]/60 ).."s"
+            local tip = hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
             uid = tipping( gui, uid, {
                 pic_x - 42,
                 pic_y - 1,
@@ -226,7 +268,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if(( this_data[6] or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.main[10] or 0 ) == 0 ) then
         data.memo.reload_max[data.active_item] = nil
     end
 
@@ -238,11 +280,12 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.delay_shake = data.memo.delay_shake or {}
     data.memo.delay_max = data.memo.delay_max or {}
 
-    local this_data = data.Ability
-    if( #this_data > 0 ) then
-        data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < this_data[7] and this_data[7] or data.memo.delay_max[data.active_item]
+    local this_data = data.active_info
+    if( this_data.wand_info ~= nil ) then
+        local cast_delay = this_data.wand_info.main[11]
+        data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < cast_delay and cast_delay or data.memo.delay_max[data.active_item]
         if( data.memo.delay_max[data.active_item] > data.delay_threshold ) then
-            if( data.memo.delay_max[data.active_item] ~= this_data[7]) then
+            if( data.memo.delay_max[data.active_item] ~= cast_delay ) then
                 if( data.memo.delay_shake[data.active_item] == nil and data.just_fired ) then
                     data.memo.delay_shake[data.active_item] = data.frame_num + 20
                 end
@@ -250,10 +293,10 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local shake_frame = ( data.memo.delay_shake[data.active_item] or data.frame_num ) - data.frame_num
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/fire_rate_wait.png" )
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*this_data[7]/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and 20-shake_frame or nil )
+            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and 20-shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
-            local tip = hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", this_data[7]/60 ).."s"
+            local tip = hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
             uid = tipping( gui, uid, {
                 pic_x - 42,
                 pic_y - 1,
@@ -267,7 +310,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if(( this_data[7] or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.main[11] or 0 ) == 0 ) then
         data.memo.delay_max[data.active_item] = nil
     end
 
@@ -372,9 +415,9 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( #v > 0 ) then
                         kind = { 1, v }
                     elseif( not( EntityHasTag( entity_id, "not_a_potion" )) and item_comp ~= nil and matter_comp ~= nil ) then
-                        kind = { 2, {entity_id,item_comp,matter_comp}}
+                        kind = { 2, {entity_id,item_comp,matter_comp,abil_comp}}
                     elseif( abil_comp ~= nil and item_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )) then
-                        kind = { 3, {entity_id,item_comp}}
+                        kind = { 3, {entity_id,item_comp,abil_comp}}
                     elseif( action_comp ~= nil ) then
                         kind = { 4, "Spell" }
                     end
@@ -390,19 +433,19 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 end)
                 if( the_one ~= 0 ) then
                     local msg_list = {
-                        function(v) return v end,
+                        function( v ) return v end,
                         function( v )
                             local barrel_size = EntityGetFirstComponentIncludingDisabled( v[1], "MaterialSuckerComponent" )
                             barrel_size = barrel_size == nil and ComponentGetValue2( v[3], "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
 
-                            local v1, v2 = get_potion_info( entity_id, get_item_name(v[1],v[2]), barrel_size, get_matters( ComponentGetValue2( v[3], "count_per_material_type" )))
+                            local v1, v2 = get_potion_info( entity_id, get_item_name(v[1],v[4],v[2]), barrel_size, get_matters( ComponentGetValue2( v[3], "count_per_material_type" )))
                             return v1..v2
                         end,
                         function( v )
-                            v = get_item_name( v[1], v[2] ) or ""
+                            v = get_item_name( v[1], v[3], v[2] ) or ""
                             return v == "" and "Relic" or v
                         end,
-                        function(v) return v end,
+                        function( v ) return v end,
                     }
                     info = msg_list[best_kind]( the_one[3])
                 end
