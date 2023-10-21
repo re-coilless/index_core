@@ -111,7 +111,7 @@ function OnPlayerSpawned( hooman )
 	GameAddFlagRun( initer )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
-	
+
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( inv_comp ~= nil ) then
 		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )

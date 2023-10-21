@@ -36,8 +36,37 @@
 	></VariableStorageComponent>
 	
 	<VariableStorageComponent
+		name="dragger_swap_now"
+		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_item_id"
+		value_int="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_inv_type"
+		value_float="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_is_quickest"
+		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_x"
+		value_float="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_y"
+		value_float="0"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
 		name="hide_on_empty"
 		value_bool="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="quickest_size"
+		value_int="4"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
@@ -82,7 +111,7 @@
 
 	<VariableStorageComponent
 		name="info_pointer"
-		value_bool="1"
+		value_bool="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="info_radius"

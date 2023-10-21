@@ -480,7 +480,7 @@ function play_sound( event )
 	GamePlaySound( "mods/mrshll_core/mrshll.bank", event, c_x, c_y )
 end
 
-function get_uint_color( color )
+function uint2color( color )
 	return { bit.band( color, 0xff ), bit.band( bit.rshift( color, 8 ), 0xff ), bit.band( bit.rshift( color, 16 ), 0xff )}
 end
 
@@ -627,79 +627,172 @@ function get_stain_perc( perc )
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
 end
 
-function get_slot_id( slot, is_full )
-	return ( is_full and "F" or "" )..slot[1]..":"..slot[2]
+function get_matter_colour( matter )
+	local color_probe = EntityLoad( "mods/index_core/files/matter_color.xml" )
+	AddMaterialInventoryMaterial( color_probe, matter, 1000 )
+	local color = uint2color( GameGetPotionColorUint( color_probe ))
+	EntityKill( color_probe )
+	return color
+end
+
+function table_init( amount, value )
+	local tbl = {}
+	local temp = value
+	for i = 1,amount do
+		if( type( value ) == "table" ) then
+			temp = {}
+		end
+		tbl[i] = temp
+	end
+	
+	return tbl
+end
+
+function get_valid_inventories( inv_type, is_quickest )
+	local inv_ids = {}
+	if( math.floor( inv_type ) == 0 ) then
+		table.insert( inv_ids, "full" )
+	end
+	if( math.ceil( inv_type ) == 0 ) then
+		table.insert( inv_ids, "quick" )
+		table.insert( inv_ids, "quickest" )
+	end
+	if( inv_type == -1 ) then
+		table.insert( inv_ids, is_quickest and "quickest" or "quick" )
+	end
+
+	return inv_ids
+end
+
+function set_to_slot( slot_info, data )
+	local inv_ids = get_valid_inventories( slot_info.inv_type, slot_info.is_quickest )
+
+	local slot_num = { ComponentGetValue2( slot_info.ItemC, "inventory_slot" )}
+	if( slot_num[1] ~= -1 or slot_num[2] ~= -1 ) then
+		if( slot_num[1] == -5 ) then
+			if( slot_info.is_hidden ) then
+				slot_num = {-1,-1}
+			else
+				for i,inv_id in ipairs( inv_ids ) do
+					for k,slot in ipairs( data.slot_state[inv_id]) do
+						if( type( slot ) ~= "table" ) then
+							if( not( slot )) then
+								data.slot_state[inv_id][k] = slot_info.id
+								slot_num = { k, inv_id == "quickest" and 0 or 1 }
+							end
+						else
+							for j,s in ipairs( slot ) do
+								if( not( s )) then
+									data.slot_state[inv_id][k][j] = slot_info.id
+									slot_num = { k, -j }
+									break
+								end
+							end
+						end
+						if( slot_num[1] ~= -5 ) then
+							break
+						end
+					end
+				end
+				if( slot_info[1] == -5 ) then
+					return
+				end
+			end
+			ComponentSetValue2( slot_info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
+		elseif( slot_num[2] == 0 ) then
+			data.slot_state.quickest[ slot_num[1]] = slot_info.id
+		elseif( slot_num[2] == 1 ) then
+			data.slot_state.quick[ slot_num[1]] = slot_info.id
+		elseif( slot_num[2] < 0 ) then
+			data.slot_state.full[ slot_num[1]][ math.abs( slot_num[2])] = slot_info.id
+		end
+	end
+
+	return slot_num
+end
+
+function get_item_data( item_id, data )
+	local slot_info = { id = item_id, }
+
+	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
+	if( item_comp == nil ) then
+		return
+	end
+
+	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
+	if( abil_comp ~= nil ) then
+		slot_info.AbilityC = abil_comp
+		slot_info.charges = {
+			ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
+			ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
+			ComponentGetValue2( abil_comp, "amount_in_inventory" ),
+		}
+		slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" ) --probably try getting the png
+	end
+	if( item_comp ~= nil ) then
+		slot_info.ItemC = item_comp
+
+		local invs = { QUICK=-1, TRUE_QUICK=-0.5, ANY=0, FULL=0.5, }
+		local inv_kind = ComponentGetValue2( item_comp, "preferred_inventory" ) --get the preferred_inventory varstorage
+		slot_info.inv_type = invs[inv_kind] or 0
+		
+		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
+		if( ui_pic ~= "" ) then
+			slot_info.pic = ui_pic
+		end
+
+		slot_info.desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
+		slot_info.uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
+		slot_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
+		slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name to stack
+		slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+	end
+	
+	for k,kind in ipairs( data.inv_types ) do
+		if( kind.on_check( item_id, data, slot_info )) then
+			slot_info.kind = k
+			slot_info.is_quickest = kind.is_quickest or false
+			slot_info.is_hidden = kind.is_hidden or false
+			if( kind.on_data ~= nil ) then
+				slot_info = kind.on_data( item_id, data, slot_info )
+			end
+			break
+		end
+	end
+	slot_info.name = get_item_name( item_id, abil_comp, item_comp )
+	if( slot_info.kind == nil ) then
+		return
+	elseif(( slot_info.name or "" ) == "" ) then
+		slot_info.name = data.inv_types[slot_info.kind].name
+	end
+	slot_info.name = capitalizer( slot_info.name )
+	
+	if( not( EntityHasTag( item_id, "index_processed" ))) then
+		--obliterate hardcoded tags (add them back on unparent)
+		ComponentSetValue2( item_comp, "inventory_slot", -5, 0 )
+		EntityAddTag( item_id, "index_processed" )
+	end
+	slot_info.inv_slot = set_to_slot( slot_info, data )
+	if( slot_info.inv_slot == nil ) then
+		return
+	end
+
+	if( data.inv_types[ slot_info.kind ].ctrl_script ~= nil ) then
+		data.inv_types[ slot_info.kind ].ctrl_script( item_comp, data, slot_info, item_comp == data.active_item )
+	end
+
+	return slot_info
 end
 
 function get_inventory_data( hooman, data )
-	local item_tbl = {quick={},full={}}
+	local item_tbl = {}
 	local invy_kids = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
 	for i,invy_kid in ipairs( invy_kids ) do
 		child_play( invy_kid, function( parent, child, j )
-			local slot_info = { id = child, }
-
-			local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
-			if( item_comp == nil ) then
-				return
+			local new_item = get_item_data( child, data )
+			if( new_item ~= nil ) then
+				table.insert( item_tbl, new_item )
 			end
-
-			local abil_comp = EntityGetFirstComponentIncludingDisabled( child, "AbilityComponent" )
-			if( abil_comp ~= nil ) then
-				slot_info.AbilityC = abil_comp
-				slot_info.charges = {
-					ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
-					ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
-					ComponentGetValue2( abil_comp, "amount_in_inventory" ),
-				}
-				slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" ) --probably try getting the png
-			end
-			if( item_comp ~= nil ) then
-				slot_info.ItemC = item_comp
-
-				local invs = { QUICK=-1, FULL=1, TRUE_QUICK=-0.5, ANY=0 }
-				local inv_kind = ComponentGetValue2( item_comp, "preferred_inventory" ) --get the preferred_inventory varstorage
-				slot_info.inv_type = invs[inv_kind]
-				
-				local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
-				if( ui_pic ~= "" ) then
-					slot_info.pic = ui_pic
-				end
-
-				slot_info.desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
-				slot_info.uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
-				slot_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
-				slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name to stack
-				slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
-
-				local slot_num = { ComponentGetValue2( item_comp, "inventory_slot" )}
-				if( not( EntityHasTag( child, "index_processed" ))) then
-					--obliterate hardcoded tags (add them back on unparent)
-					--do proper slot func (has to be the same as pickup except it checks for is there parent)
-					slot_num = { j-1, 0 }
-					ComponentSetValue2( item_comp, "inventory_slot", unpack( slot_num ))
-					EntityAddTag( child, "index_processed" )
-				end
-				slot_info.inv_slot = slot_num
-			end
-			
-			for k,kind in ipairs( data.inv_types ) do
-				if( kind.on_check( child, data, slot_info )) then
-					slot_info.kind = k
-					if( kind.on_data ~= nil ) then
-						slot_info = kind.on_data( child, data, slot_info )
-					end
-					break
-				end
-			end
-			slot_info.name = get_item_name( child, abil_comp, item_comp )
-			if( slot_info.kind == nil ) then
-				return
-			elseif(( slot_info.name or "" ) == "" ) then
-				slot_info.name = data.inv_types[slot_info.kind].name
-			end
-			slot_info.name = capitalizer( slot_info.name )
-			
-			table.insert( item_tbl[ i == 1 and "quick" or "full" ], slot_info )
 		end)
 	end
 	return item_tbl
@@ -756,6 +849,54 @@ function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
 	GuiOptionsAddForNextWidget( gui, 47 ) --NoSound
 	local clicked, r_clicked = GuiImageButton( gui, uid, pic_x, pic_y, "", pic )
 	return uid, clicked, r_clicked
+end
+
+function new_dragger( gui, pic_x, pic_y ) --you need to uid them manually
+	local is_going = false
+	
+	GuiOptionsAddForNextWidget( gui, 51 ) --IsExtraDraggable
+	new_button( gui, 1023, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
+	local clicked, r_clicked, hovered, _, _, _, _, d_x, d_y = GuiGetPreviousWidgetInfo( gui )
+	if( d_x ~= 0 and d_y ~= 0 ) then
+		pic_x = d_x
+		pic_y = d_y
+		is_going = true
+	end
+	
+	return pic_x, pic_y, is_going, clicked, r_clicked, hovered
+end
+
+function check_slot_bounds( pointer, box )
+	return pointer[1]>=(box[1]-box[3]) and pointer[2]>=(box[2]-box[4]) and pointer[1]<=(box[1]+box[3]) and pointer[2]<=(box[2]+box[4])
+end
+
+function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
+	local clicked, r_clicked, hovered = false, false, false
+	if( not( slot_going )) then
+		local new_x, new_y, has_begun = 0, 0, true
+		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,pic_w,pic_h}) or slot_memo[id]) then
+			if( data.dragger.item_id == 0 ) then
+				data.dragger.item_id = id
+			end
+			if( data.dragger.item_id == id ) then
+				new_x, new_y, has_begun, clicked, r_clicked, hovered = new_dragger( data.the_gui, pic_x, pic_y )
+				
+				data.dragger.x = new_x
+				data.dragger.y = new_y
+				data.dragger.inv_type = info.inv_type
+				data.dragger.is_quickest = info.is_quickest
+				pic_x, pic_y = new_x, new_y
+
+				if( slot_memo[id] and not( has_begun )) then
+					data.dragger.swap_soon = true
+				end
+				slot_memo[id] = hovered and has_begun
+				slot_going = true
+			end
+		end
+	end
+
+	return data, pic_x, pic_y, clicked, r_clicked, hovered
 end
 
 function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
@@ -1042,29 +1183,84 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	return uid, w, h
 end
 
-function new_slot( gui, uid, pic_x, pic_y, zs, data, info, kind_tbl, is_full, is_active )
-	kind_tbl = kind_tbl or {}
-	--dragging
+function slot_swap( item_in, slot_data )
+	local parent1 = EntityGetParent( item_in )
+	local parent2 = slot_data[2]
+	if( parent1 ~= parent2 ) then
+		EntityRemoveFromParent( item_in )
+		EntityAddChild( parent2, item_in )
+		if( slot_data[1] > 0 ) then
+			EntityRemoveFromParent( slot_data[1])
+			EntityAddChild( parent1, slot_data[1])
+		end
+	end
 	
-	--on dragging check these stats via hover shit
-	--on dragging write mouse xy, inv type, item id
-	--do dragging anim via lerp
+	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_in, "ItemComponent" )
+	local slot1 = { ComponentGetValue2( item_comp1, "inventory_slot" )}
+	local slot2 = slot_data[3]
+	ComponentSetValue2( item_comp1, "inventory_slot", unpack( slot2 ))
+	if( slot_data[1] > 0 ) then
+		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data[1], "ItemComponent" )
+		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
+	end
+end
 
-	--dragger zone is sized after the bg image
-	local pic_bg = if_full and data.slot_pic.bg_alt or data.slot_pic.bg
+function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag )
+	kind_tbl = kind_tbl or {}
+	--add universal inventory type that allows any item to be put in no matter its inv_type
+	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
+		colourer( data.the_gui, {220,220,220})
+	end
+	local pic_bg, clicked, r_clicked, is_hovered = if_full and data.slot_pic.bg_alt or data.slot_pic.bg, false, false
 	local w, h = get_pic_dim( pic_bg )
-	uid = new_image( gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
-	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
-
+	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
+	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
+	if( clicked and info.id > 0 ) then
+		if( inv_type == "quick" or inv_type == "quickest" ) then
+			--swap to item
+			--mActiveItem, mActualActiveItem, mInitialized (for a frame after), mForceRefresh
+			--check the gun.lua to force the weapon reset
+		end
+	end
+	
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if( is_active ) then
 		uid = new_image( gui, uid, pic_x, pic_y, zs.main, data.slot_pic.active )
 	end
-	if( kind_tbl.on_slot ~= nil ) then
-		kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, is_hovered and kind_tbl.on_tooltip or nil, is_full, is_active )
-	end
+	w, h = w - 1, h - 1
+	if( data.dragger.item_id > 0 ) then
+		if( data.dragger.swap_now ) then
+			if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then
+				if( from_tbl_with_id( get_valid_inventories( data.dragger.inv_type, data.dragger.is_quickest ), inv_type ) ~= 0 ) then
+					--find the inv type item is in rn
+					--check to see if the item you swapping it with will fit
 
-	-- hl (this one on drag attempt)
+					--test swapping the currently equipped shit between different inventories and entities
+
+					slot_swap( data.dragger.item_id, slot_data )
+					data.dragger.item_id = -1
+				end
+			end
+		elseif( data.dragger.item_id ~= info.id ) then
+			-- hl
+		end
+	end
+	
+	--do throwing out
+	--do dragging anim via lerp
+	can_drag = true
+	if( info.id > 0 ) then
+		if( can_drag ) then
+			if( not( data.dragger.swap_now ) and not( slot_going )) then
+				data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
+			end
+		else
+			--if can't drag draw the shit overtop
+		end
+	end
+	if( kind_tbl.on_slot ~= nil ) then
+		uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered and kind_tbl.on_tooltip or nil, inv_type == "full", is_active )
+	end
 
 	return uid, data, w, h
 end

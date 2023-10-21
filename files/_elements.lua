@@ -1,44 +1,57 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
-    local pic_x, pic_y = 0, 0
+function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+    local pic_x, pic_y = 19, 20
 
     --clicking on item should switch to it
     local this_data = data.inv_list
-    if( not( data.hide_on_empty ) or #this_data.quick > 0 or #this_data.full > 0 ) then
+    if( not( data.hide_on_empty ) or #this_data > 0 ) then
         if( data.is_opened ) then
             uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
         end
+        
+        local function call_em_all( slot, w, h, inv_type, inv_id, slot_num )
+            local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
+            local slot_data = {item.id,inv_id,slot_num}
+            local type_callbacks = data.inv_types[item.kind]
+            uid, data, w, h = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
+            if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
+                uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, data.is_opened, item.id == data.active_item )
+            end
 
-        local slot_array = {}
-        for k = 1,2 do
-            for i,item in ipairs( this_data[ k == 1 and "quick" or "full" ]) do
-                local type_callbacks = data.inv_types[item.kind]
-                if( type_callbacks.ctrl_script ~= nil ) then
-                    type_callbacks.ctrl_script( item.id, data, item, item.id == data.active_item )
-                end
+            return w, h
+        end
+        
+        local w, h, step = 0, 0, 0
 
-                local inv_slot = item.inv_slot
-                if( not( inv_slot[1] < 0 or inv_slot[2] < 0 )) then
-                    slot_array[ get_slot_id( inv_slot, k == 2 )] = { item, type_callbacks }
-                    if( type_callbacks.on_inventory ~= nil ) then
-                        uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, data.is_opened, item.id == data.active_item )
-                    end
+        local inv_id = get_hooman_child( data.player_id, "inventory_quick" )
+        local inv_data = data.slot_state.quickest
+        for i,slot in ipairs( inv_data ) do
+            w, h = call_em_all( slot, w, h, "quickest", inv_id, {i,0})
+            pic_x, pic_y = pic_x + w + step, pic_y
+        end
+
+        pic_x = pic_x + 2
+        inv_data = data.slot_state.quick
+        for i,slot in ipairs( inv_data ) do
+            w, h = call_em_all( slot, w, h, "quick", inv_id, {i,1})
+            pic_x, pic_y = pic_x + w + step, pic_y
+        end
+
+        if( data.is_opened ) then
+            pic_x = pic_x + 9
+            inv_id = get_hooman_child( data.player_id, "inventory_full" )
+            inv_data = data.slot_state.full
+            for i,line in ipairs( inv_data ) do
+                for e,slot in ipairs( line ) do
+                    w, h = call_em_all( slot, w, h, "full", inv_id, {i,-e})
+                    pic_x, pic_y = pic_x + w + step, pic_y
                 end
             end
         end
-
-        pic_x, pic_y = pic_x + 19, pic_y + 20
-        local w, h, step = 0, 0, 0
-        for i = 1,data.inv_count_quick do
-            local item = slot_array[ get_slot_id({i-1,0})] or {{id=0}}
-            uid, data, w, h = new_slot( gui, uid, pic_x, pic_y, zs, data, item[1], item[2], false, item[1].id == data.active_item )
-            pic_x, pic_y = pic_x + w + step, pic_y
-            if( i == math.floor( data.inv_count_quick/2 )) then pic_x = pic_x + 2 end
-        end
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -81,7 +94,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
                 local last_hp = math.min( math.max( this_data[4], 0 ), max_hp )
                 uid = new_image( gui, uid, pic_x - length, pic_y + 1, zs.main + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png", 0.5*length*last_hp/max_hp, 2, ( 30 - this_data[5])/30 )
             end
-
+            
             max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
             hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
             local max_hp_text = get_short_num( max_hp )
@@ -89,7 +102,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png" )
             uid = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { 255, 255, 255, 0.9 })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {length,4,length*hp/max_hp}, pic )
-
+            
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
             uid = tipping( gui, uid, {
                 pic_x - (length+2),
@@ -103,7 +116,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     end
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", data.hp_flashing_intensity*red_shift, 0, 0, 0 )
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -128,7 +141,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -160,7 +173,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -189,14 +202,12 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
                 data.memo.mana_shake[data.active_item] = nil
             end
         elseif( this_data.matter_info ~= nil ) then
-            local barrel_size = EntityGetFirstComponentIncludingDisabled( data.active_item, "MaterialSuckerComponent" )
-            barrel_size = barrel_size == nil and this_data.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
-            if( barrel_size >= 0 ) then
-                value = { math.min( math.max( this_data.matter_info[2][1], 0 ), barrel_size ), barrel_size }
+            if( this_data.matter_info[1] >= 0 ) then
+                value = { math.min( math.max( this_data.matter_info[2][1], 0 ), this_data.matter_info[1] ), this_data.matter_info[1]}
                 potion_data = { "data/ui_gfx/hud/potion.png", }
                 if( data.fancy_potion_bar ) then
                     table.insert( potion_data, data.pixel )
-                    table.insert( potion_data, get_uint_color( GameGetPotionColorUint( data.active_item )))
+                    table.insert( potion_data, uint2color( GameGetPotionColorUint( data.active_item )))
                     table.insert( potion_data, 0.8 )
                 end
             end
@@ -230,7 +241,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -272,7 +283,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
         data.memo.reload_max[data.active_item] = nil
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -314,7 +325,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
         data.memo.delay_max[data.active_item] = nil
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -347,7 +358,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -372,7 +383,7 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -437,7 +448,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                         function( v )
                             local barrel_size = EntityGetFirstComponentIncludingDisabled( v[1], "MaterialSuckerComponent" )
                             barrel_size = barrel_size == nil and ComponentGetValue2( v[3], "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
-
+                            
                             local v1, v2 = get_potion_info( entity_id, get_item_name(v[1],v[4],v[2]), barrel_size, get_matters( ComponentGetValue2( v[3], "count_per_material_type" )))
                             return v1..v2
                         end,
@@ -452,11 +463,14 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         if( info ~= "" ) then
-            local inter_alpha = 0.9
+            local inter_alpha = 1
             if( data.info_pointer ) then
                 pic_x, pic_y = unpack( data.pointer_ui )
                 pic_x, pic_y = pic_x + 8, pic_y + 3
                 inter_alpha = inter_alpha*0.3
+            else
+                pic_x, pic_y = unpack( xys.full_inv )
+                pic_x, pic_y = pic_x + 5, pic_y + 5
             end
             do_info( gui, pic_x, pic_y, info, inter_alpha )
         end
@@ -498,7 +512,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         do_info( gui, pic_x + 3, pic_y - 2.5, txt, fading, true, alphaer )
     end
     
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -515,7 +529,7 @@ function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 4
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_stains( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -531,7 +545,7 @@ function new_generic_stains( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 3
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -547,7 +561,7 @@ function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 3
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end
 
 function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -594,5 +608,5 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 5
     end
 
-    return uid, {pic_x,pic_y}
+    return uid, data, {pic_x,pic_y}
 end

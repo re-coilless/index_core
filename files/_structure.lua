@@ -20,6 +20,8 @@ local Z_LAYERS = {
 local ITEM_TYPES = {
     {
         name = GameTextGetTranslatedOrNot( "$item_wand" ),
+        is_quickest = true,
+        is_hidden = false,
 
         on_check = function( item_id, data, this_info )
             return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
@@ -98,15 +100,62 @@ local ITEM_TYPES = {
                 { get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
                 ComponentGetValue2( this_info.ItemC, "drinkable" ),
             }
+
+            local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
+            this_info.matter_info[1] = barrel_size == nil and this_info.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
+
             return this_info
         end,
         
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand )
+            local w, h = get_pic_dim( data.slot_pic.bg )
+            pic_x, pic_y = pic_x + w/2, pic_y + h/2
+
+            local cap_max = this_info.matter_info[1]
+            local mtrs = this_info.matter_info[2]
+            local content_total = mtrs[1]
+            local content_tbl = mtrs[2]
+            table.sort( content_tbl, function( a, b )
+                return a[2] < b[2]
+            end)
+            
+            local w, h = get_pic_dim( this_info.pic )
+            w, h = get_pic_dim( data.slot_pic.bg )
+            w, h = w - 4, h - 4
+            local k = h/cap_max
+            pic_x, pic_y = pic_x - w/2, pic_y + h/2
+            local size = k*math.min( content_total, cap_max )
+            pic_y = pic_y - size
+            if(( 16 - size ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
+                uid = new_image( gui, uid, pic_x, pic_y - 0.5, zs.main + 0.001, data.pixel, w, 0.5 )
+            end
+            local delta = 0
+            for i,m in ipairs( content_tbl ) do
+                local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
+                colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
+                if( i == #content_tbl ) then sz = math.max( size - delta, 0 ) end
+                uid = new_image( gui, uid, pic_x, pic_y + delta, zs.main + 0.001, data.pixel, w, sz, 0.9 )
+                delta = delta + sz
+            end
+
+            return uid, data
+        end,
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
+            local cap_max = this_info.matter_info[1]
+            local content_total = this_info.matter_info[2][1]
+            
+            local ratio = math.min( content_total/cap_max, 1 )
             local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons, this_info.pic )
+            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons - 0.002, this_info.pic, 1, 1, 0.8 - 0.5*ratio )
+            colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
+            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons - 0.001, this_info.pic )
+            local scale = 1.1
+            colourer( gui, {0,0,0})
+            uid = new_image( gui, uid, pic_x - scale*w/2, pic_y - scale*h/2, zs.icons, this_info.pic, scale, scale, 0.5 )
+
             return uid
         end,
     },
