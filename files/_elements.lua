@@ -1,7 +1,7 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
 function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
-    local pic_x, pic_y = 19, 20
+    local pic_x, pic_y = 0, 0
 
     --clicking on item should switch to it
     local this_data = data.inv_list
@@ -9,7 +9,8 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         if( data.is_opened ) then
             uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
         end
-        
+        pic_x, pic_y = 19, 20
+
         local function call_em_all( slot, w, h, inv_type, inv_id, slot_num )
             local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
             local slot_data = {item.id,inv_id,slot_num}
@@ -18,11 +19,11 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
                 uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, data.is_opened, item.id == data.active_item )
             end
-
+            
             return w, h
         end
         
-        local w, h, step = 0, 0, 0
+        local w, h, step = 0, 0, 1
 
         local inv_id = get_hooman_child( data.player_id, "inventory_quick" )
         local inv_data = data.slot_state.quickest
@@ -203,7 +204,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         elseif( this_data.matter_info ~= nil ) then
             if( this_data.matter_info[1] >= 0 ) then
-                value = { math.min( math.max( this_data.matter_info[2][1], 0 ), this_data.matter_info[1] ), this_data.matter_info[1]}
+                value = { math.max( this_data.matter_info[2][1], 0 ), this_data.matter_info[1]}
                 potion_data = { "data/ui_gfx/hud/potion.png", }
                 if( data.fancy_potion_bar ) then
                     table.insert( potion_data, data.pixel )
@@ -213,7 +214,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         if( value[1] >= 0 and value[2] > 0 ) then
-            local ratio = value[1]/value[2]
+            local ratio = math.min( value[1]/value[2], 1 )
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, potion_data[1] or "data/ui_gfx/hud/mana.png" )
             if( potion_data[3] ~= nil ) then
                 uid = new_image( gui, uid, pic_x - 40, pic_y + 1, zs.main + 0.001, potion_data[2], math.min( 40*ratio + 0.5, 40 ), 2 )

@@ -47,6 +47,11 @@ function get_hooman_child( hooman, tag, ignore_id )
 	return nil
 end
 
+function float_compare( a, b )
+	local epsln = 0.0001
+	return math.abs( a - b ) < epsln
+end
+
 function edit_component_ultimate( entity_id, type_name, do_what )
 	if( entity_id == 0 or entity_id == nil ) then
 		return
@@ -666,7 +671,7 @@ end
 
 function set_to_slot( slot_info, data )
 	local inv_ids = get_valid_inventories( slot_info.inv_type, slot_info.is_quickest )
-
+	
 	local slot_num = { ComponentGetValue2( slot_info.ItemC, "inventory_slot" )}
 	if( slot_num[1] ~= -1 or slot_num[2] ~= -1 ) then
 		if( slot_num[1] == -5 ) then
@@ -707,8 +712,20 @@ function set_to_slot( slot_info, data )
 			data.slot_state.full[ slot_num[1]][ math.abs( slot_num[2])] = slot_info.id
 		end
 	end
+	
+	--if the parent is player - do the quickest/quick split
+	--default nameless inventory is UNIVERSAL
+	--default wand inventory is full with check on spell
+	--names only matter for the player inv, the rest must have varstorage not to be considered universal
+	--to register new inventories, add new table to _structure.lua that contains the funcs that return the id
+
+	--item should have inv_id attached and the particular inv_name (quickest, quick or full) too
 
 	return slot_num
+end
+
+function slot_z( data, id, z )
+	return data.dragger.item_id == id and z-2 or z
 end
 
 function get_item_data( item_id, data )
@@ -727,14 +744,16 @@ function get_item_data( item_id, data )
 			ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
 			ComponentGetValue2( abil_comp, "amount_in_inventory" ),
 		}
-		slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" ) --probably try getting the png
+		slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
 	end
 	if( item_comp ~= nil ) then
 		slot_info.ItemC = item_comp
 
 		local invs = { QUICK=-1, TRUE_QUICK=-0.5, ANY=0, FULL=0.5, }
-		local inv_kind = ComponentGetValue2( item_comp, "preferred_inventory" ) --get the preferred_inventory varstorage
+		local storage_inv = get_storage( item_id, "preferred_inventory" )
+		local inv_kind = storage_inv == nil and ComponentGetValue2( item_comp, "preferred_inventory" ) or ComponentGetValue2( storage_inv, "value_string" )
 		slot_info.inv_type = invs[inv_kind] or 0
+		slot_info.inv_id = EntityGetParent( item_id )
 		
 		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
 		if( ui_pic ~= "" ) then
@@ -772,11 +791,6 @@ function get_item_data( item_id, data )
 		ComponentSetValue2( item_comp, "inventory_slot", -5, 0 )
 		EntityAddTag( item_id, "index_processed" )
 	end
-	slot_info.inv_slot = set_to_slot( slot_info, data )
-	if( slot_info.inv_slot == nil ) then
-		return
-	end
-
 	if( data.inv_types[ slot_info.kind ].ctrl_script ~= nil ) then
 		data.inv_types[ slot_info.kind ].ctrl_script( item_comp, data, slot_info, item_comp == data.active_item )
 	end
@@ -784,14 +798,16 @@ function get_item_data( item_id, data )
 	return slot_info
 end
 
-function get_inventory_data( hooman, data )
+function get_inventories( hooman, data )
 	local item_tbl = {}
-	local invy_kids = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
-	for i,invy_kid in ipairs( invy_kids ) do
-		child_play( invy_kid, function( parent, child, j )
+	for i,inv in ipairs( data.inventories ) do
+		child_play( inv, function( parent, child, j )
 			local new_item = get_item_data( child, data )
 			if( new_item ~= nil ) then
-				table.insert( item_tbl, new_item )
+				new_item.inv_slot = set_to_slot( new_item, data )
+				if( new_item.inv_slot ~= nil ) then
+					table.insert( item_tbl, new_item )
+				end
 			end
 		end)
 	end
@@ -880,16 +896,22 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 			end
 			if( data.dragger.item_id == id ) then
 				new_x, new_y, has_begun, clicked, r_clicked, hovered = new_dragger( data.the_gui, pic_x, pic_y )
-				
+				if( slot_memo[id] and not( has_begun )) then
+					data.dragger.swap_soon = true
+					table.insert( slot_anim, {
+						id = id,
+						x = data.dragger.x,
+						y = data.dragger.y,
+						frame = data.frame_num,
+					})
+				end
+
 				data.dragger.x = new_x
 				data.dragger.y = new_y
 				data.dragger.inv_type = info.inv_type
 				data.dragger.is_quickest = info.is_quickest
 				pic_x, pic_y = new_x, new_y
 
-				if( slot_memo[id] and not( has_begun )) then
-					data.dragger.swap_soon = true
-				end
 				slot_memo[id] = hovered and has_begun
 				slot_going = true
 			end
@@ -1205,11 +1227,40 @@ function slot_swap( item_in, slot_data )
 	end
 end
 
+function swap_anim( item_id, end_x, end_y, data )
+	local anim_info, anim_id = from_tbl_with_id( slot_anim, item_id )
+	if( anim_info ~= 0 and anim_info.id ~= nil ) then
+		local delta = data.frame_num - anim_info.frame
+		local stop_it = false
+		if( delta > 10 ) then
+			stop_it = true
+		elseif( delta > 1 ) then
+			delta = delta - 1
+			local k = 3.35
+			local v = k*math.sin( delta*math.pi/k )/( math.pi*delta )/delta
+			local d_x = v*( end_x - anim_info.x )
+			local d_y = v*( end_y - anim_info.y )
+			end_x, end_y = end_x - d_x, end_y - d_y
+		else
+			end_x, end_y = anim_info.x, anim_info.y
+		end
+		if( stop_it ) then
+			table.remove( slot_anim, anim_id )
+		end
+	end
+
+	return end_x, end_y
+end
+
 function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag )
 	kind_tbl = kind_tbl or {}
-	--add universal inventory type that allows any item to be put in no matter its inv_type
+	
+	--separate inv_item_check func
+	--get inv_id
+	--check if there's storage comp with check
+
 	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
-		colourer( data.the_gui, {220,220,220})
+		colourer( data.the_gui, {200,200,200})
 	end
 	local pic_bg, clicked, r_clicked, is_hovered = if_full and data.slot_pic.bg_alt or data.slot_pic.bg, false, false
 	local w, h = get_pic_dim( pic_bg )
@@ -1229,25 +1280,33 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	end
 	w, h = w - 1, h - 1
 	if( data.dragger.item_id > 0 ) then
-		if( data.dragger.swap_now ) then
-			if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then
-				if( from_tbl_with_id( get_valid_inventories( data.dragger.inv_type, data.dragger.is_quickest ), inv_type ) ~= 0 ) then
+		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then
+			if( from_tbl_with_id( get_valid_inventories( data.dragger.inv_type, data.dragger.is_quickest ), inv_type ) ~= 0 or inv_type == "universal" ) then --check shit here for in
+				if( data.dragger.swap_now ) then-- check shit here for out
 					--find the inv type item is in rn
 					--check to see if the item you swapping it with will fit
-
+					
 					--test swapping the currently equipped shit between different inventories and entities
 
+					if( info.id > 0 ) then
+						table.insert( slot_anim, {
+							id = info.id,
+							x = pic_x,
+							y = pic_y,
+							frame = data.frame_num,
+						})
+					end
 					slot_swap( data.dragger.item_id, slot_data )
 					data.dragger.item_id = -1
 				end
+				if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
+					uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.icons + 0.01, data.slot_pic.hl )
+				end
 			end
-		elseif( data.dragger.item_id ~= info.id ) then
-			-- hl
 		end
 	end
 	
 	--do throwing out
-	--do dragging anim via lerp
 	can_drag = true
 	if( info.id > 0 ) then
 		if( can_drag ) then
@@ -1257,9 +1316,11 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		else
 			--if can't drag draw the shit overtop
 		end
-	end
-	if( kind_tbl.on_slot ~= nil ) then
-		uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered and kind_tbl.on_tooltip or nil, inv_type == "full", is_active )
+
+		if( kind_tbl.on_slot ~= nil ) then
+			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
+			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered and kind_tbl.on_tooltip or nil, inv_type == "full", is_active )
+		end
 	end
 
 	return uid, data, w, h

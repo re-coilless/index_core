@@ -76,7 +76,7 @@ local ITEM_TYPES = {
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
             --do the tooltip
             local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/4, pic_y + h/4, zs.icons, this_info.pic, 1, 1, 1, false, math.rad( -45 ))
+            uid = new_image( gui, uid, pic_x - w/4, pic_y + h/4, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, 1, 1, false, math.rad( -45 ))
             return uid
         end,
         
@@ -147,14 +147,16 @@ local ITEM_TYPES = {
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
             
+            local z = slot_z( data, this_info.id, zs.icons )
+
             local ratio = math.min( content_total/cap_max, 1 )
             local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons - 0.002, this_info.pic, 1, 1, 0.8 - 0.5*ratio )
+            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.002, this_info.pic, 1, 1, 0.8 - 0.5*ratio )
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons - 0.001, this_info.pic )
+            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.001, this_info.pic )
             local scale = 1.1
             colourer( gui, {0,0,0})
-            uid = new_image( gui, uid, pic_x - scale*w/2, pic_y - scale*h/2, zs.icons, this_info.pic, scale, scale, 0.5 )
+            uid = new_image( gui, uid, pic_x - scale*w/2, pic_y - scale*h/2, z, this_info.pic, scale, scale, 0.5 )
 
             return uid
         end,
@@ -206,7 +208,7 @@ local ITEM_TYPES = {
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
             local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, zs.icons, this_info.pic )
+            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, slot_z( data, this_info.id, zs.icons ), this_info.pic )
             return uid
         end,
     },

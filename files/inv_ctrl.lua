@@ -6,6 +6,7 @@ tip_going = false
 tip_anim = tip_anim or {0,0,0}
 slot_going = slot_going or false
 slot_memo = slot_memo or {}
+slot_anim = slot_anim or {}
 mouse_memo = mouse_memo or {}
 mouse_memo_world = mouse_memo_world or {}
 mtr_probe = mtr_probe or 0
@@ -460,6 +461,10 @@ if( is_going and inv_comp ~= nil ) then
         }
     end
     
+    data.inventories = {
+        get_hooman_child( hooman, "inventory_quick" ),
+        get_hooman_child( hooman, "inventory_full" ),
+    }
     data.slot_state = {
         quickest = table_init( data.inv_count_quickest, false ),
         quick = table_init( data.inv_count_quick, false ),
@@ -469,7 +474,7 @@ if( is_going and inv_comp ~= nil ) then
         data.slot_state.full[i] = table_init( data.inv_count_full[2], false )
     end
     
-    data.inv_list = get_inventory_data( hooman, data )
+    data.inv_list = get_inventories( hooman, data )
     if( data.active_item > 0 ) then
         data.active_info = from_tbl_with_id( data.inv_list, data.active_item ) or {}
         if( data.active_info.id ~= nil ) then
@@ -486,7 +491,7 @@ if( is_going and inv_comp ~= nil ) then
             data.active_item = 0
         end
     end
-
+    
     --add and ability to refresh the spell list (on vanilla level) for real time editing
     --test actions materialized
     --all is_hidden shit goes to full_inventory
