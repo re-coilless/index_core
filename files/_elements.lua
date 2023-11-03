@@ -2,50 +2,39 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 
 function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
     local pic_x, pic_y = 0, 0
-
-    --clicking on item should switch to it
+    
+    --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv
+	--allow dragging only if full inv is opened
     local this_data = data.inv_list
     if( not( data.hide_on_empty ) or #this_data > 0 ) then
         if( data.is_opened ) then
             uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
         end
         pic_x, pic_y = 19, 20
-
-        local function call_em_all( slot, w, h, inv_type, inv_id, slot_num )
-            local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
-            local slot_data = {item.id,inv_id,slot_num}
-            local type_callbacks = data.inv_types[item.kind]
-            uid, data, w, h = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
-            if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
-                uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, data.is_opened, item.id == data.active_item )
-            end
-            
-            return w, h
-        end
         
         local w, h, step = 0, 0, 1
-
-        local inv_id = get_hooman_child( data.player_id, "inventory_quick" )
-        local inv_data = data.slot_state.quickest
+        
+        local inv_id = data.inventories_player[1]
+        local inv_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( inv_data ) do
-            w, h = call_em_all( slot, w, h, "quickest", inv_id, {i,0})
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,0}, data.is_opened )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
-
+        
         pic_x = pic_x + 2
-        inv_data = data.slot_state.quick
+        inv_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( inv_data ) do
-            w, h = call_em_all( slot, w, h, "quick", inv_id, {i,1})
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,1}, data.is_opened )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
         if( data.is_opened ) then
             pic_x = pic_x + 9
-            inv_id = get_hooman_child( data.player_id, "inventory_full" )
-            inv_data = data.slot_state.full
+            inv_id = data.inventories_player[2]
+            inv_data = data.slot_state[ inv_id ]
             for i,line in ipairs( inv_data ) do
                 for e,slot in ipairs( line ) do
-                    w, h = call_em_all( slot, w, h, "full", inv_id, {i,-e})
+                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,-e}, true )
                     pic_x, pic_y = pic_x + w + step, pic_y
                 end
             end
@@ -221,7 +210,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
                 colourer( gui, potion_data[3])
             end
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
-
+            
             local tip = ""
             if( potion_data[3] ~= nil ) then
                 local v1, v2 = get_potion_info( entity_id, this_data.name, value[2], value[1], this_data.matter_info[2][2])
@@ -610,4 +599,19 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
     end
 
     return uid, data, {pic_x,pic_y}
+end
+
+function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+    if( #data.inventories_extra > 0 ) then
+        for i,extra_inv in ipairs( data.inventories_extra ) do
+            local this_data = from_tbl_with_id( data.inventories, extra_inv )
+            
+            this_data.x, this_data.y = EntityGetTransform( extra_inv )
+            local pic_x, pic_y = world2gui( this_data.x, this_data.y )
+            
+            uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, slot_func )
+        end
+    end
+
+    return uid, data
 end

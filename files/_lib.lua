@@ -669,67 +669,97 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
-function set_to_slot( slot_info, data )
-	local inv_ids = get_valid_inventories( slot_info.inv_type, slot_info.is_quickest )
+function set_to_slot( slot_info, data, is_player )
+	if( is_player == nil ) then
+		is_player = EntityGetRootEntity( slot_info.id ) == data.player_id
+	end
 	
+	local valid_invs = get_valid_inventories( slot_info.inv_type, slot_info.is_quickest )
 	local slot_num = { ComponentGetValue2( slot_info.ItemC, "inventory_slot" )}
 	if( slot_num[1] ~= -1 or slot_num[2] ~= -1 ) then
 		if( slot_num[1] == -5 ) then
 			if( slot_info.is_hidden ) then
 				slot_num = {-1,-1}
 			else
-				for i,inv_id in ipairs( inv_ids ) do
-					for k,slot in ipairs( data.slot_state[inv_id]) do
-						if( type( slot ) ~= "table" ) then
-							if( not( slot )) then
-								data.slot_state[inv_id][k] = slot_info.id
-								slot_num = { k, inv_id == "quickest" and 0 or 1 }
-							end
-						else
-							for j,s in ipairs( slot ) do
+				local inv_list = { slot_info.inv_tbl.id }
+				if( is_player ) then
+					inv_list = data.inventories_player
+				end
+				for _,inv_id in ipairs( inv_list ) do
+					local inv_dt = from_tbl_with_id( data.inventories, inv_id )
+					if( inv_dt.kind[1] == "universal" or #from_tbl_with_id( valid_invs, inv_dt.kind ) > 0 ) then
+						for i,slot in pairs( data.slot_state[ inv_id ]) do
+							for k,s in ipairs( slot ) do
 								if( not( s )) then
-									data.slot_state[inv_id][k][j] = slot_info.id
-									slot_num = { k, -j }
-									break
+									local is_fancy = type( i ) == "string"
+									if( not( is_fancy and from_tbl_with_id( valid_invs, i ) == 0 )) then
+										data.slot_state[ inv_id ][i][k] = slot_info.id
+										if( is_fancy ) then
+											slot_num = { k, i == "quickest" and 0 or 1 }
+										else
+											slot_num = { i, -k }
+										end
+										break
+									end
 								end
 							end
-						end
-						if( slot_num[1] ~= -5 ) then
-							break
+							if( slot_num[1] ~= -5 ) then
+								break
+							end
 						end
 					end
+					if( slot_num[1] ~= -5 ) then
+						break
+					end
 				end
-				if( slot_info[1] == -5 ) then
-					return
+				if( slot_num[1] == -5 ) then
+					return slot_info
 				end
 			end
 			ComponentSetValue2( slot_info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
 		elseif( slot_num[2] == 0 ) then
-			data.slot_state.quickest[ slot_num[1]] = slot_info.id
+			data.slot_state[ slot_info.inv_tbl.id ].quickest[ slot_num[1]] = slot_info.id
+			slot_info.inv_tbl.kind = "quickest"
 		elseif( slot_num[2] == 1 ) then
-			data.slot_state.quick[ slot_num[1]] = slot_info.id
+			data.slot_state[ slot_info.inv_tbl.id ].quick[ slot_num[1]] = slot_info.id
+			slot_info.inv_tbl.kind = "quick"
 		elseif( slot_num[2] < 0 ) then
-			data.slot_state.full[ slot_num[1]][ math.abs( slot_num[2])] = slot_info.id
+			data.slot_state[ slot_info.inv_tbl.id ][ slot_num[1]][ math.abs( slot_num[2])] = slot_info.id
+			slot_info.inv_tbl.kind = slot_info.inv_tbl.kind[1]
 		end
 	end
-	
-	--if the parent is player - do the quickest/quick split
-	--default nameless inventory is UNIVERSAL
-	--default wand inventory is full with check on spell
-	--names only matter for the player inv, the rest must have varstorage not to be considered universal
-	--to register new inventories, add new table to _structure.lua that contains the funcs that return the id
 
-	--item should have inv_id attached and the particular inv_name (quickest, quick or full) too
-
-	return slot_num
+	slot_info.inv_slot = slot_num
+	return slot_info
 end
 
 function slot_z( data, id, z )
 	return data.dragger.item_id == id and z-2 or z
 end
 
-function get_item_data( item_id, data )
-	local slot_info = { id = item_id, }
+function magic_copy( orig, copies )
+    copies = copies or {}
+    local orig_type = type( orig )
+    local copy = {}
+    if( orig_type == "table" ) then
+        if( copies[orig] ) then
+            copy = copies[orig]
+        else
+            copy = {}
+            copies[orig] = copy
+            for orig_key, orig_value in next, orig, nil do
+                copy[ magic_copy(orig_key, copies)] = magic_copy( orig_value, copies )
+            end
+            setmetatable( copy, magic_copy( getmetatable( orig ), copies ))
+        end
+    else
+        copy = orig
+    end
+    return copy
+end
+
+function get_item_data( item_id, data, inventory_data )
+	local slot_info = { id = item_id, inv_tbl = magic_copy( inventory_data ), }
 
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	if( item_comp == nil ) then
@@ -753,7 +783,6 @@ function get_item_data( item_id, data )
 		local storage_inv = get_storage( item_id, "preferred_inventory" )
 		local inv_kind = storage_inv == nil and ComponentGetValue2( item_comp, "preferred_inventory" ) or ComponentGetValue2( storage_inv, "value_string" )
 		slot_info.inv_type = invs[inv_kind] or 0
-		slot_info.inv_id = EntityGetParent( item_id )
 		
 		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
 		if( ui_pic ~= "" ) then
@@ -767,13 +796,13 @@ function get_item_data( item_id, data )
 		slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 	end
 	
-	for k,kind in ipairs( data.inv_types ) do
+	for k,kind in ipairs( data.item_types ) do
 		if( kind.on_check( item_id, data, slot_info )) then
 			slot_info.kind = k
 			slot_info.is_quickest = kind.is_quickest or false
 			slot_info.is_hidden = kind.is_hidden or false
 			if( kind.on_data ~= nil ) then
-				slot_info = kind.on_data( item_id, data, slot_info )
+				data, slot_info = kind.on_data( item_id, data, slot_info )
 			end
 			break
 		end
@@ -782,7 +811,7 @@ function get_item_data( item_id, data )
 	if( slot_info.kind == nil ) then
 		return
 	elseif(( slot_info.name or "" ) == "" ) then
-		slot_info.name = data.inv_types[slot_info.kind].name
+		slot_info.name = data.item_types[slot_info.kind].name
 	end
 	slot_info.name = capitalizer( slot_info.name )
 	
@@ -791,27 +820,92 @@ function get_item_data( item_id, data )
 		ComponentSetValue2( item_comp, "inventory_slot", -5, 0 )
 		EntityAddTag( item_id, "index_processed" )
 	end
-	if( data.inv_types[ slot_info.kind ].ctrl_script ~= nil ) then
-		data.inv_types[ slot_info.kind ].ctrl_script( item_comp, data, slot_info, item_comp == data.active_item )
+	if( data.item_types[ slot_info.kind ].ctrl_script ~= nil ) then
+		data.item_types[ slot_info.kind ].ctrl_script( item_comp, data, slot_info, item_comp == data.active_item )
 	end
-
-	return slot_info
+	
+	return data, slot_info
 end
 
-function get_inventories( hooman, data )
+function get_items( hooman, data )
 	local item_tbl = {}
-	for i,inv in ipairs( data.inventories ) do
-		child_play( inv, function( parent, child, j )
-			local new_item = get_item_data( child, data )
+	for i,inv_data in ipairs( data.inventories ) do
+		child_play( inv_data.id, function( parent, child, j )
+			local new_item = nil
+			data, new_item = get_item_data( child, data, inv_data )
 			if( new_item ~= nil ) then
-				new_item.inv_slot = set_to_slot( new_item, data )
-				if( new_item.inv_slot ~= nil ) then
-					table.insert( item_tbl, new_item )
-				end
+				table.insert( item_tbl, new_item )
 			end
 		end)
 	end
-	return item_tbl
+
+	data.inv_list = item_tbl
+	return data
+end
+
+function D_extractor( data_raw, use_nums, div )
+	if( data_raw == nil ) then
+		return nil
+	end
+	use_nums = use_nums or false
+	
+	local data = {}
+	
+	for value in string.gmatch( data_raw, "([^"..( div or "|" ).."]+)" ) do
+		if( use_nums ) then
+			table.insert( data, tonumber( value ))
+		else
+			table.insert( data, value )
+		end
+	end
+	
+	return data
+end
+
+function D_packer( data, div )
+	if( data == nil ) then
+		return nil
+	end
+
+	div = div or "|"
+	local data_raw = div
+	
+	for i,value in ipairs( data ) do
+		data_raw = data_raw..value..div
+	end
+	
+	return data_raw
+end
+
+function get_inv_data( inv_id, slot_count, kind, check_func, gui_func )
+	kind = get_storage( inv_id, "index_kind" )
+	if( kind ~= nil ) then
+		kind = D_extractor( ComponentGetValue2( kind, "value_string" ))
+	end
+	local storage_size = get_storage( inv_id, "index_size" )
+	if( storage_size ~= nil ) then
+		slot_count = D_extractor( ComponentGetValue2( storage_size, "value_string" ), true )
+	end
+	local storage_gui = get_storage( inv_id, "index_gui" )
+	if( storage_gui ~= nil ) then
+		gui_func = dofile_once( ComponentGetValue2( storage_gui, "value_string" ))
+	end
+	local storage_check = get_storage( inv_id, "index_check" )
+	if( storage_check ~= nil ) then
+		check_func = dofile_once( ComponentGetValue2( storage_check, "value_string" ))
+	end
+
+	local inv_ts = {
+		inventory_full = { "full" },
+		inventory_quick = { "quick", slot_count[1] > 0 and "quickest" or nil },
+	}
+	return {
+		id = inv_id,
+		kind = kind or inv_ts[ EntityGetName( inv_id )] or { "universal" },
+		size = slot_count,
+		func = gui_func,
+		check = check_func,
+	}
 end
 
 function get_mouse_pos()
@@ -886,34 +980,63 @@ function check_slot_bounds( pointer, box )
 	return pointer[1]>=(box[1]-box[3]) and pointer[2]>=(box[2]-box[4]) and pointer[1]<=(box[1]+box[3]) and pointer[2]<=(box[2]+box[4])
 end
 
+function check_dragger_buffer( data, id )
+	if( data.frame_num - dragger_buffer[2] > 1 ) then
+		dragger_buffer = {0,0}
+	end
+	
+	local will_do = true
+	local will_force = false
+	local will_update = true
+	if( dragger_buffer[1] ~= 0 ) then
+		will_do = dragger_buffer[1] == id
+		will_update = will_do
+		if( will_do ) then
+			will_force = true
+		end
+	end
+	return will_do, will_force, will_update
+end
+
 function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 	local clicked, r_clicked, hovered = false, false, false
 	if( not( slot_going )) then
-		local new_x, new_y, has_begun = 0, 0, true
-		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,pic_w,pic_h}) or slot_memo[id]) then
-			if( data.dragger.item_id == 0 ) then
-				data.dragger.item_id = id
-			end
-			if( data.dragger.item_id == id ) then
-				new_x, new_y, has_begun, clicked, r_clicked, hovered = new_dragger( data.the_gui, pic_x, pic_y )
-				if( slot_memo[id] and not( has_begun )) then
-					data.dragger.swap_soon = true
-					table.insert( slot_anim, {
-						id = id,
-						x = data.dragger.x,
-						y = data.dragger.y,
-						frame = data.frame_num,
-					})
+		local will_do, will_force, will_update = check_dragger_buffer( data, id )
+		if( will_do ) then
+			local new_x, new_y, has_begun = 0, 0, true
+			if( will_force or check_slot_bounds( data.pointer_ui, {pic_x,pic_y,pic_w,pic_h}) or slot_memo[id]) then
+				if( dragger_buffer[1] == 0 ) then
+					dragger_buffer = { id, data.frame_num }
 				end
+				
+				if( data.dragger.item_id == 0 ) then
+					data.dragger.item_id = id
+				end
+				if( data.dragger.item_id == id ) then
+					new_x, new_y, has_begun, clicked, r_clicked, hovered = new_dragger( data.the_gui, pic_x, pic_y )
+					if( slot_memo[id] and not( has_begun )) then
+						data.dragger.swap_soon = true
+						table.insert( slot_anim, {
+							id = id,
+							x = data.dragger.x,
+							y = data.dragger.y,
+							frame = data.frame_num,
+						})
+					end
 
-				data.dragger.x = new_x
-				data.dragger.y = new_y
-				data.dragger.inv_type = info.inv_type
-				data.dragger.is_quickest = info.is_quickest
-				pic_x, pic_y = new_x, new_y
-
-				slot_memo[id] = hovered and has_begun
-				slot_going = true
+					data.dragger.x = new_x
+					data.dragger.y = new_y
+					data.dragger.inv_type = info.inv_type
+					data.dragger.inv_kind = info.inv_tbl.kind
+					data.dragger.is_quickest = info.is_quickest
+					pic_x, pic_y = new_x, new_y
+					
+					slot_memo[id] = hovered and has_begun
+					if( slot_memo[id]) then
+						dragger_buffer[2] = data.frame_num
+					end
+					slot_going = true
+				end
 			end
 		end
 	end
@@ -1116,6 +1239,17 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	return uid
 end
 
+function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, extra_scale, alpha, angle )
+	extra_scale = extra_scale or 1
+	--option to disable the shadow (force perma on potions)
+	local w, h = get_pic_dim( pic )
+	uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.002, pic, 1, 1, alpha, false, angle )
+	local scale_x, scale_y = 1/( extra_scale*w ) + 1, 1/( extra_scale*h ) + 1
+	colourer( gui, {0,0,0})
+	uid = new_image( gui, uid, pic_x - scale_x*w/2, pic_y - scale_y*h/2, z, pic, scale_x, scale_y, 0.25, false, angle )
+	return uid, w, h
+end
+
 function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	local pic_off_x, pic_off_y = 0, 0
 	if( kind == 2 ) then
@@ -1252,12 +1386,14 @@ function swap_anim( item_id, end_x, end_y, data )
 	return end_x, end_y
 end
 
+function inv_check( item_info, inv_type ) --inv_item_check func
+	return ( item_info.id or 0 ) < 0 or inv_type == "universal" or from_tbl_with_id( get_valid_inventories( item_info.inv_type, item_info.is_quickest ), inv_type ) ~= 0
+end
+
 function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag )
 	kind_tbl = kind_tbl or {}
 	
-	--separate inv_item_check func
-	--get inv_id
-	--check if there's storage comp with check
+	--add an ability to lock the item in slot
 
 	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
 		colourer( data.the_gui, {200,200,200})
@@ -1280,14 +1416,10 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	end
 	w, h = w - 1, h - 1
 	if( data.dragger.item_id > 0 ) then
-		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then
-			if( from_tbl_with_id( get_valid_inventories( data.dragger.inv_type, data.dragger.is_quickest ), inv_type ) ~= 0 or inv_type == "universal" ) then --check shit here for in
-				if( data.dragger.swap_now ) then-- check shit here for out
-					--find the inv type item is in rn
-					--check to see if the item you swapping it with will fit
-					
+		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then --transition to new inv data getting
+			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
+				if( data.dragger.swap_now ) then
 					--test swapping the currently equipped shit between different inventories and entities
-
 					if( info.id > 0 ) then
 						table.insert( slot_anim, {
 							id = info.id,
@@ -1310,11 +1442,11 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	can_drag = true
 	if( info.id > 0 ) then
 		if( can_drag ) then
-			if( not( data.dragger.swap_now ) and not( slot_going )) then
+			if( not( data.dragger.swap_now or slot_going )) then
 				data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
 			end
 		else
-			--if can't drag draw the shit overtop
+			--if can't drag draw the shit overtop if full inv is opened
 		end
 
 		if( kind_tbl.on_slot ~= nil ) then
@@ -1324,4 +1456,16 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	end
 
 	return uid, data, w, h
+end
+
+function slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, inv_type, inv_id, slot_num, is_full )
+	local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
+	local slot_data = { item.id, inv_id, slot_num }
+	local type_callbacks = data.item_types[item.kind]
+	uid, data, w, h = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
+	if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
+		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, is_full, item.id == data.active_item )
+	end
+	
+	return uid, w, h
 end

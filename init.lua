@@ -119,6 +119,8 @@ function OnPlayerSpawned( hooman )
 
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
+
+	EntityLoad( "mods/index_core/files/testing_chest.xml", x - 50, y - 20 )
 end
 
 function OnPlayerDied( hooman )

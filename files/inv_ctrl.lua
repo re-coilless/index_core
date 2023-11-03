@@ -4,6 +4,7 @@ ctrl_data = ctrl_data or {}
 dscrt_btn = dscrt_btn or {}
 tip_going = false
 tip_anim = tip_anim or {0,0,0}
+dragger_buffer = dragger_buffer or {0,0}
 slot_going = slot_going or false
 slot_memo = slot_memo or {}
 slot_anim = slot_anim or {}
@@ -20,6 +21,8 @@ else
 end
 
 local controller_id = GetUpdatedEntityID()
+local main_x, main_y = EntityGetTransform( controller_id )
+
 local hooman = EntityGetParent( controller_id )
 if( not( EntityGetIsAlive( hooman ))) then
     return
@@ -371,7 +374,7 @@ if( is_going and inv_comp ~= nil ) then
         icon_data = effect_tbl,
         perk_data = perk_tbl,
 
-        inv_types = item_types,
+        item_types = item_types,
         inv_list = {},
         inv_count_quickest = quickest_slot_count,
         inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
@@ -388,6 +391,7 @@ if( is_going and inv_comp ~= nil ) then
             swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
             item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
             inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
+            inv_kind = ComponentGetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string" ),
             is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
             x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
             y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
@@ -461,20 +465,21 @@ if( is_going and inv_comp ~= nil ) then
         }
     end
     
+    data.inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
     data.inventories = {
-        get_hooman_child( hooman, "inventory_quick" ),
-        get_hooman_child( hooman, "inventory_full" ),
+        get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }),
+        get_inv_data( data.inventories_player[2], data.inv_count_full ),
     }
-    data.slot_state = {
-        quickest = table_init( data.inv_count_quickest, false ),
-        quick = table_init( data.inv_count_quick, false ),
-        full = table_init( data.inv_count_full[1], false ),
-    }
-    for i,slot in ipairs( data.slot_state.full ) do
-        data.slot_state.full[i] = table_init( data.inv_count_full[2], false )
+    data.inventories_extra = {}
+    local more_invs = EntityGetWithTag( "index_inventory" ) or {}
+    if( #more_invs > 0 ) then
+        for k,i in ipairs( more_invs ) do
+            table.insert( data.inventories, get_inv_data( i ))
+            table.insert( data.inventories_extra, i )
+        end
     end
     
-    data.inv_list = get_inventories( hooman, data )
+    data = get_items( hooman, data )
     if( data.active_item > 0 ) then
         data.active_info = from_tbl_with_id( data.inv_list, data.active_item ) or {}
         if( data.active_info.id ~= nil ) then
@@ -492,7 +497,35 @@ if( is_going and inv_comp ~= nil ) then
         end
     end
     
-    --add and ability to refresh the spell list (on vanilla level) for real time editing
+    data.slot_state = {}
+    for i,inv_data in ipairs( data.inventories ) do
+        if( inv_data.kind[1] == "quick" ) then
+            data.slot_state[inv_data.id] = {
+                quickest = table_init( inv_data.size[1], false ),
+                quick = table_init( inv_data.size[2], false ),
+            }
+        else
+            data.slot_state[inv_data.id] = table_init( inv_data.size[1], false )
+            for i,slot in ipairs( data.slot_state[inv_data.id]) do
+                data.slot_state[inv_data.id][i] = table_init( inv_data.size[2], false )
+            end
+        end
+    end
+
+    local nuke_em = {}
+    for i,itm in ipairs( data.inv_list ) do
+        data.inv_list[i] = set_to_slot( itm, data )
+        if( itm.inv_slot == nil ) then
+            table.insert( nuke_em, i )
+        end
+    end
+    if( #nuke_em > 0 ) then
+        for i = #nuke_em,1,-1 do
+            table.remove( data.inv_list, nuke_em[i])
+        end
+    end
+    
+    --add an ability to refresh the spell list (on vanilla level) for real time editing
     --test actions materialized
     --all is_hidden shit goes to full_inventory
 
@@ -545,6 +578,10 @@ if( is_going and inv_comp ~= nil ) then
     if( icons.perks ~= nil ) then
         uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
     end
+
+    if( inv.extra ~= nil ) then
+        uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+    end
     
     GuiDestroy( fake_gui )
     if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
@@ -559,6 +596,7 @@ if( is_going and inv_comp ~= nil ) then
             ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", false )
             ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
             ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
+            ComponentSetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string", data.dragger.inv_kind or "universal" )
             ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
             ComponentSetValue2( get_storage( controller_id, "dragger_x" ), "value_float", data.dragger.x or 0 )
             ComponentSetValue2( get_storage( controller_id, "dragger_y" ), "value_float", data.dragger.y or 0 )

@@ -1,6 +1,10 @@
 dofile_once( "mods/index_core/files/_elements.lua" )
 
 local Z_LAYERS = {
+    in_world_back = 999,
+    in_world = 998,
+    in_world_front = 997,
+
     background = 2, --general background
 
     main_far_back = 1, --slot background
@@ -28,6 +32,10 @@ local ITEM_TYPES = {
         end,
         on_data = function( item_id, data, this_info )
             dofile_once( "data/scripts/gun/gun.lua" )
+
+            --add wand invs to data.inventories, add an ability to do custom code for this + check for is spell
+            --insert spells to item list
+            --wand slot count should be slot_count - always_casts
 
             this_info.wand_info = {
                 main = {
@@ -62,7 +70,7 @@ local ITEM_TYPES = {
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
                 },
             }
-            return this_info
+            return data, this_info
         end,
 
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand )
@@ -76,7 +84,7 @@ local ITEM_TYPES = {
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
             --do the tooltip
             local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/4, pic_y + h/4, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, 1, 1, false, math.rad( -45 ))
+            uid = new_slot_pic( gui, uid, pic_x + w/4, pic_y + 3*h/4 + 1, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, 1, math.rad( -45 ))
             return uid
         end,
         
@@ -104,7 +112,7 @@ local ITEM_TYPES = {
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             this_info.matter_info[1] = barrel_size == nil and this_info.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
 
-            return this_info
+            return data, this_info
         end,
         
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand )
@@ -150,14 +158,11 @@ local ITEM_TYPES = {
             local z = slot_z( data, this_info.id, zs.icons )
 
             local ratio = math.min( content_total/cap_max, 1 )
-            local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.002, this_info.pic, 1, 1, 0.8 - 0.5*ratio )
+            local w, h = 0, 0
+            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.75, 0.8 - 0.5*ratio )
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
             uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.001, this_info.pic )
-            local scale = 1.1
-            colourer( gui, {0,0,0})
-            uid = new_image( gui, uid, pic_x - scale*w/2, pic_y - scale*h/2, z, this_info.pic, scale, scale, 0.5 )
-
+            
             return uid
         end,
     },
@@ -172,7 +177,7 @@ local ITEM_TYPES = {
             this_info.ActionC = action_comp
             this_info.spell_id = ComponentGetValue2( action_comp, "action_id" )
             
-            return this_info
+            return data, this_info
         end,
         
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
@@ -207,8 +212,7 @@ local ITEM_TYPES = {
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
-            local w, h = get_pic_dim( this_info.pic )
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, slot_z( data, this_info.id, zs.icons ), this_info.pic )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic )
             return uid
         end,
     },
@@ -240,6 +244,7 @@ local GUI_STRUCT = {
         perks = new_generic_perks,
     },
     
+    extra = new_generic_extra,
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }
 

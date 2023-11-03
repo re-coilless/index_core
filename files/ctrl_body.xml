@@ -48,6 +48,10 @@
 		value_float="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
+		name="dragger_inv_kind"
+		value_string="universal"
+	></VariableStorageComponent>
+	<VariableStorageComponent
 		name="dragger_is_quickest"
 		value_bool="0"
 	></VariableStorageComponent>
