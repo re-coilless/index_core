@@ -142,4 +142,9 @@
 		name="max_perk_count"
 		value_int="5"
 	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="in_world_pickups"
+		value_bool="0"
+	></VariableStorageComponent>
 </Entity>

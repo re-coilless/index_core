@@ -3,7 +3,7 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
     local pic_x, pic_y = 0, 0
     
-    --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv
+    --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv (if less, do less)
 	--allow dragging only if full inv is opened
     local this_data = data.inv_list
     if( not( data.hide_on_empty ) or #this_data > 0 ) then
@@ -213,8 +213,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local tip = ""
             if( potion_data[3] ~= nil ) then
-                local v1, v2 = get_potion_info( entity_id, this_data.name, value[2], value[1], this_data.matter_info[2][2])
-                tip = v1.."@"..v2
+                tip = this_data.name.."@"..this_data.potion_fullness
             else
                 tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
             end
@@ -599,6 +598,202 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
     end
 
     return uid, data, {pic_x,pic_y}
+end
+
+function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_func )
+    local this_data = data.ItemPickUpper
+    if( #this_data > 0 ) then
+        local x, y = EntityGetTransform( data.player_id )
+        local entities = EntityGetInRadius( x, y, 200 ) or {}
+        if( #entities > 0 ) then
+            local stuff_to_figure = table_init( #data.item_types + 1, {})
+            local interactables = {}
+            for i,ent in ipairs( entities ) do
+                local action_comp = EntityGetFirstComponent( ent, "InteractableComponent" )
+                if( action_comp ~= nil ) then
+                    local b_x, b_y = EntityGetTransform( ent )
+                    local dist = math.sqrt(( x - b_x )^2 + ( y - b_y )^2 )
+
+                    local button_data = {
+                        ent,
+                        
+                        ComponentGetValue2( action_comp, "radius" ),
+                        GameTextGetTranslatedOrNot( ComponentGetValue2( action_comp, "name" )),
+                        GameTextGetTranslatedOrNot( ComponentGetValue2( action_comp, "ui_text" )),
+
+                        dist,
+                    }
+
+                    if( button_data[2] == 0 ) then
+                        local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
+                        button_data[2] = check_bounds({x,y}, {b_x, b_y}, box_comp )
+                    else
+                        button_data[2] = dist <= button_data[2]
+                    end
+                    if( button_data[2]) then
+                        table.insert( interactables, button_data )
+                    end
+                elseif( EntityGetRootEntity( ent ) == ent ) then
+                    local item_comp = EntityGetFirstComponent( ent, "ItemComponent" )
+                    if( item_comp ~= nil ) then
+                        local i_x, i_y = EntityGetTransform( ent )
+                        local dist = math.sqrt(( x - i_x )^2 + ( y - i_y )^2 )
+
+                        local item_data = {
+                            { ent, item_comp, },
+
+                            ComponentGetValue2( item_comp, "is_pickable" ) or this_data[2],
+                            ComponentGetValue2( item_comp, "item_pickup_radius" ),
+                            ComponentGetValue2( item_comp, "next_frame_pickable" ),
+                            ComponentGetValue2( item_comp, "auto_pickup" ),
+
+                            ComponentGetValue2( item_comp, "play_pick_sound" ),
+                            ComponentGetValue2( item_comp, "ui_display_description_on_pick_up_hint" ),
+                            ComponentGetValue2( item_comp, "custom_pickup_string" ) or "",
+                            
+                            dist,
+                        }
+
+                        if( item_data[2]) then
+                            if( item_data[3] == 0 ) then
+                                local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
+                                item_data[3] = check_bounds({x,y}, {i_x,i_y}, box_comp )
+                            else
+                                item_data[3] = dist <= item_data[3]
+                            end
+                            if( item_data[3] and item_data[4] <= data.frame_num ) then
+                                if( this_data[3] == 0 or ent == this_data[3]) then
+                                    local item_kind = {}
+                                    data, item_kind = get_item_data( ent, data )
+                                    table.insert( item_data, item_kind )
+                                    if( item_kind ~= nil ) then
+                                        if( item_data[5]) then
+                                            item_kind = 1
+                                        else
+                                            item_kind = item_kind.kind + 1
+                                        end
+                                    else
+                                        item_kind = 0
+                                    end
+                                    if( item_kind > 0 ) then
+                                        table.insert( stuff_to_figure[item_kind], item_data )
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            local pickup_info = {
+                id = 0,
+                desc = "",
+            }
+            local button_time, no_space, cant_buy, got_info = true, false, false, false
+            for i,tbl in ipairs( stuff_to_figure ) do
+                table.sort( tbl, function( a, b )
+                    return a[9] < b[9]
+                end)
+                if( #tbl > 0 ) then
+                    for k,item_data in ipairs( tbl ) do
+                        local cost_check, is_shop = true, false
+                        local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
+                        if( cost_comp ~= nil ) then
+                            is_shop = true
+                            local cost = ComponentGetValue2( cost_comp, "cost" )
+                            if( data.Wallet[2] or ( cost <= data.Wallet[3])) then
+                                item_data[10].cost = cost
+                            else
+                                cost_check = false
+                            end
+                        end
+
+                        local info_dump = false
+                        if( cost_check ) then
+                            ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
+                            local new_data = (( i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true )) --don't check how full is inv if on_gui_pause is not nil
+                            if( new_data.inv_slot ~= nil ) then
+                                if( i > 1 ) then
+                                    pickup_info.id = item_data[1][1]
+                                    pickup_info.desc = GameTextGet( item_data[8] == "" and ( is_shop and "$itempickup_purchase" or "$itempickup_pick" ) or item_data[8], "[USE]", item_data[10].name..( item_data[10].potion_fullness or "" ))
+                                    pickup_info.txt = "[GET]"
+                                    pickup_info.info = item_data[10]
+                                    pickup_info.do_sound = item_data[6]
+                                    if( item_data[7]) then
+                                        pickup_info.desc = { pickup_info.desc, item_data[10].desc }
+                                    end
+
+                                    if( i > 1 ) then
+                                        button_time = false
+                                        break
+                                    end
+                                else
+                                    pick_up_item( data.player_id, data, item_data[10], item_data[6])
+                                end
+                            elseif( not( got_info )) then
+                                no_space = true
+                                info_dump = true
+                            end
+                        elseif( not( got_info )) then
+                            cant_buy = true
+                            info_dump = true
+                        end
+                        if( info_dump ) then
+                            got_info = true
+                            pickup_info.id = item_data[1][1]
+                            pickup_info.name = item_data[10].name
+                            pickup_info.info = item_data[10]
+                        end
+                    end
+                    if( not( button_time )) then
+                        break
+                    end
+                end
+            end
+
+            if( pickup_info.txt == nil and ( no_space or cant_buy )) then
+                if( #interactables > 0 ) then
+                    pickup_info.id = 0
+                else
+                    pickup_info.id = -pickup_info.id
+                    pickup_info.desc = { GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_info.name ), true }
+                end
+            end
+            if( pickup_info.id ~= 0 ) then
+                if( data.item_types[ pickup_info.info.kind ].on_gui_world ~= nil ) then
+                    local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
+                    local pic_x, pic_y = world2gui( i_x, i_y )
+                    uid = data.item_types[ pickup_info.info.kind ].on_gui_world( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
+                end
+                
+                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
+                if( pickup_info.id > 0 and not( no_space ) and not( cant_buy ) and data.Controls[3]) then
+                    data.Controls[3] = false
+                    pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
+                    ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
+                end
+            end
+
+            local special_buttons = {} --search for the 19a buttons
+            if( button_time ) then
+                if( #interactables > 0 and #special_buttons == 0 ) then
+                    table.sort( interactables, function( a, b )
+                        return a[5] < b[5]
+                    end)
+                    uid = info_func( gui, uid, screen_h, screen_w, data, {
+                        id = interactables[1][1],
+                        desc = { capitalizer( interactables[1][3]), string.gsub( interactables[1][4], "$0", "[USE]" )},
+                        txt = "[USE]",
+                    }, zs, xyz )
+                    --allow for custom code injection for info and trigger (supress the toggle event if is false)
+                end
+            else
+                --supress all the 19a buttons 
+            end
+        end
+    end
+
+    return uid, data
 end
 
 function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )

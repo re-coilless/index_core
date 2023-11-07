@@ -451,7 +451,7 @@ end
 
 function get_potion_info( entity_id, name, max_count, total_count, matters )
 	local info = ""
-
+	
 	local cnt = 1
 	for i,mtr in ipairs( matters ) do
 		if( i == 1 or mtr[2] > 5 ) then
@@ -580,8 +580,7 @@ function get_short_num( num, negative_inf )
 end
 
 function capitalizer( text )
-	text = tostring( text )
-	return string.upper( string.sub( text, 1, 1 ))..string.sub( text, 2 )
+	return string.gsub( string.gsub( tostring( text ), "%s%l", string.upper ), "^%l", string.upper )
 end
 
 function hud_text_fix( key )
@@ -669,6 +668,89 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
+function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
+	if(( pickup_info.desc or "" ) ~= "" ) then
+		if( type( pickup_info.desc ) ~= "table" ) then
+			pickup_info.desc = { pickup_info.desc, false }
+		end
+		if( pickup_info.desc[1] ~= "" ) then
+			local w, h = get_text_dim( pickup_info.desc[1])
+			if( pickup_info.desc[2] == true ) then colourer( gui, {206,61,61}) end
+			new_shadow_text( gui, ( screen_w - w )/2, screen_h - 40, zs.main_front, pickup_info.desc[1])
+			if( type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= "" ) then
+				w, h = get_text_dim( pickup_info.desc[2])
+				new_text( gui, ( screen_w - w )/2, screen_h - 28, zs.main_front, pickup_info.desc[2], {127,127,127})
+			end
+		end
+	end
+	if( pickup_info.id > 0 and data.in_world_pickups ) then --add option to force in-world
+		if(( pickup_info.txt or "" ) ~= "" ) then
+			local x, y = EntityGetTransform( pickup_info.id )
+			local pic_x, pic_y = world2gui( x, y )
+			local w, h = get_text_dim( pickup_info.txt )
+			colourer( gui, {200,200,200})
+			new_shadow_text( gui, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front - 0.05, pickup_info.txt )
+		end
+	end
+
+	return uid
+end
+
+function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
+	local entity_id = this_data.id
+	
+	this_data.name = GameTextGetTranslatedOrNot( ComponentGetValue2( this_data.ItemC, "item_name" ))
+	if( not( is_silent or false )) then
+		GamePrint( GameTextGet( "$log_pickedup", this_data.name ))
+		if( do_the_sound ) then
+			--sound or money
+		end
+	end
+
+	local gonna_pause = 0
+	local callback = data.item_types[ this_data.kind ].on_pickup
+	if( callback ~= nil ) then
+		gonna_pause = callback( entity_id, data, this_data, false )
+	end
+	if( gonna_pause == 0 ) then
+		local _,slot = ComponentGetValue2( this_data.ItemC, "inventory_slot" )
+		EntityAddChild( data.inventories_player[ slot < 0 and 2 or 1 ], entity_id )
+		ComponentSetValue2( this_data.ItemC, "has_been_picked_by_player", true )
+		ComponentSetValue2( this_data.ItemC, "mFramePickedUp", data.frame_num )
+
+		if( this_data.cost ~= nil ) then
+			if( not( data.Wallet[2])) then
+				data.Wallet[3] = data.Wallet[3] - this_data.cost
+				ComponentSetValue2( data.Wallet[1], "money", data.Wallet[3])
+			end
+
+			local comps = EntityGetComponentIncludingDisabled( entity_id, "SpriteComponent", "shop_cost" ) or {}
+			if( #comps > 0 ) then
+				for i,comp in ipairs( comps ) do
+					EntityRemoveComponent( entity_id, comp )
+				end
+			end
+		end
+
+		comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
+		if( #comps > 0 ) then
+			for i,comp in ipairs( comps ) do
+				local path = ComponentGetValue2( comp, "script_item_picked_up" ) or ""
+				if( path ~= "" ) then
+					dofile( path )
+					item_pickup( entity_id, hooman, this_data.name )
+				end
+			end
+		end
+
+		if( callback ~= nil ) then
+			callback( entity_id, data, this_data, true )
+		end
+	elseif( gonna_pause == 1 ) then
+		--engage the pause
+	end
+end
+
 function set_to_slot( slot_info, data, is_player )
 	if( is_player == nil ) then
 		is_player = EntityGetRootEntity( slot_info.id ) == data.player_id
@@ -681,9 +763,11 @@ function set_to_slot( slot_info, data, is_player )
 			if( slot_info.is_hidden ) then
 				slot_num = {-1,-1}
 			else
-				local inv_list = { slot_info.inv_tbl.id }
+				local inv_list = nil
 				if( is_player ) then
 					inv_list = data.inventories_player
+				else
+					inv_list = { slot_info.inv_tbl.id }
 				end
 				for _,inv_id in ipairs( inv_list ) do
 					local inv_dt = from_tbl_with_id( data.inventories, inv_id )
@@ -728,7 +812,7 @@ function set_to_slot( slot_info, data, is_player )
 			slot_info.inv_tbl.kind = slot_info.inv_tbl.kind[1]
 		end
 	end
-
+	
 	slot_info.inv_slot = slot_num
 	return slot_info
 end
@@ -748,7 +832,7 @@ function magic_copy( orig, copies )
             copy = {}
             copies[orig] = copy
             for orig_key, orig_value in next, orig, nil do
-                copy[ magic_copy(orig_key, copies)] = magic_copy( orig_value, copies )
+                copy[ magic_copy( orig_key, copies )] = magic_copy( orig_value, copies )
             end
             setmetatable( copy, magic_copy( getmetatable( orig ), copies ))
         end
@@ -760,7 +844,7 @@ end
 
 function get_item_data( item_id, data, inventory_data )
 	local slot_info = { id = item_id, inv_tbl = magic_copy( inventory_data ), }
-
+	
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	if( item_comp == nil ) then
 		return
@@ -801,9 +885,6 @@ function get_item_data( item_id, data, inventory_data )
 			slot_info.kind = k
 			slot_info.is_quickest = kind.is_quickest or false
 			slot_info.is_hidden = kind.is_hidden or false
-			if( kind.on_data ~= nil ) then
-				data, slot_info = kind.on_data( item_id, data, slot_info )
-			end
 			break
 		end
 	end
@@ -814,14 +895,9 @@ function get_item_data( item_id, data, inventory_data )
 		slot_info.name = data.item_types[slot_info.kind].name
 	end
 	slot_info.name = capitalizer( slot_info.name )
-	
-	if( not( EntityHasTag( item_id, "index_processed" ))) then
-		--obliterate hardcoded tags (add them back on unparent)
-		ComponentSetValue2( item_comp, "inventory_slot", -5, 0 )
-		EntityAddTag( item_id, "index_processed" )
-	end
-	if( data.item_types[ slot_info.kind ].ctrl_script ~= nil ) then
-		data.item_types[ slot_info.kind ].ctrl_script( item_comp, data, slot_info, item_comp == data.active_item )
+
+	if( data.item_types[ slot_info.kind ].on_data ~= nil ) then
+		data, slot_info = data.item_types[ slot_info.kind ].on_data( item_id, data, slot_info )
 	end
 	
 	return data, slot_info
@@ -834,6 +910,15 @@ function get_items( hooman, data )
 			local new_item = nil
 			data, new_item = get_item_data( child, data, inv_data )
 			if( new_item ~= nil ) then
+				if( not( EntityHasTag( new_item.id, "index_processed" ))) then
+					--on_processed
+
+					ComponentSetValue2( new_item.ItemC, "inventory_slot", -5, -5 )
+					EntityAddTag( new_item.id, "index_processed" )
+				end
+				if( data.item_types[ new_item.kind ].ctrl_script ~= nil ) then
+					data.item_types[ new_item.kind ].ctrl_script( new_item.ItemC, data, new_item, new_item.ItemC == data.active_item )
+				end
 				table.insert( item_tbl, new_item )
 			end
 		end)
@@ -934,7 +1019,7 @@ function new_text( gui, pic_x, pic_y, pic_z, text, colours, alpha )
 end
 
 function new_shadow_text( gui, pic_x, pic_y, pic_z, text, alpha )
-	new_text( gui, pic_x, pic_y, pic_z - 0.01, text, { 255, 255, 255 }, alpha )
+	new_text( gui, pic_x, pic_y, pic_z - 0.01, text, nil, alpha )
 	new_text( gui, pic_x, pic_y + 1, pic_z, text, { 0, 0, 0 }, alpha )
 end
 
@@ -976,8 +1061,22 @@ function new_dragger( gui, pic_x, pic_y ) --you need to uid them manually
 	return pic_x, pic_y, is_going, clicked, r_clicked, hovered
 end
 
-function check_slot_bounds( pointer, box )
-	return pointer[1]>=(box[1]-box[3]) and pointer[2]>=(box[2]-box[4]) and pointer[1]<=(box[1]+box[3]) and pointer[2]<=(box[2]+box[4])
+function check_bounds( dot, pos, box )
+	if( box == nil ) then
+		return false
+	end
+	
+	if( type( box ) ~= "table" ) then
+		local off_x, off_y = ComponentGetValue2( box, "offset" )
+		pos = { pos[1] + off_x, pos[2] + off_y }
+		box = {
+			ComponentGetValue2( box, "aabb_min_x" ),
+			ComponentGetValue2( box, "aabb_max_x" ),
+			ComponentGetValue2( box, "aabb_min_y" ),
+			ComponentGetValue2( box, "aabb_max_y" ),
+		}
+	end
+	return dot[1]>=(pos[1]+box[1]) and dot[2]>=(pos[2]+box[3]) and dot[1]<=(pos[1]+box[2]) and dot[2]<=(pos[2]+box[4])
 end
 
 function check_dragger_buffer( data, id )
@@ -1004,7 +1103,7 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 		local will_do, will_force, will_update = check_dragger_buffer( data, id )
 		if( will_do ) then
 			local new_x, new_y, has_begun = 0, 0, true
-			if( will_force or check_slot_bounds( data.pointer_ui, {pic_x,pic_y,pic_w,pic_h}) or slot_memo[id]) then
+			if( will_force or check_bounds( data.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h}) or slot_memo[id]) then
 				if( dragger_buffer[1] == 0 ) then
 					dragger_buffer = { id, data.frame_num }
 				end
@@ -1396,9 +1495,9 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	--add an ability to lock the item in slot
 
 	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
-		colourer( data.the_gui, {200,200,200})
+		colourer( data.the_gui, {150,150,150})
 	end
-	local pic_bg, clicked, r_clicked, is_hovered = if_full and data.slot_pic.bg_alt or data.slot_pic.bg, false, false
+	local pic_bg, clicked, r_clicked, is_hovered = if_full and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
 	local w, h = get_pic_dim( pic_bg )
 	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
 	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
@@ -1416,10 +1515,10 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	end
 	w, h = w - 1, h - 1
 	if( data.dragger.item_id > 0 ) then
-		if( check_slot_bounds( data.pointer_ui, {pic_x,pic_y,w/2,h/2})) then --transition to new inv data getting
+		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then --transition to new inv data getting
 			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
 				if( data.dragger.swap_now ) then
-					--test swapping the currently equipped shit between different inventories and entities
+					--unequip the currenly active item on the swap of it
 					if( info.id > 0 ) then
 						table.insert( slot_anim, {
 							id = info.id,
@@ -1446,7 +1545,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 				data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
 			end
 		else
-			--if can't drag draw the shit overtop if full inv is opened
+			--if can't drag, draw the shit overtop if full inv is opened
 		end
 
 		if( kind_tbl.on_slot ~= nil ) then
@@ -1455,16 +1554,18 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		end
 	end
 
-	return uid, data, w, h
+	return uid, data, w, h, clicked, r_clicked, is_hovered
 end
 
 function slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, inv_type, inv_id, slot_num, is_full )
 	local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
 	local slot_data = { item.id, inv_id, slot_num }
 	local type_callbacks = data.item_types[item.kind]
-	uid, data, w, h = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
+
+	local clicked, r_clicked, is_hovered = false, false, false
+	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
 	if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
-		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, is_full, item.id == data.active_item )
+		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, is_full, item.id == data.active_item, is_hovered )
 	end
 	
 	return uid, w, h

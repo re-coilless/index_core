@@ -33,7 +33,7 @@ local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGui
 local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
 local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
 
-local comp_nuker = { iui_comp,  }--pick_comp
+local comp_nuker = { iui_comp, pick_comp, }
 for i,comp in ipairs( comp_nuker ) do
     if( comp ~= nil and ComponentGetIsEnabled( comp )) then
         EntitySetComponentIsEnabled( hooman, comp, false )
@@ -369,7 +369,7 @@ if( is_going and inv_comp ~= nil ) then
         active_item = get_active_wand( hooman ),
         active_info = {},
         just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
-        no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" )) == hooman,
+        no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
         
         icon_data = effect_tbl,
         perk_data = perk_tbl,
@@ -413,12 +413,14 @@ if( is_going and inv_comp ~= nil ) then
         info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
         min_effect_time = epsilon,
         max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
+        in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
 
         Controls = {},
         DamageModel = {},
         CharacterData = {},
         CharacterPlatforming = {},
         Wallet = {},
+        ItemPickUpper = {},
     }
 
     if( ctrl_comp ~= nil ) then
@@ -462,6 +464,14 @@ if( is_going and inv_comp ~= nil ) then
             
             ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
             ComponentGetValue2( wallet_comp, "money" ),
+        }
+    end
+    if( pick_comp ~= nil ) then
+        data.ItemPickUpper = {
+            pick_comp,
+
+            ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
+            ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
         }
     end
     
@@ -525,10 +535,10 @@ if( is_going and inv_comp ~= nil ) then
         end
     end
     
-    --add an ability to refresh the spell list (on vanilla level) for real time editing
+    --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
+    --allow code injection to make custom spell funcs during runtime
     --test actions materialized
-    --all is_hidden shit goes to full_inventory
-
+    
     if( inv.full_inv ~= nil ) then
         uid, data, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
     end
@@ -579,6 +589,9 @@ if( is_going and inv_comp ~= nil ) then
         uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
     end
 
+    if( inv.pickup ~= nil ) then
+        uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
+    end
     if( inv.extra ~= nil ) then
         uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
     end

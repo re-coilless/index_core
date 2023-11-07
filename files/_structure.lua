@@ -26,6 +26,7 @@ local ITEM_TYPES = {
         name = GameTextGetTranslatedOrNot( "$item_wand" ),
         is_quickest = true,
         is_hidden = false,
+        paused_pickup = true,
 
         on_check = function( item_id, data, this_info )
             return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
@@ -82,15 +83,30 @@ local ITEM_TYPES = {
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
-            --do the tooltip
+            --do the tooltip (hov_func is the one)
             local w, h = get_pic_dim( this_info.pic )
             uid = new_slot_pic( gui, uid, pic_x + w/4, pic_y + 3*h/4 + 1, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, 1, math.rad( -45 ))
             return uid
         end,
         
-        on_pickup = function( item_id, data, this_info ) --get_that_bread if nil
+        on_pickup = function( gui, uid, item_id, data, this_info, zs, is_post )
+            local func_tbl = {
+                function( item_id, data, this_info )
+                    --return 1 to pause, -1 to abort, 0 to pickup
+                    return 0
+                end,
+                function( item_id, data, this_info )
+                end,
+            }
+            return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
-        ctrl_script = function( item_id, data, this_info, in_hand ) --inventory_man if nil
+        on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
+            return uid
+        end,
+        on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
+            return uid --return false to continue the pause, nil to cancel, true to pickup
+        end,
+        ctrl_script = function( item_id, data, this_info, in_hand ) --inventory_man if nil (set enabled + teleport to inv owner xy)
             --this is being executed constantly
         end,
     },
@@ -111,11 +127,13 @@ local ITEM_TYPES = {
 
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             this_info.matter_info[1] = barrel_size == nil and this_info.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
+            
+            this_info.name, this_info.potion_fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
 
             return data, this_info
         end,
         
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand )
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand, is_hovered )
             local w, h = get_pic_dim( data.slot_pic.bg )
             pic_x, pic_y = pic_x + w/2, pic_y + h/2
 
@@ -137,12 +155,13 @@ local ITEM_TYPES = {
             if(( 16 - size ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
                 uid = new_image( gui, uid, pic_x, pic_y - 0.5, zs.main + 0.001, data.pixel, w, 0.5 )
             end
+            local alpha = is_hovered and 0.75 or 0.9
             local delta = 0
             for i,m in ipairs( content_tbl ) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
                 colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
                 if( i == #content_tbl ) then sz = math.max( size - delta, 0 ) end
-                uid = new_image( gui, uid, pic_x, pic_y + delta, zs.main + 0.001, data.pixel, w, sz, 0.9 )
+                uid = new_image( gui, uid, pic_x, pic_y + delta, zs.main + 0.001, data.pixel, w, sz, alpha )
                 delta = delta + sz
             end
 
@@ -244,6 +263,8 @@ local GUI_STRUCT = {
         perks = new_generic_perks,
     },
     
+    pickup_info = new_pickup_info,
+    pickup = new_generic_pickup,
     extra = new_generic_extra,
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }

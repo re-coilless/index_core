@@ -36,13 +36,49 @@ function OnModInit()
 
 	local gun_file = "data/scripts/gun/gun.lua"
 	file = ModTextFileGetContent( gun_file )
-	file = string.gsub( file, "action effect reflection stuff", "action effect reflection stuff\n_OnNotEnoughManaForAction = OnNotEnoughManaForAction\nfunction OnNotEnoughManaForAction() _OnNotEnoughManaForAction(); GlobalsSetValue( \"INDEX_FUCKYOUMANA\", tostring( GetUpdatedEntityID())); end" )
+	file = string.gsub( file, "action effect reflection stuff", "action effect reflection stuff\n_OnNotEnoughManaForAction = OnNotEnoughManaForAction\nfunction OnNotEnoughManaForAction() _OnNotEnoughManaForAction(); GlobalsSetValue( \"INDEX_FUCKYOURMANA\", tostring( GetUpdatedEntityID())); end" )
 	ModTextFileSetContent( gun_file, file )
 	
 	local fungal_file = "data/scripts/magic/fungal_shift.lua"
 	file = ModTextFileGetContent( fungal_file )
 	file = string.gsub( file, "print%(CellFactory_GetUIName%(from_material%) %.%. \" %-> \" %.%. CellFactory_GetUIName%(to_material%)%)", "dofile_once( \"mods/index_core/files/_lib.lua\" )\nGlobalsSetValue( \"fungal_memo\", GlobalsGetValue( \"fungal_memo\", \"\" )..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( from_material )))..\"->\"..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( to_material )))..\"; \" )" )
 	ModTextFileSetContent( fungal_file, file )
+
+	local slotless_file = "data/entities/items/pickup/"
+	local slotless_scum = {
+		slotless_file.."cape",
+		slotless_file.."perk",
+		slotless_file.."perk_reroll",
+		slotless_file.."goldnugget",
+		slotless_file.."goldnugget_10",
+		slotless_file.."goldnugget_50",
+		slotless_file.."goldnugget_200",
+		slotless_file.."goldnugget_1000",
+		slotless_file.."goldnugget_10000",
+		slotless_file.."goldnugget_200000",
+		slotless_file.."essence_air",
+		slotless_file.."essence_alcohol",
+		slotless_file.."essence_fire",
+		slotless_file.."essence_laser",
+		slotless_file.."essence_water",
+		slotless_file.."heart",
+		slotless_file.."heart_better",
+		slotless_file.."heart_evil",
+		slotless_file.."heart_fullhp",
+		slotless_file.."spell_refresh",
+		slotless_file.."chest_leggy",
+		slotless_file.."chest_random",
+		slotless_file.."chest_random_super",
+		slotless_file.."greed_curse",
+		"data/entities/animals/boss_centipede/rewards/gold_reward",
+		"data/entities/items/orbs/orb_base",
+	}
+	local nxml = dofile_once( "mods/index_core/nxml.lua" )
+	for i,item in ipairs( slotless_scum ) do
+		local xml = nxml.parse( ModTextFileGetContent( item..".xml" ))
+		xml.attr.tags = xml.attr.tags..",index_slotless"
+		ModTextFileSetContent( item..".xml", tostring( xml ))
+	end
 end
 
 -- function OnPausePreUpdate()
@@ -57,13 +93,13 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd
+--DO NOT forget to write special thanks to dextercd + thanks for nxml
 
 function OnWorldPreUpdate()
 	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0
 	if( hooman > 0 ) then
 		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-		if( iui_comp ~= nil and ComponentGetIsEnabled( iui_comp )) then
+		if( iui_comp ~= nil ) then
 			EntitySetComponentIsEnabled( hooman, iui_comp, false )
 		end
 	end
@@ -93,14 +129,12 @@ function OnWorldPostUpdate()
 	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0
 	if( hooman > 0 ) then
 		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-		if( iui_comp ~= nil and ComponentGetIsEnabled( iui_comp )) then
+		if( iui_comp ~= nil ) then
 			EntitySetComponentIsEnabled( hooman, iui_comp, false )
 		end
 	end
-
-	if( GlobalsGetValue( "INDEX_FUCKYOUMANA", "0" ) ~= "0" ) then
-		GlobalsSetValue( "INDEX_FUCKYOUMANA", "0" )
-	end
+	
+	GlobalsSetValue( "INDEX_FUCKYOURMANA", "0" )
 end
 
 function OnPlayerSpawned( hooman ) 
@@ -119,7 +153,7 @@ function OnPlayerSpawned( hooman )
 
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
-
+	
 	EntityLoad( "mods/index_core/files/testing_chest.xml", x - 50, y - 20 )
 end
 
