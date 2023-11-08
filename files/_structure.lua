@@ -33,10 +33,11 @@ local ITEM_TYPES = {
         end,
         on_data = function( item_id, data, this_info )
             dofile_once( "data/scripts/gun/gun.lua" )
-
+            
             --add wand invs to data.inventories, add an ability to do custom code for this + check for is spell
             --insert spells to item list
             --wand slot count should be slot_count - always_casts
+            --charges to upper left + marker if the wand can't fire (is empty, not enough mana) for bottom right
 
             this_info.wand_info = {
                 main = {
@@ -74,8 +75,8 @@ local ITEM_TYPES = {
             return data, this_info
         end,
 
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand )
-            --do em wands
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )
+            --if is_quick, do em wands
             return uid, data
         end,
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
@@ -103,12 +104,9 @@ local ITEM_TYPES = {
         on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
             return uid
         end,
-        on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
-            return uid --return false to continue the pause, nil to cancel, true to pickup
-        end,
-        ctrl_script = function( item_id, data, this_info, in_hand ) --inventory_man if nil (set enabled + teleport to inv owner xy)
-            --this is being executed constantly
-        end,
+        -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
+        --     return uid --return false to continue the pause, nil to cancel, true to pickup
+        -- end,
     },
     {
         name = GameTextGetTranslatedOrNot( "$item_potion" ),
@@ -133,7 +131,7 @@ local ITEM_TYPES = {
             return data, this_info
         end,
         
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, is_opened, in_hand, is_hovered )
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )
             local w, h = get_pic_dim( data.slot_pic.bg )
             pic_x, pic_y = pic_x + w/2, pic_y + h/2
 
@@ -155,7 +153,7 @@ local ITEM_TYPES = {
             if(( 16 - size ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
                 uid = new_image( gui, uid, pic_x, pic_y - 0.5, zs.main + 0.001, data.pixel, w, 0.5 )
             end
-            local alpha = is_hovered and 0.75 or 0.9
+            local alpha = is_dragged and 0.7 or 0.9
             local delta = 0
             for i,m in ipairs( content_tbl ) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
@@ -164,6 +162,8 @@ local ITEM_TYPES = {
                 uid = new_image( gui, uid, pic_x, pic_y + delta, zs.main + 0.001, data.pixel, w, sz, alpha )
                 delta = delta + sz
             end
+
+            --drink on rmb
 
             return uid, data
         end,

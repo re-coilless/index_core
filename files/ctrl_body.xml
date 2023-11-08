@@ -34,6 +34,10 @@
 		name="slot_pic_active"
 		value_string="data/ui_gfx/inventory/highlight.xml"
 	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="slot_pic_locked"
+		value_string="data/ui_gfx/inventory/inventory_box_inactive_overlay.png"
+	></VariableStorageComponent>
 	
 	<VariableStorageComponent
 		name="dragger_swap_now"
@@ -65,7 +69,7 @@
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
-		name="hide_on_empty"
+		name="no_inv_shooting"
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
@@ -134,6 +138,10 @@
 		value_bool="0"
 	></VariableStorageComponent>
 
+	<VariableStorageComponent
+		name="effect_icon_spacing"
+		value_int="5"
+	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="min_effect_duration"
 		value_float="0.001"

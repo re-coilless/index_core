@@ -2,8 +2,8 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 
 ctrl_data = ctrl_data or {}
 dscrt_btn = dscrt_btn or {}
-tip_going = false
-tip_anim = tip_anim or {0,0,0}
+tip_going = {}
+tip_anim = tip_anim or {generic={0,0,0}}
 dragger_buffer = dragger_buffer or {0,0}
 slot_going = slot_going or false
 slot_memo = slot_memo or {}
@@ -14,10 +14,12 @@ mtr_probe = mtr_probe or 0
 mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0}
 
 local current_frame = GameGetFrameNum()
-if( current_frame - tip_anim[2] > 20 ) then
-    tip_anim[1] = 0
-else
-    tip_anim[3] = math.min( current_frame - tip_anim[1], 15 )
+for tid,tip_tbl in pairs( tip_anim ) do
+    if( current_frame - tip_tbl[2] > 20 ) then
+        tip_anim[tid][1] = 0
+    else
+        tip_anim[tid][3] = math.min( current_frame - tip_tbl[1], 15 )
+    end
 end
 
 local controller_id = GetUpdatedEntityID()
@@ -353,7 +355,7 @@ if( is_going and inv_comp ~= nil ) then
         memo = ctrl_data,
         pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
         is_opened = ComponentGetValue2( iui_comp, "mActive" ),
-
+        
         main_id = controller_id,
         player_id = hooman,
         inventory = inv_comp,
@@ -386,6 +388,7 @@ if( is_going and inv_comp ~= nil ) then
             bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
             hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
             active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
+            locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
         },
         dragger = {
             swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
@@ -396,7 +399,7 @@ if( is_going and inv_comp ~= nil ) then
             x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
             y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
         },
-        hide_on_empty = ComponentGetValue2( get_storage( controller_id, "hide_on_empty" ), "value_bool" ),
+        no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
@@ -411,6 +414,7 @@ if( is_going and inv_comp ~= nil ) then
         info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
         info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
         info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
         min_effect_time = epsilon,
         max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
         in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
@@ -427,9 +431,9 @@ if( is_going and inv_comp ~= nil ) then
         data.Controls = {
             ctrl_comp,
 
-            ComponentGetValue2( ctrl_comp, "mButtonDownInventory" ),
-            ComponentGetValue2( ctrl_comp, "mButtonDownInteract" ),
-            ComponentGetValue2( ctrl_comp, "mButtonDownFly" ),
+            { ComponentGetValue2( ctrl_comp, "mButtonDownInventory" ), ComponentGetValue2( ctrl_comp, "mButtonFrameInventory" ) == current_frame },
+            { ComponentGetValue2( ctrl_comp, "mButtonDownInteract" ), ComponentGetValue2( ctrl_comp, "mButtonFrameInteract" ) == current_frame },
+            { ComponentGetValue2( ctrl_comp, "mButtonDownFly" ), ComponentGetValue2( ctrl_comp, "mButtonFrameFly" ) == current_frame },
         }
     end
     if( dmg_comp ~= nil ) then
@@ -515,9 +519,9 @@ if( is_going and inv_comp ~= nil ) then
                 quick = table_init( inv_data.size[2], false ),
             }
         else
-            data.slot_state[inv_data.id] = table_init( inv_data.size[1], false )
+            data.slot_state[inv_data.id] = table_init( inv_data.size[2], false )
             for i,slot in ipairs( data.slot_state[inv_data.id]) do
-                data.slot_state[inv_data.id][i] = table_init( inv_data.size[2], false )
+                data.slot_state[inv_data.id][i] = table_init( inv_data.size[1], false )
             end
         end
     end
@@ -596,7 +600,14 @@ if( is_going and inv_comp ~= nil ) then
         uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
     end
     
+    if( data.no_inv_shooting and data.is_opened ) then
+        uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
+    end
+
     GuiDestroy( fake_gui )
+    if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
+        ComponentSetValue2( iui_comp, "mActive", data.is_opened )
+    end
     if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
         if( data.dragger.swap_soon ) then
             ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )

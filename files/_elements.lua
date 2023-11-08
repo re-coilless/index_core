@@ -4,40 +4,57 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
     local pic_x, pic_y = 0, 0
     
     --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv (if less, do less)
-	--allow dragging only if full inv is opened
     local this_data = data.inv_list
-    if( not( data.hide_on_empty ) or #this_data > 0 ) then
+    if( this_data ~= nil ) then
         if( data.is_opened ) then
             uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
+
+            local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
+            local alpha = 0.5*math.cos( math.pi*delta/30 )
+            uid = new_image( gui, uid, pic_x - 2, pic_y - 2, zs.background + 1, "data/ui_gfx/empty_black.png", screen_w + 4, screen_h + 4, alpha )
         end
         pic_x, pic_y = 19, 20
         
         local w, h, step = 0, 0, 1
-        
+
+        local cat_wands = pic_x
         local inv_id = data.inventories_player[1]
         local inv_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,0}, data.is_opened )
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,0}, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
         
         pic_x = pic_x + 2
+        local cat_items = pic_x
         inv_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,1}, data.is_opened )
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,1}, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
-        if( data.is_opened ) then
-            pic_x = pic_x + 9
+        if( data.is_opened ) then --by default display only the first row of full inv, to see the rest one must engage the inv managing mode
+            local cat_spells = pic_x + 9
+            pic_x = cat_spells
+
+            new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
+            new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+            new_text( gui, cat_spells + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_actionstorage" ))
+
             inv_id = data.inventories_player[2]
             inv_data = data.slot_state[ inv_id ]
             for i,line in ipairs( inv_data ) do
                 for e,slot in ipairs( line ) do
-                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,-e}, true )
+                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,-e}, true, true )
                     pic_x, pic_y = pic_x + w + step, pic_y
                 end
+                pic_x, pic_y = cat_spells, pic_y + h + step
             end
+        end
+        
+        if( data.Controls[2][2]) then
+            data.memo.inv_alpha = data.frame_num + 15
+            data.is_opened = not( data.is_opened )
         end
     end
 
@@ -94,8 +111,8 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {length,4,length*hp/max_hp}, pic )
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
-            uid = tipping( gui, uid, {
-                pic_x - (length+2),
+            uid = tipping( gui, uid, nil, {
+                pic_x - ( length + 2 ),
                 pic_y - 1,
                 length + 4,
                 8,
@@ -120,7 +137,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
 
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$hud_air" )..hud_num_fix( this_data[8], this_data[7], 2 )
-            uid = tipping( gui, uid, {
+            uid = tipping( gui, uid, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -140,7 +157,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.CharacterData
     if( #this_data > 0 and this_data[2] and this_data[3] > 0 ) then
         if( data.memo.flight_shake == nil ) then
-            if( #data.Controls > 0 and data.Controls[4] and this_data[4] <= 0 ) then
+            if( #data.Controls > 0 and data.Controls[4][1] and this_data[4] <= 0 ) then
                 data.memo.flight_shake = data.frame_num + 20
             end
         end
@@ -150,7 +167,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_jetpack" )..hud_num_fix( this_data[4], this_data[3], 2 )
-        uid = tipping( gui, uid, {
+        uid = tipping( gui, uid, nil, {
             pic_x - 42,
             pic_y - 1,
             44,
@@ -219,7 +236,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             end
 
             local tip_x, tip_y = unpack( xys.hp )
-            uid = tipping( gui, uid, {
+            uid = tipping( gui, uid, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -255,7 +272,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-            uid = tipping( gui, uid, {
+            uid = tipping( gui, uid, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -297,7 +314,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
-            uid = tipping( gui, uid, {
+            uid = tipping( gui, uid, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -337,7 +354,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
-        uid = tipping( gui, uid, {
+        uid = tipping( gui, uid, nil, {
             pic_x + 2.5,
             pic_y - 1,
             10.5 + final_length,
@@ -362,7 +379,7 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
-        uid = tipping( gui, uid, {
+        uid = tipping( gui, uid, nil, {
             pic_x + 2,
             pic_y - 1,
             11 + final_length,
@@ -506,6 +523,7 @@ end
 
 function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.orbs )
+    pic_y = pic_y + data.effect_icon_spacing
 
     local this_data = data.icon_data.ings
     if( #this_data > 0 ) then
@@ -710,8 +728,9 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
                         local info_dump = false
                         if( cost_check ) then
+                            local will_pause = data.item_types[ item_data[10].kind ].on_gui_pause ~= nil
                             ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
-                            local new_data = (( i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true )) --don't check how full is inv if on_gui_pause is not nil
+                            local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
                                 if( i > 1 ) then
                                     pickup_info.id = item_data[1][1]
@@ -767,8 +786,8 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
-                if( pickup_info.id > 0 and not( no_space ) and not( cant_buy ) and data.Controls[3]) then
-                    data.Controls[3] = false
+                if( pickup_info.id > 0 and not( no_space ) and not( cant_buy ) and data.Controls[3][2]) then
+                    data.Controls[3][2] = false
                     pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
                     ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
                 end
@@ -780,12 +799,12 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     table.sort( interactables, function( a, b )
                         return a[5] < b[5]
                     end)
+                    --allow for custom code injection for info and trigger check (supress the toggle event and the info overlay if is false)
                     uid = info_func( gui, uid, screen_h, screen_w, data, {
                         id = interactables[1][1],
                         desc = { capitalizer( interactables[1][3]), string.gsub( interactables[1][4], "$0", "[USE]" )},
                         txt = "[USE]",
                     }, zs, xyz )
-                    --allow for custom code injection for info and trigger (supress the toggle event if is false)
                 end
             else
                 --supress all the 19a buttons 

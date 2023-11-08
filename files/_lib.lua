@@ -668,6 +668,34 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
+function inventory_man( item_id, data, this_info, in_hand )
+	if( in_hand == nil ) then
+		in_hand = item_id == data.active_item
+	end
+	
+	local hooman = EntityGetRootEntity( item_id )
+	local is_free = hooman == item_id
+	local comps = EntityGetAllComponents( item_id ) or {}
+	if( #comps > 0 ) then
+		for i,comp in ipairs( comps ) do
+			local world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
+			local inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
+			local hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
+			EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
+		end
+	end
+
+	if( not( is_free )) then
+		if( in_hand ) then
+			--set pos and such to the arm pos
+		else
+			local x, y = EntityGetTransform( hooman )
+			EntitySetTransform( item_id, x, y )
+			EntityApplyTransform( item_id, x, y )
+		end
+	end
+end
+
 function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
 	if(( pickup_info.desc or "" ) ~= "" ) then
 		if( type( pickup_info.desc ) ~= "table" ) then
@@ -683,7 +711,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			end
 		end
 	end
-	if( pickup_info.id > 0 and data.in_world_pickups ) then --add option to force in-world
+	if( pickup_info.id > 0 and data.in_world_pickups ) then --add option to force in-world text
 		if(( pickup_info.txt or "" ) ~= "" ) then
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
@@ -724,10 +752,12 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 				ComponentSetValue2( data.Wallet[1], "money", data.Wallet[3])
 			end
 
-			local comps = EntityGetComponentIncludingDisabled( entity_id, "SpriteComponent", "shop_cost" ) or {}
+			local comps = EntityGetAllComponents( entity_id ) or {}
 			if( #comps > 0 ) then
 				for i,comp in ipairs( comps ) do
-					EntityRemoveComponent( entity_id, comp )
+					if( ComponentHasTag( comp, "shop_cost" )) then
+						EntityRemoveComponent( entity_id, comp )
+					end
 				end
 			end
 		end
@@ -742,7 +772,10 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 				end
 			end
 		end
-
+		
+		if( EntityGetIsAlive( entity_id )) then
+			inventory_man( entity_id, data, this_data, false )
+		end
 		if( callback ~= nil ) then
 			callback( entity_id, data, this_data, true )
 		end
@@ -911,13 +944,17 @@ function get_items( hooman, data )
 			data, new_item = get_item_data( child, data, inv_data )
 			if( new_item ~= nil ) then
 				if( not( EntityHasTag( new_item.id, "index_processed" ))) then
-					--on_processed
-
+					if( data.item_types[ new_item.kind ].on_processed ~= nil ) then
+						data.item_types[ new_item.kind ].on_processed( new_item.id, data, new_item )
+					end
+					
 					ComponentSetValue2( new_item.ItemC, "inventory_slot", -5, -5 )
 					EntityAddTag( new_item.id, "index_processed" )
 				end
 				if( data.item_types[ new_item.kind ].ctrl_script ~= nil ) then
-					data.item_types[ new_item.kind ].ctrl_script( new_item.ItemC, data, new_item, new_item.ItemC == data.active_item )
+					data.item_types[ new_item.kind ].ctrl_script( new_item.id, data, new_item )
+				else
+					inventory_man( new_item.id, data, new_item )
 				end
 				table.insert( item_tbl, new_item )
 			end
@@ -1206,21 +1243,24 @@ function new_interface( gui, uid, pos, pic_z, is_debugging )
 	return uid, clicked, r_clicked, hovered
 end
 
-function new_tooltip( gui, uid, z, text, extra_func, is_triggered, is_right, is_up )
+function new_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right, is_up )
+	tid = tid or "generic"
+
 	if( is_triggered == nil ) then
 		_, _, is_triggered = GuiGetPreviousWidgetInfo( gui )
 	end
 	if( is_triggered ) then
-		if( not( tip_going )) then
-			tip_going = true
+		if( not( tip_going[tid] or false )) then
+			tip_going[tid] = true
+			tip_anim[tid] = tip_anim[tid] or {0,0,0}
 
 			local frame_num = GameGetFrameNum()
-			tip_anim[2] = frame_num
-			if( tip_anim[1] == 0 ) then
-				tip_anim[1] = frame_num
+			tip_anim[tid][2] = frame_num
+			if( tip_anim[tid][1] == 0 ) then
+				tip_anim[tid][1] = frame_num
 				return uid
 			end
-			local anim_frame = tip_anim[3]
+			local anim_frame = tip_anim[tid][3]
 
 			if( type( text ) ~= "table" ) then
 				text = { text }
@@ -1295,7 +1335,7 @@ function new_tooltip( gui, uid, z, text, extra_func, is_triggered, is_right, is_
 	return uid
 end
 
-function tipping( gui, uid, pos, tip, zs, is_right, is_debugging )
+function tipping( gui, uid, tid, pos, tip, zs, is_right, is_debugging )
 	if( type( zs ) ~= "table" ) then
 		zs = {zs}
 	end
@@ -1305,7 +1345,7 @@ function tipping( gui, uid, pos, tip, zs, is_right, is_debugging )
 		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
 	end
 	is_right = is_right or false
-	return new_tooltip( gui, uid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, hovered, is_right )
+	return new_tooltip( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, hovered, is_right )
 end
 
 function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
@@ -1403,8 +1443,8 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	if( kind == 4 ) then
 		pic_y = pic_y - 3
 	end
-	if( info.desc ~= "" and is_hovered and tip_anim[1] > 0 ) then
-		local anim = math.sin( math.min( tip_anim[3], 10 )*math.pi/20 )
+	if( info.desc ~= "" and is_hovered and tip_anim["generic"][1] > 0 ) then
+		local anim = math.sin( math.min( tip_anim["generic"][3], 10 )*math.pi/20 )
 		local t_x, t_h = get_text_dim( info.desc )
 		new_text( gui, pic_x - t_x + w, pic_y + h + 2, pic_z, info.desc, info.is_danger and {224,96,96} or nil, anim )
 		
@@ -1423,7 +1463,7 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 			v[4] = math.min( #info.other_perks, 10 )*14-1
 			v[5] = 14*math.max( math.ceil(( #info.other_perks )/10 ), 1 )
 		end
-		uid = new_tooltip( gui, uid, pic_z - 5, v, { info.tip, info.other_perks }, is_hovered, true, true )
+		uid = new_tooltip( gui, uid, nil, pic_z - 5, v, { info.tip, info.other_perks }, is_hovered, true, true )
 	end
 
 	if( kind == 1 ) then
@@ -1485,19 +1525,18 @@ function swap_anim( item_id, end_x, end_y, data )
 	return end_x, end_y
 end
 
-function inv_check( item_info, inv_type ) --inv_item_check func
+function inv_check( item_info, inv_type )
+	--put item check callback here
 	return ( item_info.id or 0 ) < 0 or inv_type == "universal" or from_tbl_with_id( get_valid_inventories( item_info.inv_type, item_info.is_quickest ), inv_type ) ~= 0
 end
 
-function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag )
+function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag, is_full, is_quick )
 	kind_tbl = kind_tbl or {}
-	
-	--add an ability to lock the item in slot
 
 	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
 		colourer( data.the_gui, {150,150,150})
 	end
-	local pic_bg, clicked, r_clicked, is_hovered = if_full and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
+	local pic_bg, clicked, r_clicked, is_hovered = ( is_full or false ) and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
 	local w, h = get_pic_dim( pic_bg )
 	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
 	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
@@ -1508,14 +1547,16 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 			--check the gun.lua to force the weapon reset
 		end
 	end
+	if( is_quick and is_hovered ) then
+		--do hover anim
+	end
 	
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if( is_active ) then
 		uid = new_image( gui, uid, pic_x, pic_y, zs.main, data.slot_pic.active )
 	end
-	w, h = w - 1, h - 1
-	if( data.dragger.item_id > 0 ) then
-		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then --transition to new inv data getting
+	if( can_drag and data.dragger.item_id > 0 ) then
+		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
 			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
 				if( data.dragger.swap_now ) then
 					--unequip the currenly active item on the swap of it
@@ -1537,35 +1578,33 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		end
 	end
 	
-	--do throwing out
-	can_drag = true
-	if( info.id > 0 ) then
-		if( can_drag ) then
-			if( not( data.dragger.swap_now or slot_going )) then
-				data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
-			end
-		else
-			--if can't drag, draw the shit overtop if full inv is opened
+	--do throwing out (script_throw_item)
+	if( can_drag ) then
+		if( info.id > 0 and not( data.dragger.swap_now or slot_going )) then
+			data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
 		end
-
+	elseif( data.is_opened ) then --add an ability to lock the item in slot + add an ability to lock the slot itself
+		uid = new_image( gui, uid, pic_x - 10, pic_y - w/2, zs.icons_front + 0.001, data.slot_pic.locked )
+	end
+	if( info.id > 0 ) then
 		if( kind_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
 			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered and kind_tbl.on_tooltip or nil, inv_type == "full", is_active )
 		end
 	end
 
-	return uid, data, w, h, clicked, r_clicked, is_hovered
+	return uid, data, w-1, h-1, clicked, r_clicked, is_hovered
 end
 
-function slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, inv_type, inv_id, slot_num, is_full )
+function slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, inv_type, inv_id, slot_num, can_drag, is_full, is_quick )
 	local item = slot and from_tbl_with_id( this_data, slot ) or {id=-1}
 	local slot_data = { item.id, inv_id, slot_num }
 	local type_callbacks = data.item_types[item.kind]
 
 	local clicked, r_clicked, is_hovered = false, false, false
-	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item )
+	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, inv_type, item.id == data.active_item, can_drag, is_full, is_quick )
 	if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
-		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, is_full, item.id == data.active_item, is_hovered )
+		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, can_drag, data.dragger.item_id > 0 and data.dragger.item_id == item.id, item.id == data.active_item, is_quick )
 	end
 	
 	return uid, w, h
