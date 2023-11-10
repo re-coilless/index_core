@@ -1378,14 +1378,99 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	return uid
 end
 
-function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, extra_scale, alpha, angle )
-	extra_scale = extra_scale or 1
-	--option to disable the shadow (force perma on potions)
-	local w, h = get_pic_dim( pic )
-	uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.002, pic, 1, 1, alpha, false, angle )
-	local scale_x, scale_y = 1/( extra_scale*w ) + 1, 1/( extra_scale*h ) + 1
+function register_item_pic( data, this_data )
+	item_pic_data[ this_data.pic ] = item_pic_data[ this_data.pic ] or {xy={0,0}, xml_xy={0,0}}
+	if( item_pic_data[ this_data.pic ].dims == nil ) then
+		item_pic_data[ this_data.pic ].dims = { get_pic_dim( this_data.pic )}
+
+		local is_xml = string.sub( this_data.pic, -4 ) == ".xml"
+
+		local storage_anim = get_storage( this_data.id, "index_pic_anim" )
+		if( storage_anim ~= nil ) then
+			item_pic_data[ this_data.pic ].anim = D_extractor( ComponentGetValue2( storage_anim, "value_string" ))
+		end
+
+		local storage_off = get_storage( this_data.id, "index_pic_offset" )
+		if( storage_off ~= nil ) then
+			item_pic_data[ this_data.pic ].xy = D_extractor( ComponentGetValue2( storage_off, "value_string" ), true )
+		elseif( not( is_xml )) then
+			local pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "item" )
+			if( pic_comp == nil ) then
+				pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "enabled_in_hand" )
+			end
+			if( pic_comp ~= nil ) then
+				item_pic_data[ this_data.pic ].xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
+			end
+		end
+		
+		if( is_xml and ModIsEnabled( "penman" )) then
+			dofile_once( "mods/penman/lib.lua" )
+			if( item_pic_data[ this_data.pic ].penman == nil ) then
+				item_pic_data[ this_data.pic ].penman = penman_read( this_data.pic )
+				item_pic_data[ this_data.pic ].dims = nil
+				this_data.pic = data.nopixel
+			elseif( type( item_pic_data[ this_data.pic ].penman ) == "number" ) then
+				local nxml = dofile_once( "mods/index_core/nxml.lua" )
+				local xml = nxml.parse( penman_restore( penman_return( item_pic_data[ this_data.pic ].penman )))
+				local xml_kid = xml:first_of( "RectAnimation" )
+				if( xml_kid.attr.has_offset ) then
+					item_pic_data[ this_data.pic ].xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
+				else
+					item_pic_data[ this_data.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y }
+				end
+				item_pic_data[ this_data.pic ].dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
+				if( xml_kid.attr.shrink_by_one_pixel ) then
+					item_pic_data[ this_data.pic ].dims[1] = item_pic_data[ this_data.pic ].dims[1] + 1
+					item_pic_data[ this_data.pic ].dims[2] = item_pic_data[ this_data.pic ].dims[2] + 1
+				end
+			end
+		end
+	end
+
+	return this_data.pic
+end
+
+function rotate_offset( x, y, angle )
+	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
+end
+
+function new_anim_looped( core_path, delay, duration )
+	local num = math.floor( GameGetFrameNum()/tonumber( delay ))%tonumber( duration ) + 1
+	return core_path..num..".png"
+end
+
+function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, no_shift, hov_scale )
+	angle = angle or 0
+	no_shift = no_shift or false
+	scale_up = scale_up or false
+	item_pic_data[ pic ] = item_pic_data[ pic ] or {
+		xy = { 0, 0 },
+		xml_xy = { 0, 0 },
+		dims = { get_pic_dim( pic )},
+	}
+
+	local w, h = unpack( item_pic_data[ pic ].dims or {1,1})
+	local off_x, off_y = 0, 0
+	if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
+		local x, y = unpack( item_pic_data[ pic ].xy )
+		x, y = rotate_offset( x, y, angle )
+		off_x, off_y = off_x + x, off_y + y
+	end
+	if( item_pic_data[ pic ].anim ) then
+		pic = new_anim_looped( unpack( item_pic_data[ pic ].anim ))
+	end
+	
+	local extra_scale = hov_scale or 1
+	if( not( no_shift )) then off_x, off_y = off_x + w/2, off_y + h/2 end
+	pic_x, pic_y = pic_x - extra_scale*off_x, pic_y - extra_scale*off_y
+	uid = new_image( gui, uid, pic_x, pic_y, z - 0.002, pic, extra_scale, extra_scale, alpha, false, angle )
+
+	local sign = angle ~= 0 and 1 or -1
+	local scale_x, scale_y = 1/w + 1, 1/h + 1
 	colourer( gui, {0,0,0})
-	uid = new_image( gui, uid, pic_x - scale_x*w/2, pic_y - scale_y*h/2, z, pic, scale_x, scale_y, 0.25, false, angle )
+	off_x, off_y = rotate_offset( sign*0.5, sign*0.5, angle )
+	uid = new_image( gui, uid, pic_x + extra_scale*off_x, pic_y + extra_scale*off_y, z, pic, extra_scale*scale_x, extra_scale*scale_y, 0.25, false, angle )
+
 	return uid, w, h
 end
 
@@ -1540,15 +1625,11 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	local w, h = get_pic_dim( pic_bg )
 	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
 	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
-	if( clicked and info.id > 0 ) then
-		if( inv_type == "quick" or inv_type == "quickest" ) then
-			--swap to item
-			--mActiveItem, mActualActiveItem, mInitialized (for a frame after), mForceRefresh
-			--check the gun.lua to force the weapon reset
-		end
-	end
-	if( is_quick and is_hovered ) then
-		--do hover anim
+	local might_swap = not( data.is_opened ) and is_quick and is_hovered
+	if( clicked and info.id > 0 and might_swap ) then
+		--swap to item
+		--mActiveItem, mActualActiveItem, mInitialized (for a frame after), mForceRefresh
+		--check the gun.lua to force the weapon reset
 	end
 	
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
@@ -1578,7 +1659,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		end
 	end
 	
-	--do throwing out (script_throw_item)
+	--do throwing out (mute script_throw_item if data.no_action_on_drop)
 	if( can_drag ) then
 		if( info.id > 0 and not( data.dragger.swap_now or slot_going )) then
 			data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
@@ -1589,10 +1670,10 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	if( info.id > 0 ) then
 		if( kind_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
-			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered and kind_tbl.on_tooltip or nil, inv_type == "full", is_active )
+			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, inv_type == "full", is_active, might_swap and 1.2 or 1 )
 		end
 	end
-
+	
 	return uid, data, w-1, h-1, clicked, r_clicked, is_hovered
 end
 

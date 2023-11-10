@@ -12,6 +12,7 @@ mouse_memo = mouse_memo or {}
 mouse_memo_world = mouse_memo_world or {}
 mtr_probe = mtr_probe or 0
 mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0}
+item_pic_data = item_pic_data or {}
 
 local current_frame = GameGetFrameNum()
 for tid,tip_tbl in pairs( tip_anim ) do
@@ -354,6 +355,7 @@ if( is_going and inv_comp ~= nil ) then
 
         memo = ctrl_data,
         pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+        nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
         is_opened = ComponentGetValue2( iui_comp, "mActive" ),
         
         main_id = controller_id,
@@ -400,6 +402,7 @@ if( is_going and inv_comp ~= nil ) then
             y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
         },
         no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
+        no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
@@ -604,7 +607,7 @@ if( is_going and inv_comp ~= nil ) then
         uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
     end
 
-    GuiDestroy( fake_gui )
+    GuiDestroy( fake_gui )--add a global table where mfs can write their guis to be killed
     if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
         ComponentSetValue2( iui_comp, "mActive", data.is_opened )
     end

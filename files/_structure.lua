@@ -39,6 +39,8 @@ local ITEM_TYPES = {
             --wand slot count should be slot_count - always_casts
             --charges to upper left + marker if the wand can't fire (is empty, not enough mana) for bottom right
 
+            this_info.pic = register_item_pic( data, this_info )
+
             this_info.wand_info = {
                 main = {
                     ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
@@ -83,10 +85,11 @@ local ITEM_TYPES = {
             --use this for in-world tips too
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
             --do the tooltip (hov_func is the one)
-            local w, h = get_pic_dim( this_info.pic )
-            uid = new_slot_pic( gui, uid, pic_x + w/4, pic_y + 3*h/4 + 1, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, 1, math.rad( -45 ))
+            local w, h = 0,0
+            if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
+            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), true, hov_scale )
             return uid
         end,
         
@@ -170,17 +173,17 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
             
             local z = slot_z( data, this_info.id, zs.icons )
-
+            
             local ratio = math.min( content_total/cap_max, 1 )
             local w, h = 0, 0
-            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.75, 0.8 - 0.5*ratio )
+            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, nil, nil, hov_scale )
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
-            uid = new_image( gui, uid, pic_x - w/2, pic_y - h/2, z - 0.001, this_info.pic )
+            uid = new_image( gui, uid, pic_x - hov_scale*w/2, pic_y - hov_scale*h/2, z - 0.001, this_info.pic, hov_scale, hov_scale )
             
             return uid
         end,
@@ -202,7 +205,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
             return uid
         end,
     },
@@ -216,7 +219,8 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,
     },
@@ -230,8 +234,8 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, hov_func, is_full, in_hand )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,
     },

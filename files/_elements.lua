@@ -769,7 +769,9 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     end
                 end
             end
-
+            
+            --don't pickup if inv is opened
+            --on pickup do slot anim from the in-world pos the same as drag/drop (delay it for a frame; don't show the pic during the 1st frame)
             if( pickup_info.txt == nil and ( no_space or cant_buy )) then
                 if( #interactables > 0 ) then
                     pickup_info.id = 0

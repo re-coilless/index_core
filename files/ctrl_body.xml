@@ -73,6 +73,10 @@
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
+		name="no_action_on_drop"
+		value_bool="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
 		name="quickest_size"
 		value_int="4"
 	></VariableStorageComponent>
