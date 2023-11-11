@@ -67,10 +67,26 @@
 		name="dragger_y"
 		value_float="0"
 	></VariableStorageComponent>
-
+	
+	<VariableStorageComponent
+		name="player_core_off"
+		value_float="-7"
+	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="no_inv_shooting"
 		value_bool="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_pos_rad"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_pos_size"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_force"
+		value_float="40"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="no_action_on_drop"

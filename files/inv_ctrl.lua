@@ -120,8 +120,8 @@ if( is_going and inv_comp ~= nil ) then
 
         local core_effects = {}
         local simple_effects = {}
-        child_play( hooman, function( parent, child, i ) --maybe don't get disabled
-            local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" )
+        child_play( hooman, function( parent, child, i )
+            local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
             if( effect_comp ~= nil ) then
                 local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
                 local is_stain = ComponentGetValue2( effect_comp, "caused_by_stains" )
@@ -401,7 +401,11 @@ if( is_going and inv_comp ~= nil ) then
             x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
             y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
         },
+        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
         no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
+        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
+        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
+        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
         no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
@@ -543,8 +547,8 @@ if( is_going and inv_comp ~= nil ) then
     end
     
     --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
-    --allow code injection to make custom spell funcs during runtime
     --test actions materialized
+    --allow fake spell injection
     
     if( inv.full_inv ~= nil ) then
         uid, data, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
@@ -607,7 +611,7 @@ if( is_going and inv_comp ~= nil ) then
         uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
     end
 
-    GuiDestroy( fake_gui )--add a global table where mfs can write their guis to be killed
+    GuiDestroy( fake_gui )--add a global table where one can write guis to be killed
     if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
         ComponentSetValue2( iui_comp, "mActive", data.is_opened )
     end
@@ -617,6 +621,11 @@ if( is_going and inv_comp ~= nil ) then
             --reset all the misc globabls and such on item swap (shot_count)
         else
             if( not( slot_going ) or data.dragger.swap_now ) then
+                if( inv.drop ~= nil ) then
+                    if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
+                        inv.drop( data.dragger.item_id, data )
+                    end
+                end
                 slot_memo = nil
                 data.dragger = {}
             end

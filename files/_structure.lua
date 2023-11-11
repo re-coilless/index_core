@@ -93,13 +93,14 @@ local ITEM_TYPES = {
             return uid
         end,
         
-        on_pickup = function( gui, uid, item_id, data, this_info, zs, is_post )
+        on_pickup = function( item_id, data, this_info, is_post )
             local func_tbl = {
                 function( item_id, data, this_info )
                     --return 1 to pause, -1 to abort, 0 to pickup
                     return 0
                 end,
                 function( item_id, data, this_info )
+                    ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
                 end,
             }
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
@@ -269,6 +270,8 @@ local GUI_STRUCT = {
     
     pickup_info = new_pickup_info,
     pickup = new_generic_pickup,
+    drop = new_generic_drop,
+
     extra = new_generic_extra,
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }

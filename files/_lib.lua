@@ -668,7 +668,7 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
-function inventory_man( item_id, data, this_info, in_hand )
+function inventory_boy( item_id, data, this_info, in_hand )
 	if( in_hand == nil ) then
 		in_hand = item_id == data.active_item
 	end
@@ -694,6 +694,12 @@ function inventory_man( item_id, data, this_info, in_hand )
 			EntityApplyTransform( item_id, x, y )
 		end
 	end
+end
+
+function inventory_man( item_id, data, this_info, in_hand )
+	child_play_full( item_id, function( child, params )
+		inventory_boy( child, unpack( params ))
+	end, { data, this_info, in_hand })
 end
 
 function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
@@ -724,10 +730,53 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 	return uid
 end
 
+function vanilla_lua_callback( entity_id, func_names, input )
+	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
+	if( #comps > 0 ) then
+		local real_GetUpdatedEntityID = GetUpdatedEntityID
+		local real_GetUpdatedComponentID = GetUpdatedComponentID
+		GetUpdatedEntityID = function() return entity_id end
+
+		for i,comp in ipairs( comps ) do
+			local path = ComponentGetValue2( comp, func_names[1]) or ""
+			if( path ~= "" ) then
+				GetUpdatedComponentID = function() return comp end
+				dofile( path )
+				_G[ func_names[2]]( unpack( input ))
+			end
+		end
+		
+		GetUpdatedEntityID = real_GetUpdatedEntityID
+		GetUpdatedComponentID = real_GetUpdatedComponentID
+	end
+end
+
+function get_phys_mass( entity_id )
+	local mass = 0
+	
+	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
+	if( shape_comp ~= nil ) then
+		local proj_x, proj_y = EntityGetTransform( entity_id )
+		local drift_x, drift_y = ComponentGetValue2( shape_comp, "offset_x" ), ComponentGetValue2( shape_comp, "offset_y" )
+		proj_x, proj_y = proj_x - drift_x, proj_y - drift_y
+		drift_x, drift_y = 1.5*drift_x, 1.5*drift_y
+		
+		local function calculate_force_for_body( entity, body_mass, body_x, body_y, body_vel_x, body_vel_y, body_vel_angular )
+			if( math.abs( proj_x - body_x ) < 0.001 and math.abs( proj_y - body_y ) < 0.001 ) then
+				mass = body_mass
+			end
+			return body_x, body_y, 0, 0, 0
+		end
+		PhysicsApplyForceOnArea( calculate_force_for_body, nil, proj_x - drift_x, proj_y - drift_y, proj_x + drift_x, proj_y + drift_y )
+	end
+	
+	return mass
+end
+
 function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 	local entity_id = this_data.id
 	
-	this_data.name = GameTextGetTranslatedOrNot( ComponentGetValue2( this_data.ItemC, "item_name" ))
+	this_data.name = this_data.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_data.ItemC, "item_name" ))
 	if( not( is_silent or false )) then
 		GamePrint( GameTextGet( "$log_pickedup", this_data.name ))
 		if( do_the_sound ) then
@@ -762,17 +811,8 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 			end
 		end
 
-		comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
-		if( #comps > 0 ) then
-			for i,comp in ipairs( comps ) do
-				local path = ComponentGetValue2( comp, "script_item_picked_up" ) or ""
-				if( path ~= "" ) then
-					dofile( path )
-					item_pickup( entity_id, hooman, this_data.name )
-				end
-			end
-		end
-		
+		vanilla_lua_callback( entity_id, { "script_item_picked_up", "item_pickup" }, { entity_id, hooman, this_data.name })
+
 		if( EntityGetIsAlive( entity_id )) then
 			inventory_man( entity_id, data, this_data, false )
 		end
@@ -1563,10 +1603,14 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	return uid, w, h
 end
 
-function slot_swap( item_in, slot_data )
+function slot_swap( item_in, slot_data, active_item )
+	local active_reset = false
+
 	local parent1 = EntityGetParent( item_in )
 	local parent2 = slot_data[2]
 	if( parent1 ~= parent2 ) then
+		active_reset = item_in == active_item or slot_data[1] == active_item
+
 		EntityRemoveFromParent( item_in )
 		EntityAddChild( parent2, item_in )
 		if( slot_data[1] > 0 ) then
@@ -1583,6 +1627,8 @@ function slot_swap( item_in, slot_data )
 		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data[1], "ItemComponent" )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
 	end
+
+	return active_reset
 end
 
 function swap_anim( item_id, end_x, end_y, data )
@@ -1640,7 +1686,6 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
 			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
 				if( data.dragger.swap_now ) then
-					--unequip the currenly active item on the swap of it
 					if( info.id > 0 ) then
 						table.insert( slot_anim, {
 							id = info.id,
@@ -1649,7 +1694,9 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 							frame = data.frame_num,
 						})
 					end
-					slot_swap( data.dragger.item_id, slot_data )
+					if( slot_swap( data.dragger.item_id, slot_data, data.active_item )) then
+						ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+					end
 					data.dragger.item_id = -1
 				end
 				if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
@@ -1659,7 +1706,6 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		end
 	end
 	
-	--do throwing out (mute script_throw_item if data.no_action_on_drop)
 	if( can_drag ) then
 		if( info.id > 0 and not( data.dragger.swap_now or slot_going )) then
 			data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )

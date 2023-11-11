@@ -770,8 +770,6 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             
-            --don't pickup if inv is opened
-            --on pickup do slot anim from the in-world pos the same as drag/drop (delay it for a frame; don't show the pic during the 1st frame)
             if( pickup_info.txt == nil and ( no_space or cant_buy )) then
                 if( #interactables > 0 ) then
                     pickup_info.id = 0
@@ -781,7 +779,10 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             if( pickup_info.id ~= 0 ) then
-                if( data.item_types[ pickup_info.info.kind ].on_gui_world ~= nil ) then
+                if( data.is_opened ) then
+                    pickup_info.id = -1
+                    pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
+                elseif( data.item_types[ pickup_info.info.kind ].on_gui_world ~= nil ) then
                     local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
                     local pic_x, pic_y = world2gui( i_x, i_y )
                     uid = data.item_types[ pickup_info.info.kind ].on_gui_world( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
@@ -789,6 +790,15 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
                 if( pickup_info.id > 0 and not( no_space ) and not( cant_buy ) and data.Controls[3][2]) then
+                    local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
+                    local anim_x, anim_y = world2gui( pkp_x, pkp_y )
+                    table.insert( slot_anim, {
+                        id = pickup_info.id,
+                        x = anim_x,
+                        y = anim_y,
+                        frame = data.frame_num,
+                    })
+
                     data.Controls[3][2] = false
                     pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
                     ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
@@ -815,6 +825,78 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
     end
 
     return uid, data
+end
+
+function new_generic_drop( this_item, data, inv_comp )
+    local dude = EntityGetRootEntity( this_item )
+    if( dude == data.player_id ) then
+        EntityRemoveFromParent( this_item )
+        
+        local h_x, h_y = EntityGetTransform( dude )
+        h_y = h_y + data.player_core_off
+        local p_d_x, p_d_y = data.pointer_world[1] - h_x, data.pointer_world[2] - h_y
+        local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
+        local angle = math.atan2( p_d_y, p_d_x )
+        local from_x, from_y = 0, 0
+        if( data.active_item == this_item ) then
+            from_x, from_y = EntityGetTransform( this_item )
+            ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+        else
+            data.throw_pos_rad = data.throw_pos_rad + data.throw_pos_size
+            from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
+            local is_hit, hit_x, hit_y = RaytraceSurfaces( h_x, h_y, from_x, from_y )
+            if( is_hit ) then data.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
+            data.throw_pos_rad = data.throw_pos_rad - data.throw_pos_size
+            from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
+        end
+
+        local extra_v_force = 0
+        local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
+        if( vel_comp ~= nil ) then
+            extra_v_force = ComponentGetValue2( vel_comp, "gravity_y" )/4
+        end
+        local force = p_delta*data.throw_force
+        local force_x, force_y = math.cos( angle )*force, math.sin( angle )*force
+        force_y = force_y - math.max( 0.25*math.abs( force_y ), ( extra_v_force + data.throw_force )/2 )
+        local to_x, to_y = from_x + force_x, from_y + force_y
+
+        EntitySetTransform( this_item, from_x, from_y )
+        -- EntityApplyTransform( this_item, from_x, from_y )
+        local dropped_info = from_tbl_with_id( data.inv_list, this_item )
+        inventory_man( this_item, data, dropped_info, false )
+        
+        local pic_comps = EntityGetComponentIncludingDisabled( this_item, "SpriteComponent", "enabled_in_world" ) or {}
+        if( #pic_comps > 0 ) then
+            for i,comp in ipairs( pic_comps ) do
+                ComponentSetValue2( comp, "z_index", -1 )
+                EntityRefreshSprite( this_item, comp )
+            end
+        end
+        ComponentSetValue2( dropped_info.ItemC, "inventory_slot", -5, -5 )
+        ComponentSetValue2( dropped_info.ItemC, "play_hover_animation", false )
+        ComponentSetValue2( dropped_info.ItemC, "next_frame_pickable", data.frame_num + 30 )
+
+        local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
+        if( shape_comp ~= nil ) then
+            local phys_mult = 1.75
+            if( dropped_info.potion_fullness ~= nil and p_delta < 5 ) then
+                phys_mult = 0
+            else
+                local throw_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsThrowableComponent" )
+                if( throw_comp ~= nil ) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
+            end
+            
+            local mass = get_phys_mass( this_item )
+            PhysicsApplyForce( this_item, phys_mult*force_x*mass, phys_mult*force_y*mass )
+            PhysicsApplyTorque( this_item, phys_mult*5*mass )
+        elseif( vel_comp ~= nil ) then
+            ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y )
+        end
+
+        if( not( data.no_action_on_drop )) then
+            vanilla_lua_callback( this_item, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
+        end
+    end
 end
 
 function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
