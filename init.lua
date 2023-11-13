@@ -1,5 +1,9 @@
 -- ModRegisterAudioEventMappings( "mods/mrshll_core/GUIDs.txt" )
 
+if( ModIsEnabled( "mnee" )) then
+	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
+end
+
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
@@ -112,7 +116,7 @@ function OnWorldPreUpdate()
 				full_list = full_list..mtr..(( i == #full_matters and e == #list ) and "" or "," )
 			end
 		end
-		local matter_test = "mods/index_core/files/matter_test.xml"
+		local matter_test = "mods/index_core/files/misc/matter_test.xml"
 		penman_w( matter_test, string.gsub( penman_r( matter_test ), "_MATTERLISTHERE_", full_list ))
 	end
 end
@@ -135,13 +139,7 @@ function OnPlayerSpawned( hooman )
 		return
 	end
 	GameAddFlagRun( initer )
-	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
-
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-	if( inv_comp ~= nil ) then
-		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
-	end
 	
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent",
 	{
@@ -151,8 +149,14 @@ function OnPlayerSpawned( hooman )
 
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+	if( inv_comp ~= nil ) then
+		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
+	end
 
-	EntityLoad( "mods/index_core/files/testing_chest.xml", x - 50, y - 20 )
+
+
+	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 end
 
 function OnPlayerDied( hooman )

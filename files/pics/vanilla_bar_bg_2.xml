@@ -1,7 +1,5 @@
 <Sprite
-	filename="data/ui_gfx/hud/colors_bar_bg.png" 
-	offset_x="0"
-	offset_y="0"
+	filename="data/ui_gfx/hud/colors_bar_bg.png"
 	default_animation="stand"
 	>
 	

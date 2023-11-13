@@ -16,7 +16,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         pic_x, pic_y = 19, 20
         
         local w, h, step = 0, 0, 1
-
+        
         local cat_wands = pic_x
         local inv_id = data.inventories_player[1]
         local inv_data = data.slot_state[ inv_id ].quickest
@@ -37,7 +37,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             pic_x = pic_x + 9
             new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-            new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_actionstorage" ))
+            new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
             
             local core_y = pic_y
             inv_id = data.inventories_player[2]
@@ -56,8 +56,16 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             data.is_opened = not( data.is_opened )
         end
     end
-
+    
     return uid, data, {pic_x,pic_y}
+end
+
+function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys ) --applets are only visible while inventory is closed
+    return uid, data
+end
+
+function new_generic_moder( gui, uid, screen_w, screen_h, data, zs, xys )
+    return uid, data
 end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -407,7 +415,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
     end
 
-    if( data.pointer_delta[3] < data.info_threshold ) then
+    if( not( data.is_opened ) and data.pointer_delta[3] < data.info_threshold ) then
         local info = ""
 
         local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
@@ -620,7 +628,8 @@ end
 function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_func )
     local this_data = data.ItemPickUpper
     if( #this_data > 0 ) then
-        local x, y = EntityGetTransform( data.player_id )
+        local x, y = unpack( data.player_xy )
+        y = y - data.player_core_off
         local entities = EntityGetInRadius( x, y, 200 ) or {}
         if( #entities > 0 ) then
             local stuff_to_figure = table_init( #data.item_types + 1, {})
@@ -840,8 +849,7 @@ function new_generic_drop( this_item, data, inv_comp ) --on_drop callback
         EntityRemoveFromParent( this_item )
         play_vanilla_sound( data, "ui", "ui/item_remove" )
 
-        local h_x, h_y = EntityGetTransform( dude )
-        h_y = h_y + data.player_core_off
+        local h_x, h_y = unpack( data.player_xy )
         local p_d_x, p_d_y = data.pointer_world[1] - h_x, data.pointer_world[2] - h_y
         local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
         local angle = math.atan2( p_d_y, p_d_x )
@@ -903,6 +911,8 @@ function new_generic_drop( this_item, data, inv_comp ) --on_drop callback
         if( not( data.no_action_on_drop )) then
             vanilla_lua_callback( this_item, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
         end
+    else
+        play_vanilla_sound( data, "ui", "ui/item_move_denied" )
     end
 end
 

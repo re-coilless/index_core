@@ -1,7 +1,5 @@
 <Sprite
-	filename="data/ui_gfx/decorations/9piece0_gray.png" 
-	offset_x="0"
-	offset_y="0"
+	filename="data/ui_gfx/decorations/9piece0_gray.png"
 	default_animation="stand"
 	>
 	

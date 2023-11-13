@@ -32,7 +32,7 @@ local ITEM_TYPES = {
             return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
         end,
         on_data = function( item_id, data, this_info )
-            dofile_once( "data/scripts/gun/gun.lua" )
+            -- dofile_once( "data/scripts/gun/gun.lua" )
             
             --add wand invs to data.inventories, add an ability to do custom code for this + check for is spell
             --insert spells to item list
@@ -85,7 +85,7 @@ local ITEM_TYPES = {
             --use this for in-world tips too
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
             --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
@@ -124,15 +124,25 @@ local ITEM_TYPES = {
         end,
         on_data = function( item_id, data, this_info )
             local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
-            this_info.MatterC = matter_comp 
+            this_info.MatterC = matter_comp
             this_info.matter_info = {
                 ComponentGetValue2( matter_comp, "max_capacity" ),
                 { get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
                 ComponentGetValue2( this_info.ItemC, "drinkable" ),
             }
 
-            local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
-            this_info.matter_info[1] = barrel_size == nil and this_info.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
+            local sucker_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
+            if( sucker_comp ~= nil ) then
+                this_info.SuckerC = sucker_comp
+                this_info.bottle_info = {
+                    ComponentGetValue2( sucker_comp, "barrel_size" ),
+                    ComponentGetValue2( sucker_comp, "num_cells_sucked_per_frame" ),
+                    ComponentGetValue2( sucker_comp, "material_type" ),
+                    ComponentGetValue2( sucker_comp, "suck_tag" ),
+                    ComponentGetValue2( sucker_comp, "suck_static_materials" ),
+                }
+            end
+            this_info.matter_info[1] = this_info.bottle_info == nil and this_info.matter_info[1] or this_info.bottle_info[1]
             
             this_info.name, this_info.fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
 
@@ -140,21 +150,21 @@ local ITEM_TYPES = {
         end,
         
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )
-            local w, h = get_pic_dim( data.slot_pic.bg )
-            pic_x, pic_y = pic_x + w/2, pic_y + h/2
-
-            --put red cross to the upper left corner of an empty potion
-
             local cap_max = this_info.matter_info[1]
             local mtrs = this_info.matter_info[2]
             local content_total = mtrs[1]
             local content_tbl = mtrs[2]
             
-            local w, h = get_pic_dim( this_info.pic )
-            w, h = get_pic_dim( data.slot_pic.bg )
+            local w, h = get_pic_dim( data.slot_pic.bg )
+            if( content_total == 0 ) then
+                uid = new_image( gui, uid, pic_x + 2, pic_y + 2, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
+            end
+            
+            pic_x, pic_y = pic_x + w/2, pic_y + h/2
             w, h = w - 4, h - 4
-            local k = h/cap_max
             pic_x, pic_y = pic_x - w/2, pic_y + h/2
+
+            local k = h/cap_max
             local size = k*math.min( content_total, cap_max )
             local alpha = is_dragged and 0.7 or 0.9
             local delta = 0
@@ -162,10 +172,9 @@ local ITEM_TYPES = {
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
                 colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
                 delta = delta + sz
-                if( delta > h ) then
+                uid = new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ), data.pixel, w, sz, alpha )
+                if( delta >= h ) then
                     break
-                else
-                    uid = new_image( gui, uid, pic_x, pic_y - delta, zs.main + 0.001, data.pixel, w, sz, alpha )
                 end
             end
             if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
@@ -177,24 +186,109 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
-            
-            local z = slot_z( data, this_info.id, zs.icons )
-            
-            local ratio = math.min( content_total/cap_max, 1 )
-            local w, h = 0, 0
-            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, nil, nil, hov_scale )
-            colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
-            uid = new_image( gui, uid, pic_x - hov_scale*w/2, pic_y - hov_scale*h/2, z - 0.001, this_info.pic, hov_scale, hov_scale )
-            
-            if( this_info.matter_info[3] and content_total > 0 ) then
+
+            local nuke_it = true
+            local target_angle, target_vertical = 0, 0
+            if( is_dragged ) then
+                if( data.drag_action ) then --only if advanced mode is active
+                    data.memo.not_wanna_drop = true
+
+                    local x, y = unpack( data.player_xy )
+                    local p_x, p_y = unpack( data.pointer_world )
+                    if( not( RaytraceSurfaces( x, y, p_x, p_y ))) then
+                        if( not( EntityGetIsAlive( data.memo.john_pouring or 0 ))) then
+                            data.memo.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y)
+                        end
+                        EntitySetTransform( data.memo.john_pouring, p_x, p_y )
+
+                        if( data.shift_action ) then
+                            nuke_it = false
+                            target_angle = 45
+                            
+                            if( content_total > 0 ) then
+                                GameEntityPlaySoundLoop( data.memo.john_pouring, "spray", 1 )
+                                if( data.frame_num%5 == 0 ) then
+                                    chugger_3000( data.pointer_world, this_info.id, cap_max, this_info.matter_info[2][2])
+                                end
+                            end
+                        elseif( this_info.bottle_info ~= nil ) then
+                            nuke_it = false
+                            target_vertical = 8
+
+                            local sucker_comp = EntityGetFirstComponentIncludingDisabled( data.memo.john_pouring, "MaterialSuckerComponent" )
+                            if( EntityGetName( data.memo.john_pouring ) ~= "done" ) then
+                                EntitySetName( data.memo.john_pouring, "done" )
+                                ComponentSetValue2( sucker_comp, "barrel_size", this_info.bottle_info[1])
+                                ComponentSetValue2( sucker_comp, "num_cells_sucked_per_frame", this_info.bottle_info[2])
+                                ComponentSetValue2( sucker_comp, "material_type", this_info.bottle_info[3])
+                                ComponentSetValue2( sucker_comp, "suck_tag", this_info.bottle_info[4])
+                                ComponentSetValue2( sucker_comp, "suck_static_materials", this_info.bottle_info[5])
+                            end
+
+                            local do_sound = false
+                            local mtr_comp = EntityGetFirstComponentIncludingDisabled( data.memo.john_pouring, "MaterialInventoryComponent" )
+                            if( ComponentGetIsEnabled( mtr_comp )) then
+                                local total, mttrs = get_matters( ComponentGetValue2( mtr_comp, "count_per_material_type" ))
+                                if( total > 0 ) then
+                                    for i,mtr in ipairs( mttrs ) do
+                                        if( mtr[2] > 0 ) then
+                                            local name = CellFactory_GetName( mtr[1])
+                                            if( content_total < cap_max ) then
+                                                local temp = math.min( content_total + mtr[2], cap_max )
+                                                local count = temp - content_total
+                                                content_total = temp
+
+                                                local _,pre_mtr = from_tbl_with_id( this_info.matter_info[2][2], mtr[1])
+                                                pre_mtr = this_info.matter_info[2][2][ pre_mtr or -1 ] or {0,0}
+                                                AddMaterialInventoryMaterial( item_id, name, pre_mtr[2] + count )
+                                                
+                                                do_sound = true
+                                            end
+                                            AddMaterialInventoryMaterial( data.memo.john_pouring, name, 0 )
+                                        end
+                                    end
+                                end
+                                this_info.matter_info[2][1] = content_total
+                            end
+                            EntitySetComponentIsEnabled( data.memo.john_pouring, sucker_comp, content_total < cap_max )
+                            if( do_sound and data.frame_num%5 == 0 ) then
+                                play_vanilla_sound( data, "player", "player/step_water" )
+                            end
+                        end
+                    end
+                end
+            elseif( this_info.matter_info[3]) then
                 if( r_clicked and is_usable and data.is_opened ) then
-                    play_vanilla_sound( data, "misc", "misc/potion_drink" )
-                    chugger_3000( data.player_id, this_info.id, cap_max, this_info.matter_info[2][2])
+                    if( content_total > 0 ) then
+                        play_vanilla_sound( data, "misc", "misc/potion_drink" )
+                        chugger_3000( data.player_id, this_info.id, cap_max, this_info.matter_info[2][2], data.shift_action and 1 or 0.1 )
+                    else
+                        play_vanilla_sound( data, "misc", "misc/potion_drink_empty" )
+                    end
                 end
             end
+            if( nuke_it and ( data.dragger.item_id == 0 or data.dragger.item_id == item_id )) then
+                if( EntityGetIsAlive( data.memo.john_pouring or 0 )) then
+                    EntityKill( data.memo.john_pouring )
+                    data.memo.john_pouring = nil
+                end
+            end
+            if( data.memo.not_wanna_drop ) then
+                data.dragger.wont_drop = true
+            end
+
+            local angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
+            pic_y = pic_y + simple_anim( data, "sucking_drift", target_vertical, 0.2 )
+
+            local z = slot_z( data, this_info.id, zs.icons )
+            local ratio = math.min( content_total/cap_max, 1 )
+            local w, h = 0, 0
+            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, nil, hov_scale )
+            colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
+            uid = new_image( gui, uid, pic_x - hov_scale*w/2, pic_y - hov_scale*h/2, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
             
             return uid
         end,
@@ -229,7 +323,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
             return uid
         end,
     },
@@ -243,7 +337,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,
@@ -258,7 +352,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,
@@ -268,6 +362,8 @@ local ITEM_TYPES = {
 local GUI_STRUCT = {
     slot = new_slot,
     full_inv = new_generic_inventory,
+    applet_strip = new_generic_applets,
+    inv_mode = new_generic_moder,
     
     bars = {
         hp = new_generic_hp,
@@ -299,6 +395,40 @@ local GUI_STRUCT = {
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }
 
+local GLOBAL_MODES = {
+    {
+        name = "FULL",
+        allow_wand_editing = true,
+        show_full = true,
+
+        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func ) --goes after extra
+
+        end,
+    },
+    {
+        name = "MANAGEMENT",
+        force_clear = true,
+        allow_external_inventories = true,
+        show_fullest = true,
+
+        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+            
+        end,
+    },
+    {
+        name = "INTERACTIVE",
+        force_clear = true,
+        allow_shooting = true,
+        allow_advanced_draggables = true,
+        nuke_em_all = false,
+
+        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+            
+        end,
+    },
+    --hide everything (except custom); 
+}
+
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { GUI_STRUCT, Z_LAYERS, ITEM_TYPES }
+return { GUI_STRUCT, Z_LAYERS, ITEM_TYPES, GLOBAL_MODES }

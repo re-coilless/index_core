@@ -2,12 +2,6 @@
 	<InheritTransformComponent
 		only_position="0"
 	></InheritTransformComponent>
-	
-	<!-- <LuaComponent
-		script_source_file="mods/index_core/files/inv_ctrl.lua"
-		execute_every_n_frame="1"
-		vm_type="ONE_PER_COMPONENT_INSTANCE"
-	></LuaComponent> -->
     
 	<VariableStorageComponent
 		name="forced_state"
@@ -16,6 +10,10 @@
 	<VariableStorageComponent
 		name="override_settings"
 		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="global_mode"
+		value_int="1"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent

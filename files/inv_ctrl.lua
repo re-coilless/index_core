@@ -33,6 +33,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
     if( not( EntityGetIsAlive( hooman ))) then
         return
     end
+    local hooman_x, hooman_y = EntityGetTransform( hooman )
 
     local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
     local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
@@ -70,7 +71,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         
         local pointer_mtr = 0
         if( not( EntityGetIsAlive( mtr_probe ))) then
-            mtr_probe = EntityLoad( "mods/index_core/files/matter_test.xml", m_x, m_y )
+            mtr_probe = EntityLoad( "mods/index_core/files/misc/matter_test.xml", m_x, m_y )
         end
         if( mtr_probe > 0 ) then
             local jitter_mag = 0.5
@@ -367,7 +368,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         local uid = 0
         local pos_tbl = {}
         local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
-        local inv, z_layers, item_types = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
+        local inv, z_layers, item_types, global_modes = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
         local data = {
             the_gui = real_gui,
             a_gui = fake_gui,
@@ -376,6 +377,9 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
             nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+
+            shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
+            drag_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true ), --drag action callback that overrides the generic one
             
             main_id = controller_id,
             player_id = hooman,
@@ -452,6 +456,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             Wallet = {},
             ItemPickUpper = {},
         }
+        data.player_xy = { hooman_x, hooman_y + data.player_core_off }
 
         if( ctrl_comp ~= nil ) then
             data.Controls = {
@@ -566,6 +571,8 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 table.remove( data.inv_list, nuke_em[i])
             end
         end
+
+        -- global_modes
         
         --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
         --test actions materialized
@@ -647,13 +654,14 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 --reset all the misc globals and such on item swap (shot_count)
             else
                 if( not( slot_going ) or data.dragger.swap_now ) then
-                    if( data.dragger.swap_now and data.dragger.item_id > 0 ) then --hold drag_action (rmb by default) to not drop
-                        if( not( data.dragger.could_swap or false ) and inv.drop ~= nil ) then
+                    if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
+                        if( not( data.drag_action ) and not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                             inv.drop( data.dragger.item_id, data )
                         else
                             play_vanilla_sound( data, "ui", "ui/item_move_denied" )
                         end
                     end
+                    data.memo.not_wanna_drop = nil
                     slot_memo = nil
                     data.dragger = {}
                 end

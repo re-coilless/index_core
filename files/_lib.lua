@@ -103,6 +103,25 @@ function t2w( str )
 	return t
 end
 
+function get_input( vanilla_id, mnee_id, is_continuous, is_dirty )
+	is_dirty = is_dirty or false
+	is_continuous = is_continuous or false
+	
+	local state = false
+	if( ModIsEnabled( "mnee" )) then
+		dofile_once( "mods/mnee/lib.lua" )
+		state = is_binding_down( "index_core", mnee_id, is_dirty, not( is_continuous ))
+	else
+		local kind = ""
+		if( type( vanilla_id ) == "table" ) then
+			kind = vanilla_id[2]
+			vanilla_id = vanilla_id[1]
+		end
+		state = _G[ "InputIs"..kind..( is_continuous and "Down" or "JustDown" )]( vanilla_id )
+	end
+	return state
+end
+
 function get_text_dim( text, char_table )
 	local w, h = 0, 0
 	
@@ -338,6 +357,16 @@ function from_tbl_with_id( tbl, id, subtract, custom_key )
 	return stuff, tbl_id
 end
 
+function simple_anim( data, name, target, speed, min_delta )
+	speed = speed or 0.1
+	min_delta = min_delta or 1
+
+	data.memo[name] = data.memo[name] or 0
+	local delta = target - data.memo[name]
+	data.memo[name] = data.memo[name] + limiter( limiter( speed*delta, min_delta, true ), delta )
+	return data.memo[name]
+end
+
 function get_most_often( tbl )
 	local count = {}
 	for n,v in pairs( tbl ) do
@@ -498,7 +527,7 @@ end
 
 function play_vanilla_sound( data, bank, event, x, y )
 	if( x == nil or y == nil ) then
-		x, y = EntityGetTransform( data.player_id )
+		x, y = unpack( data.player_xy )
 	end
 	GamePlaySound( "data/audio/Desktop/"..bank..".bank", event, x, y )
 end
@@ -646,7 +675,7 @@ function get_stain_perc( perc )
 end
 
 function get_matter_colour( matter )
-	local color_probe = EntityLoad( "mods/index_core/files/matter_color.xml" )
+	local color_probe = EntityLoad( "mods/index_core/files/misc/matter_color.xml" )
 	AddMaterialInventoryMaterial( color_probe, matter, 1000 )
 	local color = uint2color( GameGetPotionColorUint( color_probe ))
 	EntityKill( color_probe )
@@ -703,7 +732,7 @@ function inventory_boy( item_id, data, this_info, in_hand )
 		if( in_hand ) then
 			--set pos and such to the arm pos
 		else
-			local x, y = EntityGetTransform( hooman )
+			local x, y = unpack( data.player_xy )
 			EntitySetTransform( item_id, x, y )
 			EntityApplyTransform( item_id, x, y )
 		end
@@ -724,7 +753,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 		end
 		if( pickup_info.desc[1] ~= "" ) then
 			local w, h = get_text_dim( pickup_info.desc[1])
-			if( pickup_info.desc[2] == true ) then colourer( gui, {206,61,61}) end
+			if( pickup_info.desc[2] == true ) then colourer( gui, {208,70,70}) end
 			new_shadow_text( gui, ( screen_w - w )/2, screen_h - 40, zs.main_front, pickup_info.desc[1])
 			if( type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= "" ) then
 				w, h = get_text_dim( pickup_info.desc[2])
@@ -748,6 +777,11 @@ end
 function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
 	perc = perc or 0.1
 	
+	local gonna_pour = type( mouth_id ) == "table"
+	if( gonna_pour ) then
+		perc = 9/total_vol
+	end
+	
 	local to_drink = total_vol*perc
 	local min_vol = math.ceil( to_drink*perc )
 	if( #mtr_list > 0 ) then
@@ -758,8 +792,18 @@ function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
 				if( i == 1 ) then count = to_drink end
 				count = math.min( math.max( count, min_vol ), mtr[2])
 
-				EntityIngestMaterial( mouth_id, mtr[1], count )
-				AddMaterialInventoryMaterial( cup_id, CellFactory_GetName( mtr[1]), math.floor( mtr[2] - count + 0.5 ))
+				local name = CellFactory_GetName( mtr[1])
+				if( gonna_pour ) then
+					local temp = to_drink - 1
+					for i = 1,count do
+						local off_x, off_y = -1.5 + temp%3, -1.5 + math.floor( temp/3 )%4
+						GameCreateParticle( name, mouth_id[1] + off_x, mouth_id[2] + off_y, 1, 0, 0, false, false, false )
+						temp = temp - 1
+					end
+				else
+					EntityIngestMaterial( mouth_id, mtr[1], count )
+				end
+				AddMaterialInventoryMaterial( cup_id, name, math.floor( mtr[2] - count + 0.5 ))
 
 				to_drink = to_drink - count
 				if( to_drink <= 0 ) then
@@ -1100,7 +1144,7 @@ function get_inv_data( inv_id, slot_count, kind, check_func, gui_func )
 	if( storage_check ~= nil ) then
 		check_func = dofile_once( ComponentGetValue2( storage_check, "value_string" ))
 	end
-
+	
 	local inv_ts = {
 		inventory_full = { "full" },
 		inventory_quick = { "quick", slot_count[1] > 0 and "quickest" or nil },
@@ -1731,7 +1775,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	end
 	if( can_drag and data.dragger.item_id > 0 ) then
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
-			data.dragger.could_swap = true
+			data.dragger.wont_drop = true
 			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
 				if( data.dragger.swap_now ) then
 					if( info.id > 0 ) then
@@ -1775,7 +1819,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	if( info.id > 0 ) then
 		if( kind_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
-			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, inv_type == "full", is_active, is_quick, might_swap and 1.2 or 1 )
+			uid = kind_tbl.on_slot( gui, uid, info.id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, inv_type == "full", is_active, is_quick, slot_memo[ data.dragger.item_id ] and data.dragger.item_id == info.id, might_swap and 1.2 or 1 )
 		end
 	end
 	
