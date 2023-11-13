@@ -3,18 +3,10 @@
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
-penman_r = penman_r or function() return end
-penman_w = penman_w or function() return end
+penman_r = ModTextFileGetContent
+penman_w = ModTextFileSetContent
 
 function OnModInit()
-	for name,func in pairs(_G) do
-		if( name == "ModTextFileGetContent" ) then
-			penman_r = func
-		elseif( name == "ModTextFileSetContent" ) then
-			penman_w = func
-		end
-	end
-
 	-- magic_pause = function( is_paused )
 	-- 	local ffi = require( "ffi" )
 	-- 	local gg = ffi.cast( "char**", 0x01020024 )[0]
@@ -150,10 +142,16 @@ function OnPlayerSpawned( hooman )
 	if( inv_comp ~= nil ) then
 		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
 	end
+	
+	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent",
+	{
+		script_source_file = "mods/index_core/files/inv_ctrl.lua",
+		execute_every_n_frame = "1",
+	})
 
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
-	
+
 	EntityLoad( "mods/index_core/files/testing_chest.xml", x - 50, y - 20 )
 end
 

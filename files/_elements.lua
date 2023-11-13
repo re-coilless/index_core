@@ -21,7 +21,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         local inv_id = data.inventories_player[1]
         local inv_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,0}, data.is_opened, false, true )
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,-1}, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
         
@@ -29,26 +29,25 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         local cat_items = pic_x
         inv_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,1}, data.is_opened, false, true )
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,-2}, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
         if( data.is_opened ) then --by default display only the first row of full inv, to see the rest one must engage the inv managing mode
-            local cat_spells = pic_x + 9
-            pic_x = cat_spells
-
+            pic_x = pic_x + 9
             new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-            new_text( gui, cat_spells + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_actionstorage" ))
-
+            new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_actionstorage" ))
+            
+            local core_y = pic_y
             inv_id = data.inventories_player[2]
             inv_data = data.slot_state[ inv_id ]
-            for i,line in ipairs( inv_data ) do
-                for e,slot in ipairs( line ) do
-                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,-e}, true, true )
-                    pic_x, pic_y = pic_x + w + step, pic_y
+            for i,col in ipairs( inv_data ) do
+                for e,slot in ipairs( col ) do
+                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,e}, true, true )
+                    pic_x, pic_y = pic_x, pic_y + h + step
                 end
-                pic_x, pic_y = cat_spells, pic_y + h + step
+                pic_x, pic_y = pic_x + w + step, core_y
             end
         end
         
@@ -131,7 +130,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
 
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1])) then
-        if( this_data[6] and this_data[7] > this_data[8]) then
+        if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
             uid = new_font_vanilla_small( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { 255, 255, 255, 0.9 })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
@@ -230,7 +229,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local tip = ""
             if( potion_data[3] ~= nil ) then
-                tip = this_data.name.."@"..this_data.potion_fullness
+                tip = this_data.name.."@"..this_data.fullness
             else
                 tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
             end
@@ -729,12 +728,12 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         local info_dump = false
                         if( cost_check ) then
                             local will_pause = data.item_types[ item_data[10].kind ].on_gui_pause ~= nil
-                            ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
+                            ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 ) --is_hidden and slotless go to full by default
                             local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
                                 if( i > 1 ) then
                                     pickup_info.id = item_data[1][1]
-                                    pickup_info.desc = GameTextGet( item_data[8] == "" and ( is_shop and "$itempickup_purchase" or "$itempickup_pick" ) or item_data[8], "[USE]", item_data[10].name..( item_data[10].potion_fullness or "" ))
+                                    pickup_info.desc = GameTextGet( item_data[8] == "" and ( is_shop and "$itempickup_purchase" or "$itempickup_pick" ) or item_data[8], "[USE]", item_data[10].name..( item_data[10].fullness or "" ))
                                     pickup_info.txt = "[GET]"
                                     pickup_info.info = item_data[10]
                                     pickup_info.do_sound = item_data[6]
@@ -789,7 +788,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
-                if( pickup_info.id > 0 and not( no_space ) and not( cant_buy ) and data.Controls[3][2]) then
+                if( pickup_info.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )
                     table.insert( slot_anim, {
@@ -799,9 +798,17 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         frame = data.frame_num,
                     })
 
+                    local orig_name = pickup_info.info.name
+                    if( pickup_info.info.fullness ~= nil ) then
+                        pickup_info.info.name = pickup_info.info.name..pickup_info.info.fullness
+                    end
+
                     data.Controls[3][2] = false
+                    play_vanilla_sound( data, "event_cues", pickup_info.info.cost == nil and "event_cues/pick_item_generic/create" or "event_cues/shop_item/create" )
                     pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
                     ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
+
+                    pickup_info.info.name = orig_name
                 end
             end
 
@@ -827,11 +834,12 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
     return uid, data
 end
 
-function new_generic_drop( this_item, data, inv_comp )
+function new_generic_drop( this_item, data, inv_comp ) --on_drop callback
     local dude = EntityGetRootEntity( this_item )
     if( dude == data.player_id ) then
         EntityRemoveFromParent( this_item )
-        
+        play_vanilla_sound( data, "ui", "ui/item_remove" )
+
         local h_x, h_y = EntityGetTransform( dude )
         h_y = h_y + data.player_core_off
         local p_d_x, p_d_y = data.pointer_world[1] - h_x, data.pointer_world[2] - h_y
@@ -874,23 +882,22 @@ function new_generic_drop( this_item, data, inv_comp )
         end
         ComponentSetValue2( dropped_info.ItemC, "inventory_slot", -5, -5 )
         ComponentSetValue2( dropped_info.ItemC, "play_hover_animation", false )
+        ComponentSetValue2( dropped_info.ItemC, "has_been_picked_by_player", true )
         ComponentSetValue2( dropped_info.ItemC, "next_frame_pickable", data.frame_num + 30 )
 
-        local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
-        if( shape_comp ~= nil ) then
-            local phys_mult = 1.75
-            if( dropped_info.potion_fullness ~= nil and p_delta < 5 ) then
-                phys_mult = 0
-            else
+        if( p_delta > 2 ) then
+            local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
+            if( shape_comp ~= nil ) then
+                local phys_mult = 1.75
                 local throw_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsThrowableComponent" )
                 if( throw_comp ~= nil ) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
+                
+                local mass = get_phys_mass( this_item )
+                PhysicsApplyForce( this_item, phys_mult*force_x*mass, phys_mult*force_y*mass )
+                PhysicsApplyTorque( this_item, phys_mult*5*mass )
+            elseif( vel_comp ~= nil ) then
+                ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y )
             end
-            
-            local mass = get_phys_mass( this_item )
-            PhysicsApplyForce( this_item, phys_mult*force_x*mass, phys_mult*force_y*mass )
-            PhysicsApplyTorque( this_item, phys_mult*5*mass )
-        elseif( vel_comp ~= nil ) then
-            ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y )
         end
 
         if( not( data.no_action_on_drop )) then

@@ -442,11 +442,27 @@ function get_active_wand( hooman )
 	return 0
 end
 
-function get_item_name( entity_id, abil_comp, item_comp )
+function get_item_name( entity_id, abil_comp, item_comp ) --what a pile of horseshit
+	local actual_bullshit = {
+		default = 1,
+		unknown = 1,
+		[" "] = 1,
+		[""] = 1,
+	}
+	
 	local name = abil_comp ~= nil and ComponentGetValue2( abil_comp, "ui_name" ) or ""
 	name = name == "" and EntityGetName( entity_id ) or name
-	name = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or name=="" ) and ComponentGetValue2( item_comp, "item_name" ) or name
-	return string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) --what a pile of horseshit
+	local temp = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or actual_bullshit[ name ]) and ComponentGetValue2( item_comp, "item_name" ) or name
+	name = actual_bullshit[ temp ] and name or temp
+	return string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" )
+end
+
+function capitalizer( text )
+	return string.gsub( string.gsub( tostring( text ), "%s%l", string.upper ), "^%l", string.upper )
+end
+
+function get_button_state( ctrl_comp, btn, frame )
+	return { ComponentGetValue2( ctrl_comp, "mButtonDown"..btn ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..btn ) == frame }
 end
 
 function get_potion_info( entity_id, name, max_count, total_count, matters )
@@ -480,9 +496,11 @@ function get_discrete_button( entity_id, comp, btn )
 	return state
 end
 
-function play_sound( event )
-	local c_x, c_y = GameGetCameraPos()
-	GamePlaySound( "mods/mrshll_core/mrshll.bank", event, c_x, c_y )
+function play_vanilla_sound( data, bank, event, x, y )
+	if( x == nil or y == nil ) then
+		x, y = EntityGetTransform( data.player_id )
+	end
+	GamePlaySound( "data/audio/Desktop/"..bank..".bank", event, x, y )
 end
 
 function uint2color( color )
@@ -577,10 +595,6 @@ function get_short_num( num, negative_inf )
 		num = "i"
 	end
 	return num
-end
-
-function capitalizer( text )
-	return string.gsub( string.gsub( tostring( text ), "%s%l", string.upper ), "^%l", string.upper )
 end
 
 function hud_text_fix( key )
@@ -696,8 +710,9 @@ function inventory_boy( item_id, data, this_info, in_hand )
 	end
 end
 
-function inventory_man( item_id, data, this_info, in_hand )
+function inventory_man( item_id, data, this_info, in_hand ) --use inv_boy instead
 	child_play_full( item_id, function( child, params )
+		if( child ~= item_id ) then params[3] = false end
 		inventory_boy( child, unpack( params ))
 	end, { data, this_info, in_hand })
 end
@@ -728,6 +743,31 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 	end
 
 	return uid
+end
+
+function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
+	perc = perc or 0.1
+	
+	local to_drink = total_vol*perc
+	local min_vol = math.ceil( to_drink*perc )
+	if( #mtr_list > 0 ) then
+		for i = #mtr_list,1,-1 do
+			local mtr = mtr_list[i]
+			if( mtr[2] > 0 ) then
+				local count = math.floor( mtr[2]*perc )
+				if( i == 1 ) then count = to_drink end
+				count = math.min( math.max( count, min_vol ), mtr[2])
+
+				EntityIngestMaterial( mouth_id, mtr[1], count )
+				AddMaterialInventoryMaterial( cup_id, CellFactory_GetName( mtr[1]), math.floor( mtr[2] - count + 0.5 ))
+
+				to_drink = to_drink - count
+				if( to_drink <= 0 ) then
+					break
+				end
+			end
+		end
+	end
 end
 
 function vanilla_lua_callback( entity_id, func_names, input )
@@ -791,9 +831,7 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 	end
 	if( gonna_pause == 0 ) then
 		local _,slot = ComponentGetValue2( this_data.ItemC, "inventory_slot" )
-		EntityAddChild( data.inventories_player[ slot < 0 and 2 or 1 ], entity_id )
-		ComponentSetValue2( this_data.ItemC, "has_been_picked_by_player", true )
-		ComponentSetValue2( this_data.ItemC, "mFramePickedUp", data.frame_num )
+		EntityAddChild( data.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
 
 		if( this_data.cost ~= nil ) then
 			if( not( data.Wallet[2])) then
@@ -811,13 +849,16 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 			end
 		end
 
+		this_data.xy = { EntityGetTransform( entity_id )}
 		vanilla_lua_callback( entity_id, { "script_item_picked_up", "item_pickup" }, { entity_id, hooman, this_data.name })
-
-		if( EntityGetIsAlive( entity_id )) then
-			inventory_man( entity_id, data, this_data, false )
-		end
 		if( callback ~= nil ) then
 			callback( entity_id, data, this_data, true )
+		end
+		if( EntityGetIsAlive( entity_id )) then
+			ComponentSetValue2( this_data.ItemC, "has_been_picked_by_player", true )
+			ComponentSetValue2( this_data.ItemC, "mFramePickedUp", data.frame_num )
+
+			inventory_man( entity_id, data, this_data, false )
 		end
 	elseif( gonna_pause == 1 ) then
 		--engage the pause
@@ -852,9 +893,9 @@ function set_to_slot( slot_info, data, is_player )
 									if( not( is_fancy and from_tbl_with_id( valid_invs, i ) == 0 )) then
 										data.slot_state[ inv_id ][i][k] = slot_info.id
 										if( is_fancy ) then
-											slot_num = { k, i == "quickest" and 0 or 1 }
+											slot_num = { k, i == "quickest" and 0 or -1 }
 										else
-											slot_num = { i, -k }
+											slot_num = { i, k }
 										end
 										break
 									end
@@ -873,15 +914,18 @@ function set_to_slot( slot_info, data, is_player )
 					return slot_info
 				end
 			end
+
+			slot_num[1], slot_num[2] = slot_num[1] - 1, slot_num[2] - 1
 			ComponentSetValue2( slot_info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
-		elseif( slot_num[2] == 0 ) then
-			data.slot_state[ slot_info.inv_tbl.id ].quickest[ slot_num[1]] = slot_info.id
+			slot_num[1], slot_num[2] = slot_num[1] + 1, slot_num[2] < 0 and slot_num[2] or ( slot_num[2] + 1 )
+		elseif( slot_num[2] == -1 ) then
+			data.slot_state[ slot_info.inv_tbl.id ].quickest[ slot_num[1] + 1 ] = slot_info.id
 			slot_info.inv_tbl.kind = "quickest"
-		elseif( slot_num[2] == 1 ) then
-			data.slot_state[ slot_info.inv_tbl.id ].quick[ slot_num[1]] = slot_info.id
+		elseif( slot_num[2] == -2 ) then
+			data.slot_state[ slot_info.inv_tbl.id ].quick[ slot_num[1] + 1 ] = slot_info.id
 			slot_info.inv_tbl.kind = "quick"
-		elseif( slot_num[2] < 0 ) then
-			data.slot_state[ slot_info.inv_tbl.id ][ slot_num[1]][ math.abs( slot_num[2])] = slot_info.id
+		elseif( slot_num[2] >= 0 ) then
+			data.slot_state[ slot_info.inv_tbl.id ][ slot_num[1] + 1 ][ slot_num[2] + 1 ] = slot_info.id
 			slot_info.inv_tbl.kind = slot_info.inv_tbl.kind[1]
 		end
 	end
@@ -949,7 +993,7 @@ function get_item_data( item_id, data, inventory_data )
 		slot_info.desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
 		slot_info.uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
 		slot_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
-		slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name to stack
+		slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name + path to stack
 		slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 	end
 	
@@ -1157,7 +1201,7 @@ function check_bounds( dot, pos, box )
 end
 
 function check_dragger_buffer( data, id )
-	if( data.frame_num - dragger_buffer[2] > 1 ) then
+	if( data.frame_num - dragger_buffer[2] > 2 ) then
 		dragger_buffer = {0,0}
 	end
 	
@@ -1593,10 +1637,10 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 
 	if( kind == 1 ) then
 		uid = new_image( gui, uid, pic_x, pic_y, pic_z + 0.002, "data/ui_gfx/status_indicators/bg_ingestion.png" )
-
+		
 		local d_frame = info.digestion_delay
 		if( info.is_stomach and d_frame > 0 ) then
-			uid = new_image( gui, uid, pic_x + 1, pic_y + 1 + 12*( 1 - d_frame ), pic_z + 0.001, "mods/index_core/files/pics/vanilla_stomach_bg.xml", 10, 10*d_frame, 0.3 )
+			uid = new_image( gui, uid, pic_x + 1, pic_y + 1 + 10*( 1 - d_frame ), pic_z + 0.001, "mods/index_core/files/pics/vanilla_stomach_bg.xml", 10, math.ceil( 20*d_frame )/2, 0.3 )
 		end
 	end
 
@@ -1618,11 +1662,11 @@ function slot_swap( item_in, slot_data, active_item )
 			EntityAddChild( parent1, slot_data[1])
 		end
 	end
-	
+
 	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_in, "ItemComponent" )
 	local slot1 = { ComponentGetValue2( item_comp1, "inventory_slot" )}
 	local slot2 = slot_data[3]
-	ComponentSetValue2( item_comp1, "inventory_slot", unpack( slot2 ))
+	ComponentSetValue2( item_comp1, "inventory_slot", slot2[1] - 1, slot2[2] < 0 and slot2[2] or slot2[2] - 1 )
 	if( slot_data[1] > 0 ) then
 		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data[1], "ItemComponent" )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
@@ -1663,7 +1707,7 @@ end
 
 function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, inv_type, is_active, can_drag, is_full, is_quick )
 	kind_tbl = kind_tbl or {}
-
+	
 	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
 		colourer( data.the_gui, {150,150,150})
 	end
@@ -1673,17 +1717,21 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
 	local might_swap = not( data.is_opened ) and is_quick and is_hovered
 	if( clicked and info.id > 0 and might_swap ) then
+		-- play_vanilla_sound( data, "ui", "ui/item_equipped" )
+		
 		--swap to item
 		--mActiveItem, mActualActiveItem, mInitialized (for a frame after), mForceRefresh
 		--check the gun.lua to force the weapon reset
 	end
 	
+	local dragger_hovered = false
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if( is_active ) then
 		uid = new_image( gui, uid, pic_x, pic_y, zs.main, data.slot_pic.active )
 	end
 	if( can_drag and data.dragger.item_id > 0 ) then
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
+			data.dragger.could_swap = true
 			if( inv_check( data.dragger, inv_type ) and inv_check( info, data.dragger.inv_kind )) then
 				if( data.dragger.swap_now ) then
 					if( info.id > 0 ) then
@@ -1694,16 +1742,27 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 							frame = data.frame_num,
 						})
 					end
+					play_vanilla_sound( data, "ui", info.id > 0 and "ui/item_switch_places" or "ui/item_move_success" )
+
 					if( slot_swap( data.dragger.item_id, slot_data, data.active_item )) then
 						ComponentSetValue2( data.inventory, "mActiveItem", 0 )
 					end
 					data.dragger.item_id = -1
 				end
 				if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
+					dragger_hovered = true
 					uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.icons + 0.01, data.slot_pic.hl )
 				end
 			end
 		end
+	end
+	if((( info.id > 0 and is_hovered ) or dragger_hovered ) and not( slot_hover_sfx[2])) then
+		local slot_uid = tonumber( slot_data[2]).."|"..slot_data[3][1]..":"..slot_data[3][2]
+		if( slot_hover_sfx[1] ~= slot_uid ) then
+			slot_hover_sfx[1] = slot_uid
+			play_vanilla_sound( data, "ui", "ui/item_move_over_new_slot" )
+		end
+		slot_hover_sfx[2] = true
 	end
 	
 	if( can_drag ) then
@@ -1716,7 +1775,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 	if( info.id > 0 ) then
 		if( kind_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
-			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, inv_type == "full", is_active, might_swap and 1.2 or 1 )
+			uid = kind_tbl.on_slot( gui, uid, item_id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, inv_type == "full", is_active, is_quick, might_swap and 1.2 or 1 )
 		end
 	end
 	

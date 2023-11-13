@@ -85,7 +85,7 @@ local ITEM_TYPES = {
             --use this for in-world tips too
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
             --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
@@ -100,7 +100,11 @@ local ITEM_TYPES = {
                     return 0
                 end,
                 function( item_id, data, this_info )
-                    ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
+                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
+                        local emitter = EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( this_info.xy ))
+                        EntityRemoveComponent( emitter, EntityGetFirstComponentIncludingDisabled( emitter, "LifetimeComponent" ))
+                        ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
+                    end
                 end,
             }
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
@@ -130,7 +134,7 @@ local ITEM_TYPES = {
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             this_info.matter_info[1] = barrel_size == nil and this_info.matter_info[1] or ComponentGetValue2( barrel_size, "barrel_size" )
             
-            this_info.name, this_info.potion_fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+            this_info.name, this_info.fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
 
             return data, this_info
         end,
@@ -139,13 +143,12 @@ local ITEM_TYPES = {
             local w, h = get_pic_dim( data.slot_pic.bg )
             pic_x, pic_y = pic_x + w/2, pic_y + h/2
 
+            --put red cross to the upper left corner of an empty potion
+
             local cap_max = this_info.matter_info[1]
             local mtrs = this_info.matter_info[2]
             local content_total = mtrs[1]
             local content_tbl = mtrs[2]
-            table.sort( content_tbl, function( a, b )
-                return a[2] < b[2]
-            end)
             
             local w, h = get_pic_dim( this_info.pic )
             w, h = get_pic_dim( data.slot_pic.bg )
@@ -153,28 +156,28 @@ local ITEM_TYPES = {
             local k = h/cap_max
             pic_x, pic_y = pic_x - w/2, pic_y + h/2
             local size = k*math.min( content_total, cap_max )
-            pic_y = pic_y - size
-            if(( 16 - size ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
-                uid = new_image( gui, uid, pic_x, pic_y - 0.5, zs.main + 0.001, data.pixel, w, 0.5 )
-            end
             local alpha = is_dragged and 0.7 or 0.9
             local delta = 0
             for i,m in ipairs( content_tbl ) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
                 colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
-                if( i == #content_tbl ) then sz = math.max( size - delta, 0 ) end
-                uid = new_image( gui, uid, pic_x, pic_y + delta, zs.main + 0.001, data.pixel, w, sz, alpha )
                 delta = delta + sz
+                if( delta > h ) then
+                    break
+                else
+                    uid = new_image( gui, uid, pic_x, pic_y - delta, zs.main + 0.001, data.pixel, w, sz, alpha )
+                end
             end
-
-            --drink on rmb
+            if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
+                uid = new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, w, 0.5 )
+            end
 
             return uid, data
         end,
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
             
@@ -186,7 +189,27 @@ local ITEM_TYPES = {
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
             uid = new_image( gui, uid, pic_x - hov_scale*w/2, pic_y - hov_scale*h/2, z - 0.001, this_info.pic, hov_scale, hov_scale )
             
+            if( this_info.matter_info[3] and content_total > 0 ) then
+                if( r_clicked and is_usable and data.is_opened ) then
+                    play_vanilla_sound( data, "misc", "misc/potion_drink" )
+                    chugger_3000( data.player_id, this_info.id, cap_max, this_info.matter_info[2][2])
+                end
+            end
+            
             return uid
+        end,
+
+        on_pickup = function( item_id, data, this_info, is_post )
+            local func_tbl = {
+                function( item_id, data, this_info ) return 0 end,
+                function( item_id, data, this_info )
+                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
+                        local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( this_info.xy ))
+                        ComponentGetValue2( EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" ), "emitted_material_name", CellFactory_GetName( this_info.matter_info[2][2][1][1]))
+                    end
+                end,
+            }
+            return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
     },
     {
@@ -206,7 +229,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
             return uid
         end,
     },
@@ -220,7 +243,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,
@@ -235,7 +258,7 @@ local ITEM_TYPES = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
             return uid
         end,

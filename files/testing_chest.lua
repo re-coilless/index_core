@@ -11,12 +11,12 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
         
         local inv_id = inv_data.id
         local inv_data = data.slot_state[ inv_id ]
-        for i,line in ipairs( inv_data ) do
-            for e,slot in ipairs( line ) do
-                uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "universal", inv_id, {i,-e}, true )
-                pic_x, pic_y = pic_x + w + step, pic_y
+        for i,col in ipairs( inv_data ) do
+            for e,slot in ipairs( col ) do
+                uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "universal", inv_id, {i,e}, true )
+                pic_x, pic_y = pic_x, pic_y + h + step
             end
-            pic_x, pic_y = core_x, pic_y + h + step
+            pic_x, pic_y = pic_x + w + step, core_y
         end
     end
 

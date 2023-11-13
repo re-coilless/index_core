@@ -8,6 +8,7 @@ dragger_buffer = dragger_buffer or {0,0}
 slot_going = slot_going or false
 slot_memo = slot_memo or {}
 slot_anim = slot_anim or {}
+slot_hover_sfx = slot_hover_sfx or {0,false}
 mouse_memo = mouse_memo or {}
 mouse_memo_world = mouse_memo_world or {}
 mtr_probe = mtr_probe or 0
@@ -23,158 +24,180 @@ for tid,tip_tbl in pairs( tip_anim ) do
     end
 end
 
-local controller_id = GetUpdatedEntityID()
-local main_x, main_y = EntityGetTransform( controller_id )
+local fake_gui = nil
+local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
+for i,controller_id in ipairs( ctrl_bodies ) do
+    local main_x, main_y = EntityGetTransform( controller_id )
 
-local hooman = EntityGetParent( controller_id )
-if( not( EntityGetIsAlive( hooman ))) then
-    return
-end
-
-local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
-local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
-
-local comp_nuker = { iui_comp, pick_comp, }
-for i,comp in ipairs( comp_nuker ) do
-    if( comp ~= nil and ComponentGetIsEnabled( comp )) then
-        EntitySetComponentIsEnabled( hooman, comp, false )
+    local hooman = EntityGetParent( controller_id )
+    if( not( EntityGetIsAlive( hooman ))) then
+        return
     end
-end
 
-local forced_state = ComponentGetValue2( get_storage( controller_id, "forced_state" ), "value_int" )
-local is_going = forced_state > 0
-if( forced_state == 0 ) then
-    is_going = ComponentGetValue2( ctrl_comp, "enabled" )
-end
+    local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+    local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+    local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
+    local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
 
-if( is_going and inv_comp ~= nil ) then
-    if( real_gui == nil ) then
-		real_gui = GuiCreate()
-	end
-	GuiStartFrame( real_gui )
-
-    local fake_gui = GuiCreate()
-    GuiStartFrame( fake_gui )
-
-    local m_x, m_y = DEBUG_GetMouseWorld()
-    local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
-    mouse_memo_world = { m_x, m_y }
-    local mui_x, mui_y = world2gui( m_x, m_y )
-    local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
-    mouse_memo = { mui_x, mui_y }
-    
-    local pointer_mtr = 0
-    if( not( EntityGetIsAlive( mtr_probe ))) then
-        mtr_probe = EntityLoad( "mods/index_core/files/matter_test.xml", m_x, m_y )
+    local comp_nuker = { iui_comp, pick_comp, }
+    for i,comp in ipairs( comp_nuker ) do
+        if( comp ~= nil and ComponentGetIsEnabled( comp )) then
+            EntitySetComponentIsEnabled( hooman, comp, false )
+        end
     end
-    if( mtr_probe > 0 ) then
-        local jitter_mag = 0.5
-        EntityApplyTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-1,0)), m_y + jitter_mag*get_sign( math.random(-1,0)))
+
+    local forced_state = ComponentGetValue2( get_storage( controller_id, "forced_state" ), "value_int" )
+    local is_going = forced_state > 0
+    if( forced_state == 0 ) then
+        is_going = ComponentGetValue2( ctrl_comp, "enabled" )
+    end
+
+    if( is_going and inv_comp ~= nil ) then
+        if( real_gui == nil ) then
+            real_gui = GuiCreate()
+        end
+        GuiStartFrame( real_gui )
+
+        fake_gui = GuiCreate()
+        GuiStartFrame( fake_gui )
+
+        local m_x, m_y = DEBUG_GetMouseWorld()
+        local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
+        mouse_memo_world = { m_x, m_y }
+        local mui_x, mui_y = world2gui( m_x, m_y )
+        local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
+        mouse_memo = { mui_x, mui_y }
         
-        local mtr_list = {}
-        local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
-        local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
-        local count = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterialCountsThisFrame" )
-        for i,v in ipairs( count ) do
-            if( v > 0 ) then
-                local id = matter[i]
-                mtr_list[id] = mtr_list[id] and ( mtr_list[id] + v ) or v
-            end
+        local pointer_mtr = 0
+        if( not( EntityGetIsAlive( mtr_probe ))) then
+            mtr_probe = EntityLoad( "mods/index_core/files/matter_test.xml", m_x, m_y )
         end
-        local cells = {}
-        for id,cnt in pairs( mtr_list ) do
-            table.insert( cells, { id, cnt })
-        end
-        if( #cells > 0 ) then
-            table.sort( cells, function( a, b )
-                return a[2] > b[2]
-            end)
-            pointer_mtr = cells[1][1]
-        end
-    end
-    table.remove( mtr_probe_memo, 1 )
-    table.insert( mtr_probe_memo, pointer_mtr )
-    local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
-    pointer_mtr = most_mtr_count > 5 and most_mtr or 0
-    
-    local epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" )
-
-    local perk_tbl, effect_tbl = {}, {ings={},stains={},misc={}}
-    local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
-    local status_comp = EntityGetFirstComponentIncludingDisabled( hooman, "StatusEffectDataComponent" )
-    if( status_comp ~= nil ) then
-        dofile_once( "data/scripts/status_effects/status_list.lua" )
-        if( status_effects[1].real_id == nil ) then
-            local id_memo = {}
-            local id_num = 1
-            for i,e in ipairs( status_effects ) do
-                if( id_memo[e.id] == nil ) then
-                    id_memo[e.id] = true
-                    id_num = id_num + 1
+        if( mtr_probe > 0 ) then
+            local jitter_mag = 0.5
+            EntityApplyTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-1,0)), m_y + jitter_mag*get_sign( math.random(-1,0)))
+            
+            local mtr_list = {}
+            local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
+            local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
+            local count = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterialCountsThisFrame" )
+            for i,v in ipairs( count ) do
+                if( v > 0 ) then
+                    local id = matter[i]
+                    mtr_list[id] = ( mtr_list[id] or 0 ) + v
                 end
-                status_effects[i].real_id = id_num
-            end 
-        end
-
-        local core_effects = {}
-        local simple_effects = {}
-        child_play( hooman, function( parent, child, i )
-            local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
-            if( effect_comp ~= nil ) then
-                local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
-                local is_stain = ComponentGetValue2( effect_comp, "caused_by_stains" )
-                local is_core = is_ing or is_stain
-
-                local effect = ComponentGetValue2( effect_comp, "effect" )
-                effect = effect == "CUSTOM" and ComponentGetValue2( effect_comp, "custom_effect_id" ) or effect
-                local effect_id = ComponentGetValue2( effect_comp, "causing_status_effect" ) + 1
-                table.insert( is_core and core_effects or simple_effects, { child, effect_comp, effect_id, effect })
             end
-        end)
-        if( #core_effects > 0 ) then
-            local ing_frame = ComponentGetValue2( status_comp, "ingestion_effects" )
-            local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
-            local ing_more = ComponentGetValue2( status_comp, "ingestion_effect_causes_many" )
-            for i,duration in ipairs( ing_frame ) do
-                local effect_id = i
-                if( duration ~= 0 ) then
-                    local game_effect = from_tbl_with_id( core_effects, effect_id, nil, 3 ) or {}
-                    if( #game_effect > 0 ) then
-                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { game_effect[3]}, nil, "real_id" ) or {}, duration )
+            local max_id = { 0, 0 }
+            for id,cnt in pairs( mtr_list ) do
+                if( max_id[2] < cnt ) then
+                    max_id[1] = id
+                    max_id[2] = cnt
+                end
+            end
+            pointer_mtr = max_id[1]
+        end
+        table.remove( mtr_probe_memo, 1 )
+        table.insert( mtr_probe_memo, pointer_mtr )
+        local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
+        pointer_mtr = most_mtr_count > 5 and most_mtr or 0
+        
+        local epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" )
+
+        local perk_tbl, effect_tbl = {}, {ings={},stains={},misc={}}
+        local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
+        local status_comp = EntityGetFirstComponentIncludingDisabled( hooman, "StatusEffectDataComponent" )
+        if( status_comp ~= nil ) then
+            dofile_once( "data/scripts/status_effects/status_list.lua" )
+            if( status_effects[1].real_id == nil ) then
+                local id_memo = {}
+                local id_num = 1
+                for i,e in ipairs( status_effects ) do
+                    if( id_memo[e.id] == nil ) then
+                        id_memo[e.id] = true
+                        id_num = id_num + 1
+                    end
+                    status_effects[i].real_id = id_num
+                end 
+            end
+
+            local simple_effects = {}
+            child_play( hooman, function( parent, child, i )
+                local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
+                if( effect_comp ~= nil ) then
+                    local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
+                    local is_stain = ComponentGetValue2( effect_comp, "caused_by_stains" )
+                    local is_core = is_ing or is_stain
+                    if( not( is_core )) then
+                        local effect = ComponentGetValue2( effect_comp, "effect" )
+                        effect = effect == "CUSTOM" and ComponentGetValue2( effect_comp, "custom_effect_id" ) or effect
+                        local effect_id = ComponentGetValue2( effect_comp, "causing_status_effect" ) + 1
+                        table.insert( simple_effects, { child, effect_comp, effect_id, effect })
+                    end
+                end
+            end)
+
+            do
+                local ing_comp = EntityGetFirstComponentIncludingDisabled( hooman, "IngestionComponent" )
+                local ing_perc = 0
+                if( ing_comp ~= nil ) then
+                    local raw_count = ComponentGetValue2( ing_comp, "ingestion_size" )
+                    if( raw_count > 0 ) then
+                        ing_perc = math.floor( 100*raw_count/ComponentGetValue2( ing_comp, "ingestion_capacity" ) + 0.5 )
+                    end
+                end
+
+                local ing_frame = ComponentGetValue2( status_comp, "ingestion_effects" )
+                local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
+                local ing_more = ComponentGetValue2( status_comp, "ingestion_effect_causes_many" )
+                for i,duration in ipairs( ing_frame ) do
+                    local effect_id = i
+                    if( duration ~= 0 ) then
+                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
                         local time = get_effect_duration( duration, effect_info, epsilon )
                         if( effect_info.id ~= nil and time ~= 0 ) then
                             local mtr = GameTextGetTranslatedOrNot( CellFactory_GetUIName( ing_matter[effect_id]))
+                            mtr = mtr == "" and "???" or mtr
+
                             local is_many = ing_more[effect_id] == 1
                             local message = GameTextGet( "$ingestion_status_caused_by"..( is_many and "_many" or "" ), mtr )
-                            
-                            local effect_data = {
-                                pic = effect_info.ui_icon,
-                                txt = get_effect_timer( time ),
-                                desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
-                                tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."@"..message,
+                            if( ing_perc >= 100 ) then
+                                local hardcoded_cancer_fucking_ass_list = {
+                                    INGESTION_MOVEMENT_SLOWER = true,
+                                    INGESTION_DAMAGE = true,
+                                    INGESTION_EXPLODING = true,
+                                }
+                                if( hardcoded_cancer_fucking_ass_list[ effect_info.id ]) then
+                                    if( GameGetGameEffectCount( hooman, "IRON_STOMACH" ) > 0 ) then 
+                                        time = 0
+                                    else
+                                        time = -1
+                                        message = GameTextGetTranslatedOrNot( "$ingestion_status_caused_by_overingestion" )
+                                    end
+                                end
+                            end
 
-                                amount = time*60,
-                                is_danger = effect_info.is_harmful,
-                            }
-                            table.insert( effect_tbl.ings, effect_data )
+                            if( time ~= 0 ) then
+                                local effect_data = {
+                                    pic = effect_info.ui_icon,
+                                    txt = get_effect_timer( time ),
+                                    desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
+                                    tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."@"..message,
+
+                                    amount = time*60,
+                                    is_danger = effect_info.is_harmful,
+                                }
+                                table.insert( effect_tbl.ings, effect_data )
+                            end
                         end
                     end
                 end
-            end
-            table.sort( effect_tbl.ings, function( a, b )
-                return a.amount > b.amount
-            end)
-            local ing_comp = EntityGetFirstComponentIncludingDisabled( hooman, "IngestionComponent" )
-            if( ing_comp ~= nil ) then
-                local raw_count = ComponentGetValue2( ing_comp, "ingestion_size" )
-                local perc = math.floor( 100*raw_count/ComponentGetValue2( ing_comp, "ingestion_capacity" ) + 0.5 )
-                if( raw_count > 0 ) then
+                table.sort( effect_tbl.ings, function( a, b )
+                    return a.amount > b.amount
+                end)
+                if( ing_perc > 0 ) then
                     local stomach_tbl = { 25, 90, 100, 140, 150, 175, }
                     local stomach_step = #stomach_tbl
                     for i = 1,#stomach_tbl do
-                        if( perc < stomach_tbl[i]) then
+                        if( ing_perc < stomach_tbl[i]) then
                             stomach_step = i-1
                             break
                         end
@@ -182,30 +205,27 @@ if( is_going and inv_comp ~= nil ) then
                     
                     table.insert( effect_tbl.ings, 1, {
                         pic = "data/ui_gfx/status_indicators/satiation_0"..stomach_step..".png",
-                        txt = perc.."%",
+                        txt = ing_perc.."%",
                         desc = GameTextGetTranslatedOrNot( "$status_satiated0"..stomach_step ),
                         tip = GameTextGetTranslatedOrNot( "$statusdesc_satiated0"..stomach_step ),
-
-                        amount = math.min( perc/100, 1 ),
-                        is_danger = perc > 100 and not( GameHasFlagRun( "PERK_PICKED_IRON_STOMACH" )),
+        
+                        amount = math.min( ing_perc/100, 1 ),
+                        is_danger = ing_perc > 100 and not( GameHasFlagRun( "PERK_PICKED_IRON_STOMACH" )),
                         is_stomach = true,
-                        digestion_delay = math.min( ComponentGetValue2( ing_comp, "m_ingestion_cooldown_frames" )/ComponentGetValue2( ing_comp, "ingestion_cooldown_delay_frames" ), 1 ),
+                        digestion_delay = math.min( math.floor( 10*ComponentGetValue2( ing_comp, "m_ingestion_cooldown_frames" )/ComponentGetValue2( ing_comp, "ingestion_cooldown_delay_frames" ) + 0.5 )/10, 1 ),
                     })
                 end
-            end
 
-            local stain_percs = ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" )
-            for i,duration in ipairs( stain_percs ) do
-                local effect_id = i
-                local perc = get_stain_perc( duration )
-                if( perc > 0 ) then
-                    local game_effect = from_tbl_with_id( core_effects, effect_id, nil, 3 ) or {}
-                    if( #game_effect > 0 ) then
-                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { game_effect[3]}, nil, "real_id" ) or {}, duration )
+                local stain_percs = ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" )
+                for i,duration in ipairs( stain_percs ) do
+                    local effect_id = i
+                    local perc = get_stain_perc( duration )
+                    if( perc > 0 ) then
+                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
                         if( effect_info.id ~= nil ) then
                             local effect_data = {
                                 id = effect_id,
-
+                                
                                 pic = effect_info.ui_icon,
                                 txt = math.min( perc, 100 ).."%",
                                 desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
@@ -218,427 +238,440 @@ if( is_going and inv_comp ~= nil ) then
                         end
                     end
                 end
+                table.sort( effect_tbl.stains, function( a, b )
+                    return a.id > b.id
+                end)
+                if( dmg_comp ~= nil and ComponentGetIsEnabled( dmg_comp ) and ComponentGetValue2( dmg_comp, "mIsOnFire" )) then
+                    local fire_info = from_tbl_with_id( status_effects, "ON_FIRE" )
+                    local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
+                    table.insert( effect_tbl.stains, 1, {
+                        pic = fire_info.ui_icon,
+                        txt = perc.."%",
+                        desc = GameTextGetTranslatedOrNot( fire_info.ui_name ),
+                        tip = GameTextGetTranslatedOrNot( fire_info.ui_description ),
+        
+                        amount = math.min( perc/100, 1 ),
+                        is_danger = true,
+                    })
+                end
             end
-            table.sort( effect_tbl.stains, function( a, b )
-                return a.id > b.id
-            end)
-            if( dmg_comp ~= nil and ComponentGetIsEnabled( dmg_comp ) and ComponentGetValue2( dmg_comp, "mIsOnFire" )) then
-                local fire_info = from_tbl_with_id( status_effects, "ON_FIRE" )
-                local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
-                table.insert( effect_tbl.stains, 1, {
-                    pic = fire_info.ui_icon,
-                    txt = perc.."%",
-                    desc = GameTextGetTranslatedOrNot( fire_info.ui_name ),
-                    tip = GameTextGetTranslatedOrNot( fire_info.ui_description ),
 
-                    amount = math.min( perc/100, 1 ),
-                    is_danger = true,
-                })
-            end
-        end
-
-        child_play_full( hooman, function( child )
-            local info_comp = EntityGetFirstComponentIncludingDisabled( child, "UIIconComponent" )
-            if( info_comp ~= nil and ComponentGetValue2( info_comp, "display_in_hud" )) then
-                local icon_info = {
-                    pic = ComponentGetValue2( info_comp, "icon_sprite_file" ),
-                    txt = "",
-                    desc = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" )),
-                    tip = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "description" )),
-                    count = 1,
-                }
-                local is_perk = ComponentGetValue2( info_comp, "is_perk" )
-                if( is_perk ) then
-                    local _, true_id = from_tbl_with_id( perk_tbl, icon_info.pic, nil, "pic" )
-                    if( true_id == nil ) then
-                        if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
-                            icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."@"..icon_info.tip
-                            icon_info.count = tonumber( GlobalsGetValue( "fungal_shift_iteration", "0" ))
-                            icon_info.is_fungal = true
-                            
-                            local fungal_timer = math.max( tonumber( 60*60*5 + GlobalsGetValue( "fungal_shift_last_frame", "0" )) - current_frame, 0 )
-                            if( fungal_timer > 0 ) then
-                                icon_info.amount = fungal_timer
-                                icon_info.txt = get_effect_timer( icon_info.amount/60 )
-                                icon_info.tip = icon_info.tip.."@"..icon_info.txt.." until next Shift window."
+            child_play_full( hooman, function( child )
+                local info_comp = EntityGetFirstComponentIncludingDisabled( child, "UIIconComponent" )
+                if( info_comp ~= nil and ComponentGetValue2( info_comp, "display_in_hud" )) then
+                    local icon_info = {
+                        pic = ComponentGetValue2( info_comp, "icon_sprite_file" ),
+                        txt = "",
+                        desc = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" )),
+                        tip = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "description" )),
+                        count = 1,
+                    }
+                    local is_perk = ComponentGetValue2( info_comp, "is_perk" )
+                    if( is_perk ) then
+                        local _, true_id = from_tbl_with_id( perk_tbl, icon_info.pic, nil, "pic" )
+                        if( true_id == nil ) then
+                            if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
+                                icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."@"..icon_info.tip
+                                icon_info.count = tonumber( GlobalsGetValue( "fungal_shift_iteration", "0" ))
+                                icon_info.is_fungal = true
+                                
+                                local fungal_timer = math.max( tonumber( 60*60*5 + GlobalsGetValue( "fungal_shift_last_frame", "0" )) - current_frame, 0 )
+                                if( fungal_timer > 0 ) then
+                                    icon_info.amount = fungal_timer
+                                    icon_info.txt = get_effect_timer( icon_info.amount/60 )
+                                    icon_info.tip = icon_info.tip.."@"..icon_info.txt.." until next Shift window."
+                                end
+                                
+                                table.insert( perk_tbl, 1, icon_info )
+                            else
+                                dofile_once( "data/scripts/perks/perk_list.lua" )
+                                table.insert( perk_tbl, icon_info )
                             end
-                            
-                            table.insert( perk_tbl, 1, icon_info )
                         else
-                            dofile_once( "data/scripts/perks/perk_list.lua" )
-                            table.insert( perk_tbl, icon_info )
+                            perk_tbl[true_id].count = perk_tbl[true_id].count + 1
                         end
                     else
-                        perk_tbl[true_id].count = perk_tbl[true_id].count + 1
-                    end
-                else
-                    local _, true_id = from_tbl_with_id( effect_tbl.misc, icon_info.pic, nil, "pic" )
+                        local _, true_id = from_tbl_with_id( effect_tbl.misc, icon_info.pic, nil, "pic" )
 
-                    icon_info.amount = -2
-                    if( #simple_effects > 0 and ( EntityGetParent( child ) or 0 ) == hooman ) then
-                        local effect = from_tbl_with_id( simple_effects, child ) or {}
-                        if( #effect > 0 ) then
-                            icon_info.amount = ComponentGetValue2( effect[2], "frames" )
-                            if( true_id == nil ) then
-                                local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
-                                if( effect_info.id ~= nil ) then
-                                    icon_info.main_info = effect_info
-                                    -- icon_info.pic = effect_info.ui_icon
-                                    icon_info.desc = GameTextGetTranslatedOrNot( effect_info.ui_name )
-                                    icon_info.tip = GameTextGetTranslatedOrNot( effect_info.ui_description )
-                                    icon_info.is_danger = effect_info.is_harmful
+                        icon_info.amount = -2
+                        if( #simple_effects > 0 and ( EntityGetParent( child ) or 0 ) == hooman ) then
+                            local effect = from_tbl_with_id( simple_effects, child ) or {}
+                            if( #effect > 0 ) then
+                                icon_info.amount = ComponentGetValue2( effect[2], "frames" )
+                                if( true_id == nil ) then
+                                    local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
+                                    if( effect_info.id ~= nil ) then
+                                        icon_info.main_info = effect_info
+                                        -- icon_info.pic = effect_info.ui_icon
+                                        icon_info.desc = GameTextGetTranslatedOrNot( effect_info.ui_name )
+                                        icon_info.tip = GameTextGetTranslatedOrNot( effect_info.ui_description )
+                                        icon_info.is_danger = effect_info.is_harmful
+                                    end
                                 end
                             end
                         end
-                    end
-                    if( icon_info.amount == -2 ) then
-                        local time_comp = EntityGetFirstComponentIncludingDisabled( child, "LifetimeComponent" )
-                        if( time_comp ~= nil ) then
-                            icon_info.amount = math.max( ComponentGetValue2( time_comp, "kill_frame" ) - current_frame, -1 )
-                        end
-                    end
-                    if( icon_info.amount ~= -2 ) then
-                        icon_info.amount = get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
-                    end
-
-                    if( true_id == nil ) then
-                        if( icon_info.amount ~= 0 ) then
-                            icon_info.time_tbl = {}
-                            local time = icon_info.amount/60
-                            if( time > 0 ) then
-                                table.insert( icon_info.time_tbl, time )
+                        if( icon_info.amount == -2 ) then
+                            local time_comp = EntityGetFirstComponentIncludingDisabled( child, "LifetimeComponent" )
+                            if( time_comp ~= nil ) then
+                                icon_info.amount = math.max( ComponentGetValue2( time_comp, "kill_frame" ) - current_frame, -1 )
                             end
                         end
-                        table.insert( effect_tbl.misc, icon_info )
-                    else
-                        local time = icon_info.amount/60
-                        if( time > 0 ) then
-                            table.insert( effect_tbl.misc[true_id].time_tbl, time )
+                        if( icon_info.amount ~= -2 ) then
+                            icon_info.amount = get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
                         end
 
-                        effect_tbl.misc[true_id].count = effect_tbl.misc[true_id].count + 1
-                        if( effect_tbl.misc[true_id].amount < icon_info.amount ) then
-                            effect_tbl.misc[true_id].amount = icon_info.amount
+                        if( true_id == nil ) then
+                            if( icon_info.amount ~= 0 ) then
+                                icon_info.time_tbl = {}
+                                local time = icon_info.amount/60
+                                if( time > 0 ) then
+                                    table.insert( icon_info.time_tbl, time )
+                                end
+                            end
+                            table.insert( effect_tbl.misc, icon_info )
+                        else
+                            local time = icon_info.amount/60
+                            if( time > 0 ) then
+                                table.insert( effect_tbl.misc[true_id].time_tbl, time )
+                            end
+
+                            effect_tbl.misc[true_id].count = effect_tbl.misc[true_id].count + 1
+                            if( effect_tbl.misc[true_id].amount < icon_info.amount ) then
+                                effect_tbl.misc[true_id].amount = icon_info.amount
+                            end
                         end
                     end
                 end
-            end
-        end)
-        table.sort( perk_tbl, function( a, b )
-            return a.count > b.count
-        end)
-
-        for i,e in ipairs( effect_tbl.misc ) do
-            table.sort( e.time_tbl, function( a, b )
-                return a > b
             end)
-            effect_tbl.misc[1].txt = get_effect_timer( e.time_tbl[1])
-            if( #e.time_tbl > 1 ) then
-                local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
-                effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", get_effect_timer( e.time_tbl[#e.time_tbl], true ))
-            end
-        end
-        table.sort( effect_tbl.misc, function( a, b )
-            return a.amount > b.amount
-        end)
-    end
+            table.sort( perk_tbl, function( a, b )
+                return a.count > b.count
+            end)
 
-    local quickest_slot_count = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" )
-
-    local uid = 0
-    local pos_tbl = {}
-	local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
-    local inv, z_layers, item_types = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
-    local data = {
-        the_gui = real_gui,
-        a_gui = fake_gui,
-
-        memo = ctrl_data,
-        pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
-        nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
-        is_opened = ComponentGetValue2( iui_comp, "mActive" ),
-        
-        main_id = controller_id,
-        player_id = hooman,
-        inventory = inv_comp,
-        frame_num = current_frame,
-        orbs = GameGetOrbCountThisRun(),
-        
-        pointer_world = {m_x,m_y},
-        pointer_ui = {mui_x,mui_y},
-        pointer_delta = {muid_x,muid_y,math.sqrt( muid_x^2 + muid_y^2 )},
-        pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
-        pointer_matter = pointer_mtr,
-
-        active_item = get_active_wand( hooman ),
-        active_info = {},
-        just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
-        no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
-        
-        icon_data = effect_tbl,
-        perk_data = perk_tbl,
-
-        item_types = item_types,
-        inv_list = {},
-        inv_count_quickest = quickest_slot_count,
-        inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
-        inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
-        slot_state = {},
-
-        slot_pic = {
-            bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
-            bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
-            hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
-            active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
-            locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
-        },
-        dragger = {
-            swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
-            item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
-            inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
-            inv_kind = ComponentGetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string" ),
-            is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
-            x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
-            y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
-        },
-        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
-        no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
-        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
-        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
-        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
-        no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
-        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
-        hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
-        hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
-        hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
-        hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
-        fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
-        reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
-        delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
-        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
-        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
-        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
-        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
-        info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
-        info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
-        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
-        min_effect_time = epsilon,
-        max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
-        in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
-
-        Controls = {},
-        DamageModel = {},
-        CharacterData = {},
-        CharacterPlatforming = {},
-        Wallet = {},
-        ItemPickUpper = {},
-    }
-
-    if( ctrl_comp ~= nil ) then
-        data.Controls = {
-            ctrl_comp,
-
-            { ComponentGetValue2( ctrl_comp, "mButtonDownInventory" ), ComponentGetValue2( ctrl_comp, "mButtonFrameInventory" ) == current_frame },
-            { ComponentGetValue2( ctrl_comp, "mButtonDownInteract" ), ComponentGetValue2( ctrl_comp, "mButtonFrameInteract" ) == current_frame },
-            { ComponentGetValue2( ctrl_comp, "mButtonDownFly" ), ComponentGetValue2( ctrl_comp, "mButtonFrameFly" ) == current_frame },
-        }
-    end
-    if( dmg_comp ~= nil ) then
-        data.DamageModel = {
-            dmg_comp,
-
-            ComponentGetValue2( dmg_comp, "max_hp" ),
-            ComponentGetValue2( dmg_comp, "hp" ),
-            ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
-            math.max( data.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
-
-            ComponentGetValue2( dmg_comp, "air_needed" ),
-            ComponentGetValue2( dmg_comp, "air_in_lungs_max" ),
-            ComponentGetValue2( dmg_comp, "air_in_lungs" ),   
-        }
-    end
-    local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
-    if( char_comp ~= nil ) then
-        local max_flight = ComponentGetValue2( char_comp, "fly_time_max" )*( 2^GameGetGameEffectCount( hooman, "HOVER_BOOST" ))
-        data.CharacterData = {
-            char_comp,
-
-            ComponentGetValue2( char_comp, "flying_needs_recharge" ),
-            max_flight,
-            math.min( ComponentGetValue2( char_comp, "mFlyingTimeLeft" ), max_flight ),
-        }
-    end
-    local wallet_comp = EntityGetFirstComponentIncludingDisabled( hooman, "WalletComponent" )
-    if( wallet_comp ~= nil ) then
-        data.Wallet = {
-            wallet_comp,
-            
-            ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
-            ComponentGetValue2( wallet_comp, "money" ),
-        }
-    end
-    if( pick_comp ~= nil ) then
-        data.ItemPickUpper = {
-            pick_comp,
-
-            ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
-            ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
-        }
-    end
-    
-    data.inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
-    data.inventories = {
-        get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }),
-        get_inv_data( data.inventories_player[2], data.inv_count_full ),
-    }
-    data.inventories_extra = {}
-    local more_invs = EntityGetWithTag( "index_inventory" ) or {}
-    if( #more_invs > 0 ) then
-        for k,i in ipairs( more_invs ) do
-            table.insert( data.inventories, get_inv_data( i ))
-            table.insert( data.inventories_extra, i )
-        end
-    end
-    
-    data = get_items( hooman, data )
-    if( data.active_item > 0 ) then
-        data.active_info = from_tbl_with_id( data.inv_list, data.active_item ) or {}
-        if( data.active_info.id ~= nil ) then
-            local abil_comp = data.active_info.AbilityC
-            if( abil_comp ~= nil ) then
-                data.memo.shot_count = data.memo.shot_count or {}
-                local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
-                data.just_fired = data.just_fired or (( data.memo.shot_count[ data.active_item ] or shot_count ) < shot_count )
-                if( data.just_fired ) then
-                    data.memo.shot_count[ data.active_item ] = shot_count
+            for i,e in ipairs( effect_tbl.misc ) do
+                table.sort( e.time_tbl, function( a, b )
+                    return a > b
+                end)
+                effect_tbl.misc[1].txt = get_effect_timer( e.time_tbl[1])
+                if( #e.time_tbl > 1 ) then
+                    local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
+                    effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", get_effect_timer( e.time_tbl[#e.time_tbl], true ))
                 end
             end
-        else
-            data.active_item = 0
+            table.sort( effect_tbl.misc, function( a, b )
+                return a.amount > b.amount
+            end)
         end
-    end
-    
-    data.slot_state = {}
-    for i,inv_data in ipairs( data.inventories ) do
-        if( inv_data.kind[1] == "quick" ) then
-            data.slot_state[inv_data.id] = {
-                quickest = table_init( inv_data.size[1], false ),
-                quick = table_init( inv_data.size[2], false ),
+
+        local quickest_slot_count = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" )
+
+        local uid = 0
+        local pos_tbl = {}
+        local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
+        local inv, z_layers, item_types = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
+        local data = {
+            the_gui = real_gui,
+            a_gui = fake_gui,
+
+            memo = ctrl_data,
+            pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+            nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
+            is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+            
+            main_id = controller_id,
+            player_id = hooman,
+            inventory = inv_comp,
+            frame_num = current_frame,
+            orbs = GameGetOrbCountThisRun(),
+            
+            pointer_world = {m_x,m_y},
+            pointer_ui = {mui_x,mui_y},
+            pointer_delta = {muid_x,muid_y,math.sqrt( muid_x^2 + muid_y^2 )},
+            pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
+            pointer_matter = pointer_mtr,
+
+            active_item = get_active_wand( hooman ),
+            active_info = {},
+            just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
+            no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
+            
+            icon_data = effect_tbl,
+            perk_data = perk_tbl,
+
+            item_types = item_types,
+            inv_list = {},
+            inv_count_quickest = quickest_slot_count,
+            inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
+            inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+            slot_state = {},
+
+            slot_pic = {
+                bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
+                bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
+                hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
+                active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
+                locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
+            },
+            dragger = {
+                swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
+                item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
+                inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
+                inv_kind = ComponentGetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string" ),
+                is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
+                x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
+                y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
+            },
+            player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
+            no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
+            throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
+            throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
+            throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+            no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
+            short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
+            hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
+            hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
+            hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
+            hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
+            fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
+            reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
+            delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
+            short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
+            info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
+            info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
+            info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
+            info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
+            info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+            effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
+            min_effect_time = epsilon,
+            max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
+            in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
+
+            Controls = {},
+            DamageModel = {},
+            CharacterData = {},
+            CharacterPlatforming = {},
+            Wallet = {},
+            ItemPickUpper = {},
+        }
+
+        if( ctrl_comp ~= nil ) then
+            data.Controls = {
+                ctrl_comp,
+
+                get_button_state( ctrl_comp, "Inventory", current_frame ),
+                get_button_state( ctrl_comp, "Interact", current_frame ),
+                get_button_state( ctrl_comp, "Fly", current_frame ),
+                get_button_state( ctrl_comp, "RightClick", current_frame ),
+                get_button_state( ctrl_comp, "LeftClick", current_frame ),
             }
-        else
-            data.slot_state[inv_data.id] = table_init( inv_data.size[2], false )
-            for i,slot in ipairs( data.slot_state[inv_data.id]) do
-                data.slot_state[inv_data.id][i] = table_init( inv_data.size[1], false )
+        end
+        if( dmg_comp ~= nil ) then
+            data.DamageModel = {
+                dmg_comp,
+
+                ComponentGetValue2( dmg_comp, "max_hp" ),
+                ComponentGetValue2( dmg_comp, "hp" ),
+                ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
+                math.max( data.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
+
+                ComponentGetValue2( dmg_comp, "air_needed" ),
+                ComponentGetValue2( dmg_comp, "air_in_lungs_max" ),
+                ComponentGetValue2( dmg_comp, "air_in_lungs" ),   
+            }
+        end
+        local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
+        if( char_comp ~= nil ) then
+            local max_flight = ComponentGetValue2( char_comp, "fly_time_max" )*( 2^GameGetGameEffectCount( hooman, "HOVER_BOOST" ))
+            data.CharacterData = {
+                char_comp,
+
+                ComponentGetValue2( char_comp, "flying_needs_recharge" ),
+                max_flight,
+                math.min( ComponentGetValue2( char_comp, "mFlyingTimeLeft" ), max_flight ),
+            }
+        end
+        local wallet_comp = EntityGetFirstComponentIncludingDisabled( hooman, "WalletComponent" )
+        if( wallet_comp ~= nil ) then
+            data.Wallet = {
+                wallet_comp,
+                
+                ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
+                ComponentGetValue2( wallet_comp, "money" ),
+            }
+        end
+        if( pick_comp ~= nil ) then
+            data.ItemPickUpper = {
+                pick_comp,
+
+                ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
+                ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
+            }
+        end
+        
+        data.inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
+        data.inventories = {
+            get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }),
+            get_inv_data( data.inventories_player[2], data.inv_count_full ),
+        }
+        data.inventories_extra = {}
+        local more_invs = EntityGetWithTag( "index_inventory" ) or {}
+        if( #more_invs > 0 ) then
+            for k,i in ipairs( more_invs ) do
+                table.insert( data.inventories, get_inv_data( i ))
+                table.insert( data.inventories_extra, i )
             end
         end
-    end
-
-    local nuke_em = {}
-    for i,itm in ipairs( data.inv_list ) do
-        data.inv_list[i] = set_to_slot( itm, data )
-        if( itm.inv_slot == nil ) then
-            table.insert( nuke_em, i )
-        end
-    end
-    if( #nuke_em > 0 ) then
-        for i = #nuke_em,1,-1 do
-            table.remove( data.inv_list, nuke_em[i])
-        end
-    end
-    
-    --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
-    --test actions materialized
-    --allow fake spell injection
-    
-    if( inv.full_inv ~= nil ) then
-        uid, data, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
-    end
-    
-    local bars = inv.bars or {}
-    if( bars.hp ~= nil ) then
-        uid, data, pos_tbl.hp = bars.hp( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( bars.air ~= nil ) then
-        uid, data, pos_tbl.air = bars.air( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( bars.flight ~= nil ) then
-        uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    
-    local actions = bars.action or {}
-    if( actions.mana ~= nil ) then
-        uid, data, pos_tbl.mana = actions.mana( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( actions.reload ~= nil ) then
-        uid, data, pos_tbl.reload = actions.reload( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( actions.delay ~= nil ) then
-        uid, data, pos_tbl.delay = actions.delay( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-
-    if( inv.gold ~= nil ) then
-        uid, data, pos_tbl.gold = inv.gold( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( inv.orbs ~= nil ) then
-        uid, data, pos_tbl.orbs = inv.orbs( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( inv.info ~= nil ) then
-        uid, data, pos_tbl.info = inv.info( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-
-    local icons = inv.icons or {}
-    if( icons.ingestions ~= nil ) then
-        uid, data, pos_tbl.ingestions = icons.ingestions( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( icons.stains ~= nil ) then
-        uid, data, pos_tbl.stains = icons.stains( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( icons.effects ~= nil ) then
-        uid, data, pos_tbl.effects = icons.effects( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-    if( icons.perks ~= nil ) then
-        uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-    end
-
-    if( inv.pickup ~= nil ) then
-        uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
-    end
-    if( inv.extra ~= nil ) then
-        uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
-    end
-    
-    if( data.no_inv_shooting and data.is_opened ) then
-        uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
-    end
-
-    GuiDestroy( fake_gui )--add a global table where one can write guis to be killed
-    if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
-        ComponentSetValue2( iui_comp, "mActive", data.is_opened )
-    end
-    if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
-        if( data.dragger.swap_soon ) then
-            ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
-            --reset all the misc globabls and such on item swap (shot_count)
-        else
-            if( not( slot_going ) or data.dragger.swap_now ) then
-                if( inv.drop ~= nil ) then
-                    if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
-                        inv.drop( data.dragger.item_id, data )
+        
+        data = get_items( hooman, data )
+        if( data.active_item > 0 ) then
+            data.active_info = from_tbl_with_id( data.inv_list, data.active_item ) or {}
+            if( data.active_info.id ~= nil ) then
+                local abil_comp = data.active_info.AbilityC
+                if( abil_comp ~= nil ) then
+                    data.memo.shot_count = data.memo.shot_count or {}
+                    local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
+                    data.just_fired = data.just_fired or (( data.memo.shot_count[ data.active_item ] or shot_count ) < shot_count )
+                    if( data.just_fired ) then
+                        data.memo.shot_count[ data.active_item ] = shot_count
                     end
                 end
-                slot_memo = nil
-                data.dragger = {}
+            else
+                data.active_item = 0
             end
-            ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", false )
-            ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
-            ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
-            ComponentSetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string", data.dragger.inv_kind or "universal" )
-            ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
-            ComponentSetValue2( get_storage( controller_id, "dragger_x" ), "value_float", data.dragger.x or 0 )
-            ComponentSetValue2( get_storage( controller_id, "dragger_y" ), "value_float", data.dragger.y or 0 )
         end
-        slot_going = false
+        
+        data.slot_state = {}
+        for i,inv_data in ipairs( data.inventories ) do
+            if( inv_data.kind[1] == "quick" ) then
+                data.slot_state[inv_data.id] = {
+                    quickest = table_init( inv_data.size[1], false ),
+                    quick = table_init( inv_data.size[2], false ),
+                }
+            else
+                data.slot_state[inv_data.id] = table_init( inv_data.size[1], false )
+                for i,slot in ipairs( data.slot_state[inv_data.id]) do
+                    data.slot_state[inv_data.id][i] = table_init( inv_data.size[2], false )
+                end
+            end
+        end
+
+        local nuke_em = {}
+        for i,itm in ipairs( data.inv_list ) do
+            data.inv_list[i] = set_to_slot( itm, data )
+            if( itm.inv_slot == nil ) then
+                table.insert( nuke_em, i )
+            end
+        end
+        if( #nuke_em > 0 ) then
+            for i = #nuke_em,1,-1 do
+                table.remove( data.inv_list, nuke_em[i])
+            end
+        end
+        
+        --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
+        --test actions materialized
+        --allow fake spell injection
+        
+        if( inv.full_inv ~= nil ) then
+            uid, data, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+        end
+        
+        local bars = inv.bars or {}
+        if( bars.hp ~= nil ) then
+            uid, data, pos_tbl.hp = bars.hp( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( bars.air ~= nil ) then
+            uid, data, pos_tbl.air = bars.air( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( bars.flight ~= nil ) then
+            uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        
+        local actions = bars.action or {}
+        if( actions.mana ~= nil ) then
+            uid, data, pos_tbl.mana = actions.mana( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( actions.reload ~= nil ) then
+            uid, data, pos_tbl.reload = actions.reload( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( actions.delay ~= nil ) then
+            uid, data, pos_tbl.delay = actions.delay( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+
+        if( inv.gold ~= nil ) then
+            uid, data, pos_tbl.gold = inv.gold( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( inv.orbs ~= nil ) then
+            uid, data, pos_tbl.orbs = inv.orbs( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( inv.info ~= nil ) then
+            uid, data, pos_tbl.info = inv.info( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+
+        local icons = inv.icons or {}
+        if( icons.ingestions ~= nil ) then
+            uid, data, pos_tbl.ingestions = icons.ingestions( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( icons.stains ~= nil ) then
+            uid, data, pos_tbl.stains = icons.stains( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( icons.effects ~= nil ) then
+            uid, data, pos_tbl.effects = icons.effects( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+        if( icons.perks ~= nil ) then
+            uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        end
+
+        if( inv.pickup ~= nil ) then
+            uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
+        end
+        if( inv.extra ~= nil ) then
+            uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+        end
+        
+        if( data.no_inv_shooting and data.is_opened ) then
+            uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
+        end
+
+        if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
+            play_vanilla_sound( data, "ui", "ui/inventory_"..( data.is_opened and "open" or "close" ))
+            ComponentSetValue2( iui_comp, "mActive", data.is_opened )
+        end
+        if( slot_hover_sfx[2]) then
+            slot_hover_sfx[2] = false
+        elseif( slot_hover_sfx[1] ~= 0 ) then
+            slot_hover_sfx[1] = 0
+        end
+        if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
+            if( data.dragger.swap_soon ) then
+                ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
+                --reset all the misc globals and such on item swap (shot_count)
+            else
+                if( not( slot_going ) or data.dragger.swap_now ) then
+                    if( data.dragger.swap_now and data.dragger.item_id > 0 ) then --hold drag_action (rmb by default) to not drop
+                        if( not( data.dragger.could_swap or false ) and inv.drop ~= nil ) then
+                            inv.drop( data.dragger.item_id, data )
+                        else
+                            play_vanilla_sound( data, "ui", "ui/item_move_denied" )
+                        end
+                    end
+                    slot_memo = nil
+                    data.dragger = {}
+                end
+                ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", false )
+                ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
+                ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
+                ComponentSetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string", data.dragger.inv_kind or "universal" )
+                ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
+                ComponentSetValue2( get_storage( controller_id, "dragger_x" ), "value_float", data.dragger.x or 0 )
+                ComponentSetValue2( get_storage( controller_id, "dragger_y" ), "value_float", data.dragger.y or 0 )
+            end
+            slot_going = false
+        end
     end
+end
+
+if( fake_gui ~= nil ) then
+    GuiDestroy( fake_gui )--add a global table where one can write guis to be killed
 else
     real_gui = gui_killer( real_gui )
     if( EntityGetIsAlive( mtr_probe )) then
