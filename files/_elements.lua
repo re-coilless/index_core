@@ -1,19 +1,21 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
 function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
-    local pic_x, pic_y = 0, 0
+    local root_x, root_y = 19, 20
+    local pic_x, pic_y = root_x, root_y
     
     --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv (if less, do less)
     local this_data = data.inv_list
     if( this_data ~= nil ) then
         if( data.is_opened ) then
-            uid = new_image( gui, uid, pic_x, pic_y, zs.background, "data/ui_gfx/inventory/background.png" )
+            uid = new_image( gui, uid, 0, 0, zs.background, data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
 
-            local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
-            local alpha = 0.5*math.cos( math.pi*delta/30 )
-            uid = new_image( gui, uid, pic_x - 2, pic_y - 2, zs.background + 1, "data/ui_gfx/empty_black.png", screen_w + 4, screen_h + 4, alpha )
+            if( not( data.gmod.can_see )) then
+                local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
+                local alpha = 0.5*math.cos( math.pi*delta/30 )
+                uid = new_image( gui, uid, -2, -2, zs.background + 1, "data/ui_gfx/empty_black.png", screen_w + 4, screen_h + 4, alpha )
+            end
         end
-        pic_x, pic_y = 19, 20
         
         local w, h, step = 0, 0, 1
         
@@ -33,39 +35,44 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
-        if( data.is_opened ) then --by default display only the first row of full inv, to see the rest one must engage the inv managing mode
-            pic_x = pic_x + 9
-            new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-            new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
-            
-            local core_y = pic_y
-            inv_id = data.inventories_player[2]
-            inv_data = data.slot_state[ inv_id ]
-            for i,col in ipairs( inv_data ) do
-                for e,slot in ipairs( col ) do
-                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,e}, true, true )
-                    pic_x, pic_y = pic_x, pic_y + h + step
-                end
-                pic_x, pic_y = pic_x + w + step, core_y
-            end
-        end
-        
         if( data.Controls[2][2]) then
             data.memo.inv_alpha = data.frame_num + 15
             data.is_opened = not( data.is_opened )
         end
+
+        if( data.is_opened ) then
+            new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
+            new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+
+            if( data.gmod.show_full ) then --by default display only the first row of full inv ( data.gmod.show_fullest )
+                pic_x = pic_x + 9
+                new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+
+                local core_y = pic_y
+                inv_id = data.inventories_player[2]
+                inv_data = data.slot_state[ inv_id ]
+                for i,col in ipairs( inv_data ) do
+                    for e,slot in ipairs( col ) do
+                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,e}, true, true )
+                        pic_x, pic_y = pic_x, pic_y + h + step
+                    end
+                    pic_x, pic_y = pic_x + w + step, core_y
+                end
+            end
+        end
+
+        pic_y = pic_y + h
+        if( data.is_opened ) then
+            root_x, root_y = root_x - 3, root_y - 3
+            pic_x, pic_y = pic_x + 3 - step, pic_y + 3
+        end
     end
     
-    return uid, data, {pic_x,pic_y}
+    return uid, data, {root_x,root_y}, {pic_x,pic_y}
 end
 
 function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys ) --applets are only visible while inventory is closed
-    return uid, data
-end
-
-function new_generic_moder( gui, uid, screen_w, screen_h, data, zs, xys )
-    return uid, data
+    return uid, data --return final pos
 end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -415,7 +422,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
     end
 
-    if( not( data.is_opened ) and data.pointer_delta[3] < data.info_threshold ) then
+    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then
         local info = ""
 
         local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
@@ -482,8 +489,8 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 pic_x, pic_y = pic_x + 8, pic_y + 3
                 inter_alpha = inter_alpha*0.3
             else
-                pic_x, pic_y = unpack( xys.full_inv )
-                pic_x, pic_y = pic_x + 5, pic_y + 5
+                pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
+                pic_x, pic_y = pic_x + 3, pic_y + 5 + ( data.is_opened and 3 or 0 )
             end
             do_info( gui, pic_x, pic_y, info, inter_alpha )
         end
@@ -787,7 +794,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             if( pickup_info.id ~= 0 ) then
-                if( data.is_opened ) then
+                if( data.is_opened and data.gmod.show_full ) then
                     pickup_info.id = -1
                     pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
                 elseif( data.item_types[ pickup_info.info.kind ].on_gui_world ~= nil ) then
@@ -923,9 +930,73 @@ function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_fu
             
             this_data.x, this_data.y = EntityGetTransform( extra_inv )
             local pic_x, pic_y = world2gui( this_data.x, this_data.y )
-            
             uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, slot_func )
         end
+    end
+
+    return uid, data
+end
+
+function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
+    local this_data = data.gmod
+    if( this_data ~= nil and data.is_opened ) then
+        local w,h = get_text_dim( this_data.name )
+        local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
+        if( not( this_data.show_full )) then
+            pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
+            pic_x = pic_x + 7 + w
+            pic_y = pic_y + 13
+        end
+        
+        local gonna_reset, gonna_highlight = false
+        local clicked, r_clicked, is_hovered = false
+        local arrow_left_c, arrow_right_c, arrow_left_a, arrow_right_a = {255,255,255}, {255,255,255}, 0.3, 0.3
+        local arrow_hl_c = {255,255,178}
+
+        local new_mode = data.global_mode
+        uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - ( 11 + w ), pic_y - 11, 15, 10 }, zs.tips )
+        gonna_reset = gonna_reset or r_clicked
+        gonna_highlight = gonna_highlight or is_hovered
+        if( is_hovered ) then
+            arrow_left_c = arrow_hl_c
+            arrow_left_a = 1
+            if( clicked ) then
+                new_mode = new_mode - 1
+            end
+        end
+        uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - 10, pic_y - 11, 15, 10 }, zs.tips )
+        gonna_reset = gonna_reset or r_clicked
+        gonna_highlight = gonna_highlight or is_hovered
+        if( is_hovered ) then
+            arrow_right_c = arrow_hl_c
+            arrow_right_a = 1
+            if( clicked ) then
+                new_mode = new_mode + 1
+            end
+        end
+        uid, is_hovered, clicked, r_clicked = tipping( gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
+        gonna_reset = gonna_reset or r_clicked
+        gonna_highlight = gonna_highlight or is_hovered
+
+        local alpha = gonna_highlight and 1 or 0.3
+        if( gonna_reset ) then new_mode = 1 end
+        if( data.global_mode ~= new_mode ) then
+            if( new_mode < 1 ) then
+                new_mode = this_data.total_count
+            elseif( new_mode > this_data.total_count ) then
+                new_mode = 1
+            end
+            play_vanilla_sound( data, "ui", "ui/"..( gonna_reset and "replay_saved" or "button_click" ))
+            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
+        end
+
+        new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
+        uid = new_vanilla_plate( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
+
+        colourer( gui, arrow_left_c )
+        uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )
+        colourer( gui, arrow_right_c )
+        uid = new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor.png", nil, nil, arrow_right_a )
     end
 
     return uid, data

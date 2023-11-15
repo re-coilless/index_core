@@ -62,5 +62,22 @@
 		ui_report_damage="0"
 		wait_for_kill_flag_on_death="1"
 		wet_status_effect_damage="0"
-	></DamageModelComponent>
+		><damage_multipliers
+			curse="0"
+			drill="0"
+			electricity="0"
+			explosion="0"
+			fire="0"
+			healing="0"
+			ice="0"
+			melee="0"
+			overeating="0"
+			physics_hit="0"
+			poison="0"
+			projectile="0"
+			radioactive="0"
+			slice="0"
+			holy="0"
+		></damage_multipliers>
+	</DamageModelComponent>
 </Entity>

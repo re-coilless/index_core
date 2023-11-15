@@ -45,6 +45,6 @@
 	></VariableStorageComponent>
     <VariableStorageComponent
 		name="index_gui"
-		value_string="mods/index_core/files/testing/chest.lua"
+		value_string="mods/index_core/files/testing/default_inv.lua"
 	></VariableStorageComponent>
 </Entity>

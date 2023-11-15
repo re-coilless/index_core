@@ -17,8 +17,35 @@ local Z_LAYERS = {
     icons_front = -1.01, --spell charges
 
     tips_back = -10100,
-    tips = -10101, --tooltips duh 
+    tips = -10101, --tooltips duh
     tips_front = -10102,
+}
+
+local GLOBAL_MODES = {
+    {
+        name = "FULL",
+        desc = "Wand editing with minimal obstruction.",
+
+        allow_wand_editing = true,
+        show_full = true,
+    },
+    {
+        name = "MANAGEMENT",
+        desc = "Complete inventory management capability.",
+
+        allow_external_inventories = true,
+        show_full = true,
+        show_fullest = true,
+    },
+    {
+        name = "INTERACTIVE",
+        desc = "Dragging actions and complete in-world interactivity.",
+        
+        can_see = true,
+        allow_shooting = true,
+        allow_advanced_draggables = true,
+        nuke_em_all = false,
+    },
 }
 
 local ITEM_TYPES = {
@@ -26,7 +53,7 @@ local ITEM_TYPES = {
         name = GameTextGetTranslatedOrNot( "$item_wand" ),
         is_quickest = true,
         is_hidden = false,
-        paused_pickup = true,
+        advanced_pic = true,
 
         on_check = function( item_id, data, this_info )
             return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
@@ -38,8 +65,6 @@ local ITEM_TYPES = {
             --insert spells to item list
             --wand slot count should be slot_count - always_casts
             --charges to upper left + marker if the wand can't fire (is empty, not enough mana) for bottom right
-
-            this_info.pic = register_item_pic( data, this_info )
 
             this_info.wand_info = {
                 main = {
@@ -89,7 +114,7 @@ local ITEM_TYPES = {
             --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
-            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), true, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             return uid
         end,
         
@@ -193,9 +218,7 @@ local ITEM_TYPES = {
             local nuke_it = true
             local target_angle, target_vertical = 0, 0
             if( is_dragged ) then
-                if( data.drag_action ) then --only if advanced mode is active
-                    data.memo.not_wanna_drop = true
-
+                if( data.drag_action ) then
                     local x, y = unpack( data.player_xy )
                     local p_x, p_y = unpack( data.pointer_world )
                     if( not( RaytraceSurfaces( x, y, p_x, p_y ))) then
@@ -206,7 +229,7 @@ local ITEM_TYPES = {
 
                         if( data.shift_action ) then
                             nuke_it = false
-                            target_angle = 45
+                            target_angle = 45 + 90*( 1 - math.min( content_total/cap_max, 1 ))
                             
                             if( content_total > 0 ) then
                                 GameEntityPlaySoundLoop( data.memo.john_pouring, "spray", 1 )
@@ -216,7 +239,6 @@ local ITEM_TYPES = {
                             end
                         elseif( this_info.bottle_info ~= nil ) then
                             nuke_it = false
-                            target_vertical = 8
 
                             local sucker_comp = EntityGetFirstComponentIncludingDisabled( data.memo.john_pouring, "MaterialSuckerComponent" )
                             if( EntityGetName( data.memo.john_pouring ) ~= "done" ) then
@@ -255,7 +277,7 @@ local ITEM_TYPES = {
                             end
                             EntitySetComponentIsEnabled( data.memo.john_pouring, sucker_comp, content_total < cap_max )
                             if( do_sound and data.frame_num%5 == 0 ) then
-                                play_vanilla_sound( data, "player", "player/step_water" )
+                                play_vanilla_sound( data, "player", "player/step_water", p_x, p_y )
                             end
                         end
                     end
@@ -270,25 +292,34 @@ local ITEM_TYPES = {
                     end
                 end
             end
-            if( nuke_it and ( data.dragger.item_id == 0 or data.dragger.item_id == item_id )) then
-                if( EntityGetIsAlive( data.memo.john_pouring or 0 )) then
-                    EntityKill( data.memo.john_pouring )
-                    data.memo.john_pouring = nil
+            if( not( nuke_it )) then
+                if( item_pic_data[ this_info.pic ].memo_xy == nil ) then
+                    item_pic_data[ this_info.pic ].memo_xy = item_pic_data[ this_info.pic ].xy
+                    item_pic_data[ this_info.pic ].xy = { item_pic_data[ this_info.pic ].dims[1]/2, -2 }
+                    data.memo.sucking_drift = ( data.memo.sucking_drift or 0 ) - ( item_pic_data[ this_info.pic ].dims[2]/2 + 2 )
+                end
+            else
+                if( item_pic_data[ this_info.pic ].memo_xy ~= nil ) then
+                    data.memo.sucking_drift = ( data.memo.sucking_drift or 0 ) + ( item_pic_data[ this_info.pic ].dims[2]/2 + 2 )
+                    item_pic_data[ this_info.pic ].xy = item_pic_data[ this_info.pic ].memo_xy
+                    item_pic_data[ this_info.pic ].memo_xy = nil
+                end
+                if( data.dragger.item_id == 0 or data.dragger.item_id == item_id ) then
+                    if( EntityGetIsAlive( data.memo.john_pouring or 0 )) then
+                        EntityKill( data.memo.john_pouring )
+                        data.memo.john_pouring = nil
+                    end
                 end
             end
-            if( data.memo.not_wanna_drop ) then
-                data.dragger.wont_drop = true
-            end
-
+            
             local angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
             pic_y = pic_y + simple_anim( data, "sucking_drift", target_vertical, 0.2 )
-
+            
             local z = slot_z( data, this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
-            local w, h = 0, 0
-            uid, w, h = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, nil, hov_scale )
+            uid, pic_x, pic_y = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
-            uid = new_image( gui, uid, pic_x - hov_scale*w/2, pic_y - hov_scale*h/2, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
+            uid = new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
             
             return uid
         end,
@@ -338,7 +369,7 @@ local ITEM_TYPES = {
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             return uid
         end,
     },
@@ -353,7 +384,7 @@ local ITEM_TYPES = {
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, nil, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             return uid
         end,
     },
@@ -363,7 +394,7 @@ local GUI_STRUCT = {
     slot = new_slot,
     full_inv = new_generic_inventory,
     applet_strip = new_generic_applets,
-    inv_mode = new_generic_moder,
+    modder = new_generic_modder,
     
     bars = {
         hp = new_generic_hp,
@@ -395,40 +426,6 @@ local GUI_STRUCT = {
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }
 
-local GLOBAL_MODES = {
-    {
-        name = "FULL",
-        allow_wand_editing = true,
-        show_full = true,
-
-        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func ) --goes after extra
-
-        end,
-    },
-    {
-        name = "MANAGEMENT",
-        force_clear = true,
-        allow_external_inventories = true,
-        show_fullest = true,
-
-        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
-            
-        end,
-    },
-    {
-        name = "INTERACTIVE",
-        force_clear = true,
-        allow_shooting = true,
-        allow_advanced_draggables = true,
-        nuke_em_all = false,
-
-        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
-            
-        end,
-    },
-    --hide everything (except custom); 
-}
-
 --<{> MAGICAL APPEND MARKER <}>--
 
-return { GUI_STRUCT, Z_LAYERS, ITEM_TYPES, GLOBAL_MODES }
+return { Z_LAYERS, GLOBAL_MODES, ITEM_TYPES, GUI_STRUCT }

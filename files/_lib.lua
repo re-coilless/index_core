@@ -360,7 +360,7 @@ end
 function simple_anim( data, name, target, speed, min_delta )
 	speed = speed or 0.1
 	min_delta = min_delta or 1
-
+	
 	data.memo[name] = data.memo[name] or 0
 	local delta = target - data.memo[name]
 	data.memo[name] = data.memo[name] + limiter( limiter( speed*delta, min_delta, true ), delta )
@@ -732,7 +732,7 @@ function inventory_boy( item_id, data, this_info, in_hand )
 		if( in_hand ) then
 			--set pos and such to the arm pos
 		else
-			local x, y = unpack( data.player_xy )
+			local x, y = EntityGetTransform( hooman )
 			EntitySetTransform( item_id, x, y )
 			EntityApplyTransform( item_id, x, y )
 		end
@@ -1046,6 +1046,7 @@ function get_item_data( item_id, data, inventory_data )
 			slot_info.kind = k
 			slot_info.is_quickest = kind.is_quickest or false
 			slot_info.is_hidden = kind.is_hidden or false
+			slot_info.advanced_pic = kind.advanced_pic or false
 			break
 		end
 	end
@@ -1079,6 +1080,8 @@ function get_items( hooman, data )
 					ComponentSetValue2( new_item.ItemC, "inventory_slot", -5, -5 )
 					EntityAddTag( new_item.id, "index_processed" )
 				end
+
+				new_item.pic = register_item_pic( data, new_item, new_item.advanced_pic )
 				if( data.item_types[ new_item.kind ].ctrl_script ~= nil ) then
 					data.item_types[ new_item.kind ].ctrl_script( new_item.id, data, new_item )
 				else
@@ -1371,7 +1374,7 @@ function new_interface( gui, uid, pos, pic_z, is_debugging )
 	return uid, clicked, r_clicked, hovered
 end
 
-function new_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right, is_up )
+function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right, is_up )
 	tid = tid or "generic"
 
 	if( is_triggered == nil ) then
@@ -1460,20 +1463,66 @@ function new_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right
 		end
 	end
 	
-	return uid
+	return uid, is_triggered
 end
 
 function tipping( gui, uid, tid, pos, tip, zs, is_right, is_debugging )
 	if( type( zs ) ~= "table" ) then
 		zs = {zs}
 	end
-	local hovered = false
-	uid, _, _, hovered = new_interface( gui, uid, pos, zs[1], is_debugging )
-	if( zs[2] ~= nil and hovered ) then
+	local clicked, r_clicked, is_hovered = false
+	uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, pos, zs[1], is_debugging )
+	if( zs[2] ~= nil and is_hovered ) then
 		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
 	end
 	is_right = is_right or false
-	return new_tooltip( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, hovered, is_right )
+
+	local out = { new_vanilla_tooltip( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, is_hovered, is_right )}
+	table.insert( out, clicked )
+	table.insert( out, r_clicked )
+	return unpack( out )
+end
+
+function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims )
+	uid = new_image( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/pics/vanilla_plate.xml", dims[1], dims[2])
+
+	uid = new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a1.xml" )
+	uid = new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a2.xml" )
+	uid = new_image( gui, uid, pic_x + dims[1], pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a3.xml" )
+	uid = new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a4.xml" )
+
+	local steps = {10,4,2,1}
+	local temp = 0
+	while( temp < dims[1]) do
+		local delta = dims[1] - temp
+		local pic_id = 4
+		for i,step in ipairs( steps ) do
+			if( delta >= step ) then
+				pic_id = i
+				break
+			end
+		end
+		uid = new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml" )
+		uid = new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml" )
+		temp = temp + steps[pic_id]
+	end
+
+	temp = 0
+	while( temp < dims[2]) do
+		local delta = dims[2] - temp
+		local pic_id = 4
+		for i,step in ipairs( steps ) do
+			if( delta >= step ) then
+				pic_id = i
+				break
+			end
+		end
+		uid = new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml" )
+		uid = new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml" )
+		temp = temp + steps[pic_id]
+	end
+
+	return uid
 end
 
 function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
@@ -1506,12 +1555,12 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	return uid
 end
 
-function register_item_pic( data, this_data )
+function register_item_pic( data, this_data, is_advanced )
 	item_pic_data[ this_data.pic ] = item_pic_data[ this_data.pic ] or {xy={0,0}, xml_xy={0,0}}
 	if( item_pic_data[ this_data.pic ].dims == nil ) then
 		item_pic_data[ this_data.pic ].dims = { get_pic_dim( this_data.pic )}
 
-		local is_xml = string.sub( this_data.pic, -4 ) == ".xml"
+		local is_xml = string.sub( this_data.pic, -4 ) == ".xml" and is_advanced
 
 		local storage_anim = get_storage( this_data.id, "index_pic_anim" )
 		if( storage_anim ~= nil ) then
@@ -1522,12 +1571,16 @@ function register_item_pic( data, this_data )
 		if( storage_off ~= nil ) then
 			item_pic_data[ this_data.pic ].xy = D_extractor( ComponentGetValue2( storage_off, "value_string" ), true )
 		elseif( not( is_xml )) then
-			local pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "item" )
-			if( pic_comp == nil ) then
-				pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "enabled_in_hand" )
-			end
-			if( pic_comp ~= nil ) then
-				item_pic_data[ this_data.pic ].xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
+			if( is_advanced ) then
+				local pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "item" )
+				if( pic_comp == nil ) then
+					pic_comp = EntityGetFirstComponentIncludingDisabled( this_data.id, "SpriteComponent", "enabled_in_hand" )
+				end
+				if( pic_comp ~= nil ) then
+					item_pic_data[ this_data.pic ].xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
+				end
+			else
+				item_pic_data[ this_data.pic ].xy = { item_pic_data[ this_data.pic ].dims[1]/2, item_pic_data[ this_data.pic ].dims[2]/2 }
 			end
 		end
 		
@@ -1567,16 +1620,16 @@ function new_anim_looped( core_path, delay, duration )
 	return core_path..num..".png"
 end
 
-function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, no_shift, hov_scale )
+function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, fancy_shadow )
 	angle = angle or 0
-	no_shift = no_shift or false
+	fancy_shadow = fancy_shadow or false
 	scale_up = scale_up or false
 	item_pic_data[ pic ] = item_pic_data[ pic ] or {
 		xy = { 0, 0 },
 		xml_xy = { 0, 0 },
 		dims = { get_pic_dim( pic )},
 	}
-
+	
 	local w, h = unpack( item_pic_data[ pic ].dims or {1,1})
 	local off_x, off_y = 0, 0
 	if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
@@ -1589,17 +1642,16 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, no_shift, h
 	end
 	
 	local extra_scale = hov_scale or 1
-	if( not( no_shift )) then off_x, off_y = off_x + w/2, off_y + h/2 end
 	pic_x, pic_y = pic_x - extra_scale*off_x, pic_y - extra_scale*off_y
 	uid = new_image( gui, uid, pic_x, pic_y, z - 0.002, pic, extra_scale, extra_scale, alpha, false, angle )
 
-	local sign = angle ~= 0 and 1 or -1
+	local sign = fancy_shadow and 1 or -1
 	local scale_x, scale_y = 1/w + 1, 1/h + 1
 	colourer( gui, {0,0,0})
 	off_x, off_y = rotate_offset( sign*0.5, sign*0.5, angle )
 	uid = new_image( gui, uid, pic_x + extra_scale*off_x, pic_y + extra_scale*off_y, z, pic, extra_scale*scale_x, extra_scale*scale_y, 0.25, false, angle )
-
-	return uid, w, h
+	
+	return uid, pic_x, pic_y
 end
 
 function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
@@ -1676,7 +1728,7 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 			v[4] = math.min( #info.other_perks, 10 )*14-1
 			v[5] = 14*math.max( math.ceil(( #info.other_perks )/10 ), 1 )
 		end
-		uid = new_tooltip( gui, uid, nil, pic_z - 5, v, { info.tip, info.other_perks }, is_hovered, true, true )
+		uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, v, { info.tip, info.other_perks }, is_hovered, true, true )
 	end
 
 	if( kind == 1 ) then

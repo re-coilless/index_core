@@ -364,11 +364,12 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         end
 
         local quickest_slot_count = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" )
+        local dragger_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true )--drag action callback that overrides the generic one
 
         local uid = 0
         local pos_tbl = {}
         local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
-        local inv, z_layers, item_types, global_modes = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
+        local z_layers, global_modes, item_types, inv = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
         local data = {
             the_gui = real_gui,
             a_gui = fake_gui,
@@ -379,7 +380,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
 
             shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
-            drag_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true ), --drag action callback that overrides the generic one
+            drag_action = dragger_action,
             
             main_id = controller_id,
             player_id = hooman,
@@ -408,6 +409,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
             slot_state = {},
 
+            inventory_marker = ComponentGetValue2( get_storage( controller_id, "inventory_marker" ), "value_string" ),
             slot_pic = {
                 bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
                 bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
@@ -424,6 +426,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
                 y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
             },
+            global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
             player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
             no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
             throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
@@ -572,69 +575,93 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             end
         end
 
-        -- global_modes
-        
         --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
         --test actions materialized
         --allow fake spell injection
-        
-        if( inv.full_inv ~= nil ) then
-            uid, data, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
-        end
-        
-        local bars = inv.bars or {}
-        if( bars.hp ~= nil ) then
-            uid, data, pos_tbl.hp = bars.hp( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( bars.air ~= nil ) then
-            uid, data, pos_tbl.air = bars.air( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( bars.flight ~= nil ) then
-            uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        
-        local actions = bars.action or {}
-        if( actions.mana ~= nil ) then
-            uid, data, pos_tbl.mana = actions.mana( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( actions.reload ~= nil ) then
-            uid, data, pos_tbl.reload = actions.reload( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( actions.delay ~= nil ) then
-            uid, data, pos_tbl.delay = actions.delay( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+
+        data.gmod = global_modes[ data.global_mode ]
+        data.gmod.total_count = #global_modes
+        data.gmod.name = GameTextGetTranslatedOrNot( data.gmod.name )
+        data.gmod.desc = GameTextGetTranslatedOrNot( data.gmod.desc )
+        if( not( data.gmod.allow_advanced_draggables )) then
+            data.drag_action = false
         end
 
-        if( inv.gold ~= nil ) then
-            uid, data, pos_tbl.gold = inv.gold( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        local global_callback = data.gmod.custom_func
+        if( global_callback ~= nil ) then
+            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, true )
         end
-        if( inv.orbs ~= nil ) then
-            uid, data, pos_tbl.orbs = inv.orbs( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        if( not( data.gmod.nuke_em_all )) then
+            if( inv.full_inv ~= nil ) then
+                uid, data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+            end
+            if( inv.applet_strip ~= nil ) then
+                uid, data, pos_tbl.applet_strip = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( inv.modder ~= nil ) then
+                uid, data = inv.modder( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            
+            local bars = inv.bars or {}
+            if( bars.hp ~= nil ) then
+                uid, data, pos_tbl.hp = bars.hp( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( bars.air ~= nil ) then
+                uid, data, pos_tbl.air = bars.air( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( bars.flight ~= nil ) then
+                uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            
+            local actions = bars.action or {}
+            if( actions.mana ~= nil ) then
+                uid, data, pos_tbl.mana = actions.mana( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( actions.reload ~= nil ) then
+                uid, data, pos_tbl.reload = actions.reload( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( actions.delay ~= nil ) then
+                uid, data, pos_tbl.delay = actions.delay( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+
+            if( inv.gold ~= nil ) then
+                uid, data, pos_tbl.gold = inv.gold( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( inv.orbs ~= nil ) then
+                uid, data, pos_tbl.orbs = inv.orbs( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( inv.info ~= nil ) then
+                uid, data, pos_tbl.info = inv.info( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+
+            local icons = inv.icons or {}
+            if( icons.ingestions ~= nil ) then
+                uid, data, pos_tbl.ingestions = icons.ingestions( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( icons.stains ~= nil ) then
+                uid, data, pos_tbl.stains = icons.stains( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( icons.effects ~= nil ) then
+                uid, data, pos_tbl.effects = icons.effects( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+            if( icons.perks ~= nil ) then
+                uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+
+            if( inv.pickup ~= nil ) then
+                uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
+            end
+            if( inv.extra ~= nil ) then
+                uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+            end
         end
-        if( inv.info ~= nil ) then
-            uid, data, pos_tbl.info = inv.info( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        if( global_callback ~= nil ) then
+            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
         end
 
-        local icons = inv.icons or {}
-        if( icons.ingestions ~= nil ) then
-            uid, data, pos_tbl.ingestions = icons.ingestions( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+        if( data.gmod.allow_shooting ) then
+            data.no_inv_shooting = false
         end
-        if( icons.stains ~= nil ) then
-            uid, data, pos_tbl.stains = icons.stains( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( icons.effects ~= nil ) then
-            uid, data, pos_tbl.effects = icons.effects( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-        if( icons.perks ~= nil ) then
-            uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-        end
-
-        if( inv.pickup ~= nil ) then
-            uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
-        end
-        if( inv.extra ~= nil ) then
-            uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
-        end
-        
         if( data.no_inv_shooting and data.is_opened ) then
             uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
         end
@@ -643,11 +670,18 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             play_vanilla_sound( data, "ui", "ui/inventory_"..( data.is_opened and "open" or "close" ))
             ComponentSetValue2( iui_comp, "mActive", data.is_opened )
         end
+        if( dragger_action ) then
+            data.memo.not_wanna_drop = true
+        end
+        if( data.memo.not_wanna_drop ) then
+            data.dragger.wont_drop = true
+        end
         if( slot_hover_sfx[2]) then
             slot_hover_sfx[2] = false
         elseif( slot_hover_sfx[1] ~= 0 ) then
             slot_hover_sfx[1] = 0
         end
+
         if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
             if( data.dragger.swap_soon ) then
                 ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
@@ -655,7 +689,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             else
                 if( not( slot_going ) or data.dragger.swap_now ) then
                     if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
-                        if( not( data.drag_action ) and not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
+                        if( not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                             inv.drop( data.dragger.item_id, data )
                         else
                             play_vanilla_sound( data, "ui", "ui/item_move_denied" )

@@ -11,11 +11,11 @@
 		name="override_settings"
 		value_bool="0"
 	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="global_mode"
-		value_int="1"
-	></VariableStorageComponent>
 
+	<VariableStorageComponent
+		name="inventory_marker"
+		value_string="data/ui_gfx/items/powder_stash.png"
+	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="slot_pic_bg"
 		value_string="data/ui_gfx/inventory/full_inventory_box.png"
@@ -66,6 +66,10 @@
 		value_float="0"
 	></VariableStorageComponent>
 	
+	<VariableStorageComponent
+		name="global_mode"
+		value_int="1"
+	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="player_core_off"
 		value_float="-7"
