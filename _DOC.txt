@@ -1,0 +1,298 @@
+allow custom per-slot sfxes and visuals
+
+slot_info.inv_kind - the kind of inventory the item is in rn
+slot_info.inv_type - all the inventory kinds this item can be inserted into
+
+[GENERAL]
+Changes to vanilla game:
+- quick/quickest are marked by negative y coord
+- custom red blinking
+- inventoryisopened does not work
+- gamepickupitem does not work
+- InventoryGuiComponent and ItemPickUpperComponent are permananetly disabled
+- fungal shift now has the list of all the shifts in the perk
+- gamepad is not supported and never will be
+List of altered vanilla files:
+- 
+How to modify:
+- append to _structure.lua
+
+[CORE FUNCTIONALITY]
+- by default, the state of ui is controlled by the state of controlcomp
+- the entire data throughput is being passed via the "data" table
+- runs from worldsstateentity and searched for the "index_ctrl" tag
+- everything exists within the same lua context, so interconnected mp invs are doable
+- keep in mind that any gui context can have only 1024 uids, by default there are two guis: fake, that has no mouse click blocking and real
+- gameffects and uiicon are preprocessed
+- material under pointer is being supplied automatically
+- player inventories are hardcoded to be included
+- to add new inventories, the system searches for "index_inventory" tag
+- only the stuff that has a slot is displayed
+- one can add a hidden item by setting slot value to -1,-1
+- to make the item recalculate its slot pos, set slot value to -5,-5
+- items have global kinds, that determine every single aspect of this item gui functionality
+- if the child of detected inventory item is satisfied by some item kind - it will be an item
+- all items are stored in a singular list, they are connected to inventories by a separate slot state list
+- all inventories are stored in a separate table with all their data
+- global modes allow to alter inv functionality in a major way and are an organizational tool to reduce clutter
+- the "index_ctrl" entity has all the various settings set as varstoragecomps that are synched with modsettings
+- mods is built around a table of preset z_layers to allow maximum consistency and compatibility
+- there's applet strip that allows to intergrate external global mods in a highly compatible way
+
+[OPTIONS]
+
+[Z-LAYERS]
+why is needed (recommend to not tinker with em)
+description to every z-layer
+
+[GLOBAL MODES]
+why is needed
+description of what is there and what can be added
+
+[STRUCTURE]
+general rundown of what is there
+in-details desc of every part
+
+[ITEM TYPES]
+why is needed
+how it functions
+how to mod
+
+[MISC]
+custom callbacks
+
+[DATA]
+local data = {
+    the_gui = real_gui,
+    a_gui = fake_gui,
+    some_guis = dead_guis,
+
+    memo = ctrl_data,
+    pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+    nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
+    is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+
+    shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
+    drag_action = dragger_action,
+    
+    main_id = controller_id,
+    player_id = hooman,
+    player_xy = { hooman_x, hooman_y + data.player_core_off }
+    inventory = inv_comp,
+    frame_num = current_frame,
+    orbs = GameGetOrbCountThisRun(),
+    
+    pointer_world = {m_x,m_y},
+    pointer_ui = {mui_x,mui_y},
+    pointer_delta = {muid_x,muid_y,math.sqrt( muid_x^2 + muid_y^2 )},
+    pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
+    pointer_matter = pointer_mtr,
+
+    active_item = get_active_wand( hooman ),
+    active_info = {},
+    just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
+    no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
+    
+    icon_data = effect_tbl,
+    perk_data = perk_tbl,
+
+    item_types = {
+        {
+            name = GameTextGetTranslatedOrNot( "$item_wand" ),
+            is_quickest = true,
+            is_hidden = true,
+            advanced_pic = true,
+
+            on_check = function( item_id, data, this_info )
+                return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
+            end,
+            on_data = function( item_id, data, this_info )
+                return data, this_info
+            end,
+
+            on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )
+                return uid, data
+            end,
+            on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+                return uid
+            end,
+            on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+                return uid
+            end,
+
+            on_pickup = function( item_id, data, this_info, is_post )
+                local func_tbl = {
+                    function( item_id, data, this_info )
+                        return 0 --return 1 to pause, -1 to abort, 0 to pickup
+                    end,
+                    function( item_id, data, this_info )
+                    end,
+                }
+                return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
+            end,
+            on_drop = function( item_id, data, this_info, is_post )
+                local func_tbl = {
+                    function( item_id, data, this_info )
+                        return true
+                    end,
+                    function( item_id, data, this_info )
+                    end,
+                }
+                return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
+            end,
+
+            on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
+                return uid
+            end,
+            on_gui_pause = function( gui, uid, item_id, data, this_info, zs )
+                return uid --return false to continue the pause, nil to cancel, true to pickup
+            end,
+        },
+    },
+    item_list = {
+        {
+            id = item_id
+            inv_id = inventory_data.id
+            inv_kind = inventory_data.kind (is a string)
+            AbilityC = abil_comp
+            charges = {
+                ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
+                ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
+                ComponentGetValue2( abil_comp, "amount_in_inventory" ),
+            }
+            pic = ComponentGetValue2( abil_comp, "sprite_file" )
+            ItemC = item_comp
+            inv_type = invs[inv_name] --numerical value
+            name = get_item_name( item_id, abil_comp, item_comp )
+            desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
+            uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
+            is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
+            is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
+            is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+
+            kind = k
+            is_quickest = kind.is_quickest or false
+            is_hidden = kind.is_hidden or false
+            advanced_pic = kind.advanced_pic or false
+        },
+    },
+    inv_count_quickest = quickest_slot_count,
+    inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
+    inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+    slot_state = {},
+
+    inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )},
+    inventories = {
+        {
+            id = inv_id,
+            kind = kind or inv_ts[ EntityGetName( inv_id )] or { "universal" },
+            size = slot_count,
+            func = gui_func,
+            check = check_func,
+        },
+    },
+    inventories_extra = {},
+
+    gmod = {
+        total_count = #global_modes,
+
+        name = "FULL",
+        desc = "Wand editing with minimal obstruction.",
+
+        allow_wand_editing = true,
+        allow_external_inventories = true,
+        show_full = true,
+        show_fullest = true,
+        can_see = true,
+        allow_shooting = true,
+        allow_advanced_draggables = true,
+        nuke_em_all = true,
+
+        custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, inv, is_post )
+            return uid, data, inv
+        end,
+    },
+
+    inventory_marker = ComponentGetValue2( get_storage( controller_id, "inventory_marker" ), "value_string" ),
+    slot_pic = {
+        bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
+        bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
+        hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
+        active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
+        locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
+    },
+    dragger = {
+        swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
+        item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
+        inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
+        is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
+        x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
+        y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
+    },
+    global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
+    player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
+    no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
+    throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
+    throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
+    throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+    no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
+    short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
+    hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
+    hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
+    hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
+    hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
+    fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
+    reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
+    delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
+    short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
+    info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
+    info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
+    info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
+    info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
+    info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+    effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
+    min_effect_time = epsilon,
+    max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
+    in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
+
+    Controls = {
+        ctrl_comp,
+
+        get_button_state( ctrl_comp, "Inventory", current_frame ),
+        get_button_state( ctrl_comp, "Interact", current_frame ),
+        get_button_state( ctrl_comp, "Fly", current_frame ),
+        get_button_state( ctrl_comp, "RightClick", current_frame ),
+        get_button_state( ctrl_comp, "LeftClick", current_frame ),
+    },
+    DamageModel = {
+        dmg_comp,
+
+        ComponentGetValue2( dmg_comp, "max_hp" ),
+        ComponentGetValue2( dmg_comp, "hp" ),
+        ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
+        math.max( data.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
+
+        ComponentGetValue2( dmg_comp, "air_needed" ),
+        ComponentGetValue2( dmg_comp, "air_in_lungs_max" ),
+        ComponentGetValue2( dmg_comp, "air_in_lungs" ),   
+    },
+    CharacterData = {
+        char_comp,
+
+        ComponentGetValue2( char_comp, "flying_needs_recharge" ),
+        ComponentGetValue2( char_comp, "fly_time_max" )*( 2^GameGetGameEffectCount( hooman, "HOVER_BOOST" )),
+        math.min( ComponentGetValue2( char_comp, "mFlyingTimeLeft" ), max_flight ),
+    },
+    Wallet = {
+        wallet_comp,
+        
+        ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
+        ComponentGetValue2( wallet_comp, "money" ),
+    }
+    ItemPickUpper = {
+        pick_comp,
+
+        ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
+        ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
+    },
+}

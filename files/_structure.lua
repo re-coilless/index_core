@@ -4,7 +4,8 @@ local Z_LAYERS = {
     in_world_back = 999,
     in_world = 998,
     in_world_front = 997,
-
+    in_world_ui = 10,
+    
     background = 2, --general background
 
     main_far_back = 1, --slot background
@@ -44,7 +45,6 @@ local GLOBAL_MODES = {
         can_see = true,
         allow_shooting = true,
         allow_advanced_draggables = true,
-        nuke_em_all = false,
     },
 }
 
@@ -52,7 +52,6 @@ local ITEM_TYPES = {
     {
         name = GameTextGetTranslatedOrNot( "$item_wand" ),
         is_quickest = true,
-        is_hidden = false,
         advanced_pic = true,
 
         on_check = function( item_id, data, this_info )
@@ -121,11 +120,10 @@ local ITEM_TYPES = {
         on_pickup = function( item_id, data, this_info, is_post )
             local func_tbl = {
                 function( item_id, data, this_info )
-                    --return 1 to pause, -1 to abort, 0 to pickup
                     return 0
                 end,
                 function( item_id, data, this_info )
-                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
+                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then --figure out the wand effect
                         local emitter = EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( this_info.xy ))
                         EntityRemoveComponent( emitter, EntityGetFirstComponentIncludingDisabled( emitter, "LifetimeComponent" ))
                         ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
@@ -134,11 +132,12 @@ local ITEM_TYPES = {
             }
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
+
         on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
             return uid
         end,
         -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
-        --     return uid --return false to continue the pause, nil to cancel, true to pickup
+        --     return uid
         -- end,
     },
     {
@@ -169,6 +168,15 @@ local ITEM_TYPES = {
             end
             this_info.matter_info[1] = this_info.bottle_info == nil and this_info.matter_info[1] or this_info.bottle_info[1]
             
+            local loop_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AudioLoopComponent" )
+            if( loop_comp ~= nil ) then
+                this_info.SprayC = loop_comp
+                this_info.spray_info = {
+                    ComponentGetValue2( loop_comp, "file" ),
+                    ComponentGetValue2( loop_comp, "event_name" ),
+                }
+            end
+
             this_info.name, this_info.fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
 
             return data, this_info
@@ -223,7 +231,12 @@ local ITEM_TYPES = {
                     local p_x, p_y = unpack( data.pointer_world )
                     if( not( RaytraceSurfaces( x, y, p_x, p_y ))) then
                         if( not( EntityGetIsAlive( data.memo.john_pouring or 0 ))) then
-                            data.memo.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y)
+                            data.memo.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y )
+                            if( this_info.spray_info ~= nil ) then
+                                local loop_comp = EntityGetFirstComponentIncludingDisabled( data.memo.john_pouring, "AudioLoopComponent" )
+                                ComponentSetValue2( loop_comp, "file", this_info.spray_info[1])
+                                ComponentSetValue2( loop_comp, "event_name", this_info.spray_info[2])
+                            end
                         end
                         EntitySetTransform( data.memo.john_pouring, p_x, p_y )
 
@@ -277,7 +290,11 @@ local ITEM_TYPES = {
                             end
                             EntitySetComponentIsEnabled( data.memo.john_pouring, sucker_comp, content_total < cap_max )
                             if( do_sound and data.frame_num%5 == 0 ) then
-                                play_vanilla_sound( data, "player", "player/step_water", p_x, p_y )
+                                if( this_info.bottle_info[3] == 0 ) then
+                                    play_vanilla_sound( data, "materials", "collision/glass_potion/liquid_container_hit", p_x, p_y )
+                                elseif( this_info.bottle_info[3] == 1 ) then
+                                    play_vanilla_sound( data, "materials", "collision/snow", p_x, p_y )
+                                end
                             end
                         end
                     end
@@ -312,8 +329,11 @@ local ITEM_TYPES = {
                 end
             end
             
-            local angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
-            pic_y = pic_y + simple_anim( data, "sucking_drift", target_vertical, 0.2 )
+            local angle = 0
+            if( is_dragged ) then
+                angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
+                pic_y = pic_y + simple_anim( data, "sucking_drift", target_vertical, 0.2 )
+            end
             
             local z = slot_z( data, this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
@@ -394,7 +414,6 @@ local GUI_STRUCT = {
     slot = new_slot,
     full_inv = new_generic_inventory,
     applet_strip = new_generic_applets,
-    modder = new_generic_modder,
     
     bars = {
         hp = new_generic_hp,
@@ -418,10 +437,11 @@ local GUI_STRUCT = {
         perks = new_generic_perks,
     },
     
-    pickup_info = new_pickup_info,
     pickup = new_generic_pickup,
+    pickup_info = new_pickup_info,
     drop = new_generic_drop,
 
+    modder = new_generic_modder,
     extra = new_generic_extra,
     custom = {}, --table of string-indexed funcs (sorted alphabetically)
 }

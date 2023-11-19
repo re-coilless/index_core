@@ -13,7 +13,7 @@
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
-		name="inventory_marker"
+		name="loot_marker"
 		value_string="data/ui_gfx/items/powder_stash.png"
 	></VariableStorageComponent>
 	<VariableStorageComponent
@@ -48,10 +48,6 @@
 	<VariableStorageComponent
 		name="dragger_inv_type"
 		value_float="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_inv_kind"
-		value_string="universal"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="dragger_is_quickest"

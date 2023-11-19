@@ -1,5 +1,3 @@
--- ModRegisterAudioEventMappings( "mods/mrshll_core/GUIDs.txt" )
-
 if( ModIsEnabled( "mnee" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 end

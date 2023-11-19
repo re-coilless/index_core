@@ -5,7 +5,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
     local pic_x, pic_y = root_x, root_y
     
     --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv (if less, do less)
-    local this_data = data.inv_list
+    local this_data = data.item_list
     if( this_data ~= nil ) then
         if( data.is_opened ) then
             uid = new_image( gui, uid, 0, 0, zs.background, data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
@@ -21,17 +21,25 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         
         local cat_wands = pic_x
         local inv_id = data.inventories_player[1]
-        local inv_data = data.slot_state[ inv_id ].quickest
-        for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quickest", inv_id, {i,-1}, data.is_opened, false, true )
+        local slot_data = data.slot_state[ inv_id ].quickest
+        for i,slot in ipairs( slot_data ) do
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+                inv_id = inv_id,
+                id = slot,
+                inv_slot = {i,-1},
+            }, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
         
         pic_x = pic_x + 2
         local cat_items = pic_x
-        inv_data = data.slot_state[ inv_id ].quick
-        for i,slot in ipairs( inv_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "quick", inv_id, {i,-2}, data.is_opened, false, true )
+        slot_data = data.slot_state[ inv_id ].quick
+        for i,slot in ipairs( slot_data ) do
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+                inv_id = inv_id,
+                id = slot,
+                inv_slot = {i,-2},
+            }, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
@@ -43,17 +51,20 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         if( data.is_opened ) then
             new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-
             if( data.gmod.show_full ) then --by default display only the first row of full inv ( data.gmod.show_fullest )
                 pic_x = pic_x + 9
                 new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
-
+                
                 local core_y = pic_y
                 inv_id = data.inventories_player[2]
-                inv_data = data.slot_state[ inv_id ]
-                for i,col in ipairs( inv_data ) do
+                slot_data = data.slot_state[ inv_id ]
+                for i,col in ipairs( slot_data ) do
                     for e,slot in ipairs( col ) do
-                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, this_data, slot_func, slot, w, h, "full", inv_id, {i,e}, true, true )
+                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+                            inv_id = inv_id,
+                            id = slot,
+                            inv_slot = {i,e},
+                        }, data.is_opened, true, true )
                         pic_x, pic_y = pic_x, pic_y + h + step
                     end
                     pic_x, pic_y = pic_x + w + step, core_y
@@ -820,7 +831,6 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     end
 
                     data.Controls[3][2] = false
-                    play_vanilla_sound( data, "event_cues", pickup_info.info.cost == nil and "event_cues/pick_item_generic/create" or "event_cues/shop_item/create" )
                     pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
                     ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
 
@@ -850,73 +860,23 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
     return uid, data
 end
 
-function new_generic_drop( this_item, data, inv_comp ) --on_drop callback
+function new_generic_drop( this_item, data )
     local dude = EntityGetRootEntity( this_item )
     if( dude == data.player_id ) then
-        EntityRemoveFromParent( this_item )
         play_vanilla_sound( data, "ui", "ui/item_remove" )
 
-        local h_x, h_y = unpack( data.player_xy )
-        local p_d_x, p_d_y = data.pointer_world[1] - h_x, data.pointer_world[2] - h_y
-        local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
-        local angle = math.atan2( p_d_y, p_d_x )
-        local from_x, from_y = 0, 0
-        if( data.active_item == this_item ) then
-            from_x, from_y = EntityGetTransform( this_item )
-            ComponentSetValue2( data.inventory, "mActiveItem", 0 )
-        else
-            data.throw_pos_rad = data.throw_pos_rad + data.throw_pos_size
-            from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
-            local is_hit, hit_x, hit_y = RaytraceSurfaces( h_x, h_y, from_x, from_y )
-            if( is_hit ) then data.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
-            data.throw_pos_rad = data.throw_pos_rad - data.throw_pos_size
-            from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
+        local do_default = true
+        local this_data = from_tbl_with_id( data.item_list, this_item )
+        local callback = data.item_types[ this_data.kind ].on_drop
+        if( callback ~= nil ) then
+            do_default = callback( this_item, data, this_data, false )
         end
-
-        local extra_v_force = 0
-        local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
-        if( vel_comp ~= nil ) then
-            extra_v_force = ComponentGetValue2( vel_comp, "gravity_y" )/4
+        if( do_default ) then
+            local x, y = unpack( data.player_xy )
+            drop_item( x, y, this_data, data, data.throw_force, not( data.no_action_on_drop ))
         end
-        local force = p_delta*data.throw_force
-        local force_x, force_y = math.cos( angle )*force, math.sin( angle )*force
-        force_y = force_y - math.max( 0.25*math.abs( force_y ), ( extra_v_force + data.throw_force )/2 )
-        local to_x, to_y = from_x + force_x, from_y + force_y
-
-        EntitySetTransform( this_item, from_x, from_y )
-        -- EntityApplyTransform( this_item, from_x, from_y )
-        local dropped_info = from_tbl_with_id( data.inv_list, this_item )
-        inventory_man( this_item, data, dropped_info, false )
-        
-        local pic_comps = EntityGetComponentIncludingDisabled( this_item, "SpriteComponent", "enabled_in_world" ) or {}
-        if( #pic_comps > 0 ) then
-            for i,comp in ipairs( pic_comps ) do
-                ComponentSetValue2( comp, "z_index", -1 )
-                EntityRefreshSprite( this_item, comp )
-            end
-        end
-        ComponentSetValue2( dropped_info.ItemC, "inventory_slot", -5, -5 )
-        ComponentSetValue2( dropped_info.ItemC, "play_hover_animation", false )
-        ComponentSetValue2( dropped_info.ItemC, "has_been_picked_by_player", true )
-        ComponentSetValue2( dropped_info.ItemC, "next_frame_pickable", data.frame_num + 30 )
-
-        if( p_delta > 2 ) then
-            local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
-            if( shape_comp ~= nil ) then
-                local phys_mult = 1.75
-                local throw_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsThrowableComponent" )
-                if( throw_comp ~= nil ) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
-                
-                local mass = get_phys_mass( this_item )
-                PhysicsApplyForce( this_item, phys_mult*force_x*mass, phys_mult*force_y*mass )
-                PhysicsApplyTorque( this_item, phys_mult*5*mass )
-            elseif( vel_comp ~= nil ) then
-                ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y )
-            end
-        end
-
-        if( not( data.no_action_on_drop )) then
-            vanilla_lua_callback( this_item, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
+        if( callback ~= nil ) then
+            callback( this_item, data, this_data, true )
         end
     else
         play_vanilla_sound( data, "ui", "ui/item_move_denied" )
@@ -926,10 +886,9 @@ end
 function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
     if( #data.inventories_extra > 0 ) then
         for i,extra_inv in ipairs( data.inventories_extra ) do
-            local this_data = from_tbl_with_id( data.inventories, extra_inv )
-            
-            this_data.x, this_data.y = EntityGetTransform( extra_inv )
-            local pic_x, pic_y = world2gui( this_data.x, this_data.y )
+            local this_data = data.inventories[ extra_inv ]
+            local x, y = EntityGetTransform( extra_inv )
+            local pic_x, pic_y = world2gui( x, y )
             uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, slot_func )
         end
     end
@@ -974,7 +933,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 new_mode = new_mode + 1
             end
         end
-        uid, is_hovered, clicked, r_clicked = tipping( gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
+        uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
         gonna_reset = gonna_reset or r_clicked
         gonna_highlight = gonna_highlight or is_hovered
 

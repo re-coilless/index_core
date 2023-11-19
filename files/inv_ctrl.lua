@@ -1,20 +1,23 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-ctrl_data = ctrl_data or {}
-dscrt_btn = dscrt_btn or {}
-tip_going = {}
-tip_anim = tip_anim or {generic={0,0,0}}
-dragger_buffer = dragger_buffer or {0,0}
-slot_going = slot_going or false
-slot_memo = slot_memo or {}
-slot_anim = slot_anim or {}
-slot_hover_sfx = slot_hover_sfx or {0,false}
-mouse_memo = mouse_memo or {}
-mouse_memo_world = mouse_memo_world or {}
-mtr_probe = mtr_probe or 0
-mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0}
-item_pic_data = item_pic_data or {}
+ctrl_data = ctrl_data or {} --general global for custom metaframe values
+dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
+dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
+item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
 
+slot_going = slot_going or false --a check that makes sure only one slot is being dragged at a time
+slot_memo = slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
+slot_anim = slot_anim or {} --fancy dragging anim
+slot_hover_sfx = slot_hover_sfx or {0,false} --context sensitive hover sfx
+
+mouse_memo = mouse_memo or {} --for getting pointer delta
+mouse_memo_world = mouse_memo_world or {} --for getting pointer delta in-world
+
+mtr_probe = mtr_probe or 0 --matter test entity id 
+mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0} --smoothing of the matter displayed
+
+tip_going = {} --a check that makes sure only one tooltip exists per unique id
+tip_anim = tip_anim or {generic={0,0,0}} --tooltip anim state
 local current_frame = GameGetFrameNum()
 for tid,tip_tbl in pairs( tip_anim ) do
     if( current_frame - tip_tbl[2] > 20 ) then
@@ -25,6 +28,7 @@ for tid,tip_tbl in pairs( tip_anim ) do
 end
 
 local fake_gui = nil
+local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 for i,controller_id in ipairs( ctrl_bodies ) do
     local main_x, main_y = EntityGetTransform( controller_id )
@@ -54,13 +58,15 @@ for i,controller_id in ipairs( ctrl_bodies ) do
     end
 
     if( is_going and inv_comp ~= nil ) then
-        if( real_gui == nil ) then
-            real_gui = GuiCreate()
-        end
-        GuiStartFrame( real_gui )
+        if( i == 1 ) then
+            if( real_gui == nil ) then
+                real_gui = GuiCreate()
+            end
+            GuiStartFrame( real_gui )
 
-        fake_gui = GuiCreate()
-        GuiStartFrame( fake_gui )
+            fake_gui = GuiCreate()
+            GuiStartFrame( fake_gui )
+        end
 
         local m_x, m_y = DEBUG_GetMouseWorld()
         local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
@@ -373,43 +379,51 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         local data = {
             the_gui = real_gui,
             a_gui = fake_gui,
-
-            memo = ctrl_data,
-            pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
-            nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
-            is_opened = ComponentGetValue2( iui_comp, "mActive" ),
-
-            shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
-            drag_action = dragger_action,
+            some_guis = dead_guis,
             
-            main_id = controller_id,
-            player_id = hooman,
-            inventory = inv_comp,
+            memo = ctrl_data,
             frame_num = current_frame,
             orbs = GameGetOrbCountThisRun(),
-            
+            pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+            nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
+
             pointer_world = {m_x,m_y},
             pointer_ui = {mui_x,mui_y},
             pointer_delta = {muid_x,muid_y,math.sqrt( muid_x^2 + muid_y^2 )},
             pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
             pointer_matter = pointer_mtr,
 
+            main_id = controller_id,
+            player_id = hooman,
+            player_xy = {0,0},
+
+            shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
+            drag_action = dragger_action,
+
+            is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+            inventory = inv_comp,
+            inv_count_quickest = quickest_slot_count,
+            inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
+            inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+
+            global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
+            gmod = {},
+
+            icon_data = effect_tbl,
+            perk_data = perk_tbl,
+
             active_item = get_active_wand( hooman ),
             active_info = {},
             just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
             no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
-            
-            icon_data = effect_tbl,
-            perk_data = perk_tbl,
 
-            item_types = item_types,
-            inv_list = {},
-            inv_count_quickest = quickest_slot_count,
-            inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
-            inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+            inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )},
+            inventories = {},
+            inventories_extra = {},
             slot_state = {},
+            item_types = item_types,
+            item_list = {},
 
-            inventory_marker = ComponentGetValue2( get_storage( controller_id, "inventory_marker" ), "value_string" ),
             slot_pic = {
                 bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
                 bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
@@ -417,16 +431,16 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
                 locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
             },
+
             dragger = {
                 swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
                 item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
                 inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
-                inv_kind = ComponentGetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string" ),
                 is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
                 x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
                 y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
             },
-            global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
+
             player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
             no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
             throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
@@ -451,16 +465,16 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             min_effect_time = epsilon,
             max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
             in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
+            loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
 
             Controls = {},
             DamageModel = {},
             CharacterData = {},
-            CharacterPlatforming = {},
             Wallet = {},
             ItemPickUpper = {},
         }
-        data.player_xy = { hooman_x, hooman_y + data.player_core_off }
 
+        data.player_xy = { hooman_x, hooman_y + data.player_core_off }
         if( ctrl_comp ~= nil ) then
             data.Controls = {
                 ctrl_comp,
@@ -515,23 +529,19 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             }
         end
         
-        data.inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )}
-        data.inventories = {
-            get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }),
-            get_inv_data( data.inventories_player[2], data.inv_count_full ),
-        }
-        data.inventories_extra = {}
+        data.inventories[ data.inventories_player[1]] = get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end)
+        data.inventories[ data.inventories_player[2]] = get_inv_data( data.inventories_player[2], data.inv_count_full )
         local more_invs = EntityGetWithTag( "index_inventory" ) or {}
         if( #more_invs > 0 ) then
             for k,i in ipairs( more_invs ) do
-                table.insert( data.inventories, get_inv_data( i ))
+                data.inventories[i] = get_inv_data( i )
                 table.insert( data.inventories_extra, i )
             end
         end
         
         data = get_items( hooman, data )
         if( data.active_item > 0 ) then
-            data.active_info = from_tbl_with_id( data.inv_list, data.active_item ) or {}
+            data.active_info = from_tbl_with_id( data.item_list, data.active_item ) or {}
             if( data.active_info.id ~= nil ) then
                 local abil_comp = data.active_info.AbilityC
                 if( abil_comp ~= nil ) then
@@ -548,7 +558,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         end
         
         data.slot_state = {}
-        for i,inv_data in ipairs( data.inventories ) do
+        for i,inv_data in pairs( data.inventories ) do
             if( inv_data.kind[1] == "quick" ) then
                 data.slot_state[inv_data.id] = {
                     quickest = table_init( inv_data.size[1], false ),
@@ -561,17 +571,17 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 end
             end
         end
-
+        
         local nuke_em = {}
-        for i,itm in ipairs( data.inv_list ) do
-            data.inv_list[i] = set_to_slot( itm, data )
+        for i,itm in ipairs( data.item_list ) do
+            data.item_list[i] = set_to_slot( itm, data )
             if( itm.inv_slot == nil ) then
                 table.insert( nuke_em, i )
             end
         end
         if( #nuke_em > 0 ) then
             for i = #nuke_em,1,-1 do
-                table.remove( data.inv_list, nuke_em[i])
+                table.remove( data.item_list, nuke_em[i])
             end
         end
 
@@ -589,7 +599,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
 
         local global_callback = data.gmod.custom_func
         if( global_callback ~= nil ) then
-            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, true )
+            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
         end
         if( not( data.gmod.nuke_em_all )) then
             if( inv.full_inv ~= nil ) then
@@ -597,9 +607,6 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             end
             if( inv.applet_strip ~= nil ) then
                 uid, data, pos_tbl.applet_strip = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( inv.modder ~= nil ) then
-                uid, data = inv.modder( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
             
             local bars = inv.bars or {}
@@ -651,12 +658,15 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             if( inv.pickup ~= nil ) then
                 uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
             end
+            if( inv.modder ~= nil ) then
+                uid, data = inv.modder( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
             if( inv.extra ~= nil ) then
                 uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
             end
         end
         if( global_callback ~= nil ) then
-            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
+            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, true )
         end
 
         if( data.gmod.allow_shooting ) then
@@ -670,7 +680,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             play_vanilla_sound( data, "ui", "ui/inventory_"..( data.is_opened and "open" or "close" ))
             ComponentSetValue2( iui_comp, "mActive", data.is_opened )
         end
-        if( dragger_action ) then
+        if( dragger_action and data.dragger.item_id > 0 ) then
             data.memo.not_wanna_drop = true
         end
         if( data.memo.not_wanna_drop ) then
@@ -681,7 +691,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         elseif( slot_hover_sfx[1] ~= 0 ) then
             slot_hover_sfx[1] = 0
         end
-
+        
         if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
             if( data.dragger.swap_soon ) then
                 ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
@@ -702,7 +712,6 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", false )
                 ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
                 ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
-                ComponentSetValue2( get_storage( controller_id, "dragger_inv_kind" ), "value_string", data.dragger.inv_kind or "universal" )
                 ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
                 ComponentSetValue2( get_storage( controller_id, "dragger_x" ), "value_float", data.dragger.x or 0 )
                 ComponentSetValue2( get_storage( controller_id, "dragger_y" ), "value_float", data.dragger.y or 0 )
@@ -713,7 +722,12 @@ for i,controller_id in ipairs( ctrl_bodies ) do
 end
 
 if( fake_gui ~= nil ) then
-    GuiDestroy( fake_gui )--add a global table where one can write guis to be killed
+    GuiDestroy( fake_gui )
+    if( #dead_guis > 0 ) then
+        for i,gui in ipairs( dead_guis ) do
+            GuiDestroy( gui )
+        end
+    end
 else
     real_gui = gui_killer( real_gui )
     if( EntityGetIsAlive( mtr_probe )) then
