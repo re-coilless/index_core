@@ -13,4 +13,61 @@ bindings["index_core"] = {
 			["mouse_right"] = 1,
 		},
 	},
+
+	za_quickest_1 = {
+		name = "Select Quickest 1",
+		desc = "Equipping shortcut.",
+		keys = {
+			["1"] = 1,
+		},
+	},
+	za_quickest_2 = {
+		name = "Select Quickest 2",
+		desc = "Equipping shortcut.",
+		keys = {
+			["2"] = 1,
+		},
+	},
+	za_quickest_3 = {
+		name = "Select Quickest 3",
+		desc = "Equipping shortcut.",
+		keys = {
+			["3"] = 1,
+		},
+	},
+	za_quickest_4 = {
+		name = "Select Quickest 4",
+		desc = "Equipping shortcut.",
+		keys = {
+			["4"] = 1,
+		},
+	},
+	zb_quick_1 = {
+		name = "Select Quick 1",
+		desc = "Equipping shortcut.",
+		keys = {
+			["5"] = 1,
+		},
+	},
+	zb_quick_2 = {
+		name = "Select Quick 2",
+		desc = "Equipping shortcut.",
+		keys = {
+			["6"] = 1,
+		},
+	},
+	zb_quick_3 = {
+		name = "Select Quick 3",
+		desc = "Equipping shortcut.",
+		keys = {
+			["7"] = 1,
+		},
+	},
+	zb_quick_4 = {
+		name = "Select Quick 4",
+		desc = "Equipping shortcut.",
+		keys = {
+			["8"] = 1,
+		},
+	},
 }

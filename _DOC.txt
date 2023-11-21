@@ -1,5 +1,3 @@
-allow custom per-slot sfxes and visuals
-
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_type - all the inventory kinds this item can be inserted into
 
@@ -96,9 +94,12 @@ local data = {
     icon_data = effect_tbl,
     perk_data = perk_tbl,
 
-    item_types = {
+    item_cats = {
         {
             name = GameTextGetTranslatedOrNot( "$item_wand" ),
+            is_wand = true,
+            is_potion = true,
+            is_spell = true,
             is_quickest = true,
             is_hidden = true,
             advanced_pic = true,
@@ -170,7 +171,10 @@ local data = {
             is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
             is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 
-            kind = k
+            cat = k
+            slot_info.is_wand = kind.is_wand or false
+			slot_info.is_potion = kind.is_potion or false
+			slot_info.is_spell = kind.is_spell or false
             is_quickest = kind.is_quickest or false
             is_hidden = kind.is_hidden or false
             advanced_pic = kind.advanced_pic or false
@@ -194,11 +198,13 @@ local data = {
     inventories_extra = {},
 
     gmod = {
-        total_count = #global_modes,
+        gmods = em all,
 
         name = "FULL",
         desc = "Wand editing with minimal obstruction.",
 
+        no_inv_toggle = true,
+        is_hidden = true,
         allow_wand_editing = true,
         allow_external_inventories = true,
         show_full = true,

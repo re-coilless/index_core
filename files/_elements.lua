@@ -4,7 +4,6 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
     local root_x, root_y = 19, 20
     local pic_x, pic_y = root_x, root_y
     
-    --pressing 1-4 allows switching to the first 4 slots of quick inv; 5-8 allows switching to the first 4 slots of the full inv (if less, do less)
     local this_data = data.item_list
     if( this_data ~= nil ) then
         if( data.is_opened ) then
@@ -17,6 +16,11 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             end
         end
         
+        local function check_shortcut( id, is_quickest )
+            if( id < 5 ) then
+                return get_input({ ( is_quickest and 29 or 33 ) + id, "Key" }, ( is_quickest and "za_quickest_" or "zb_quick_" )..id, false, true )
+            end
+        end
         local w, h, step = 0, 0, 1
         
         local cat_wands = pic_x
@@ -27,6 +31,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-1},
+                force_equip = check_shortcut( i, true ),
             }, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
@@ -39,6 +44,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-2},
+                force_equip = check_shortcut( i, false ),
             }, data.is_opened, false, true )
             pic_x, pic_y = pic_x + w + step, pic_y
         end
@@ -82,8 +88,30 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
     return uid, data, {root_x,root_y}, {pic_x,pic_y}
 end
 
-function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys ) --applets are only visible while inventory is closed
-    return uid, data --return final pos
+function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
+    local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
+
+    local this_data = data.applets
+    if( this_data ~= nil ) then --icons must be behind the wands
+        --pop up through sine (a little when pointer is nearby and all the way with bouncy once clicked)
+        if( data.is_opened ) then
+            -- if( #this_data.r > 1 ) then
+                --hover area
+
+                --do anim
+                --draw all da shit
+                --draw vanilla plate
+
+                uid = new_vanilla_plate( gui, uid, pic_x_r, pic_y, zs.main_far_back - 0.1, { 20, 10 }) --extra 5 pixels to x dim
+
+                -- zs.main_back
+                pic_x_r = pic_x_r - 2
+            -- end
+        elseif( #this_data.l > 1 ) then
+        end
+    end
+
+    return uid, data, {pic_x_l,pic_y}, {pic_x_r,pic_y}
 end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
@@ -433,7 +461,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
     end
 
-    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then
+    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then --this should be a callback
         local info = ""
 
         local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
@@ -650,7 +678,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
         y = y - data.player_core_off
         local entities = EntityGetInRadius( x, y, 200 ) or {}
         if( #entities > 0 ) then
-            local stuff_to_figure = table_init( #data.item_types + 1, {})
+            local stuff_to_figure = table_init( #data.item_cats + 1, {})
             local interactables = {}
             for i,ent in ipairs( entities ) do
                 local action_comp = EntityGetFirstComponent( ent, "InteractableComponent" )
@@ -707,20 +735,20 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
                                 if( this_data[3] == 0 or ent == this_data[3]) then
-                                    local item_kind = {}
-                                    data, item_kind = get_item_data( ent, data )
-                                    table.insert( item_data, item_kind )
-                                    if( item_kind ~= nil ) then
+                                    local item_info = {}
+                                    data, item_info = get_item_data( ent, data )
+                                    table.insert( item_data, item_info )
+                                    if( item_info ~= nil ) then
                                         if( item_data[5]) then
-                                            item_kind = 1
+                                            item_info = 1
                                         else
-                                            item_kind = item_kind.kind + 1
+                                            item_info = item_info.cat + 1
                                         end
                                     else
-                                        item_kind = 0
+                                        item_info = 0
                                     end
-                                    if( item_kind > 0 ) then
-                                        table.insert( stuff_to_figure[item_kind], item_data )
+                                    if( item_info > 0 ) then
+                                        table.insert( stuff_to_figure[item_info], item_data )
                                     end
                                 end
                             end
@@ -754,7 +782,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
                         local info_dump = false
                         if( cost_check ) then
-                            local will_pause = data.item_types[ item_data[10].kind ].on_gui_pause ~= nil
+                            local will_pause = data.item_cats[ item_data[10].cat ].on_gui_pause ~= nil
                             ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 ) --is_hidden and slotless go to full by default
                             local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
@@ -808,10 +836,10 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 if( data.is_opened and data.gmod.show_full ) then
                     pickup_info.id = -1
                     pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
-                elseif( data.item_types[ pickup_info.info.kind ].on_gui_world ~= nil ) then
+                elseif( data.item_cats[ pickup_info.info.cat ].on_gui_world ~= nil ) then
                     local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
                     local pic_x, pic_y = world2gui( i_x, i_y )
-                    uid = data.item_types[ pickup_info.info.kind ].on_gui_world( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
+                    uid = data.item_cats[ pickup_info.info.cat ].on_gui_world( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
                 end
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
@@ -844,7 +872,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     table.sort( interactables, function( a, b )
                         return a[5] < b[5]
                     end)
-                    --allow for custom code injection for info and trigger check (supress the toggle event and the info overlay if is false)
+                    --allow for custom code injection for info and trigger check (suppress the toggle event and the info overlay if is false)
                     uid = info_func( gui, uid, screen_h, screen_w, data, {
                         id = interactables[1][1],
                         desc = { capitalizer( interactables[1][3]), string.gsub( interactables[1][4], "$0", "[USE]" )},
@@ -852,7 +880,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     }, zs, xyz )
                 end
             else
-                --supress all the 19a buttons 
+                --suppress all the 19a buttons 
             end
         end
     end
@@ -863,11 +891,11 @@ end
 function new_generic_drop( this_item, data )
     local dude = EntityGetRootEntity( this_item )
     if( dude == data.player_id ) then
-        play_vanilla_sound( data, "ui", "ui/item_remove" )
+        play_sound( data, { "data/audio/Desktop/ui.bank", "ui/item_remove" })
 
         local do_default = true
         local this_data = from_tbl_with_id( data.item_list, this_item )
-        local callback = data.item_types[ this_data.kind ].on_drop
+        local callback = data.item_cats[ this_data.cat ].on_drop
         if( callback ~= nil ) then
             do_default = callback( this_item, data, this_data, false )
         end
@@ -879,7 +907,7 @@ function new_generic_drop( this_item, data )
             callback( this_item, data, this_data, true )
         end
     else
-        play_vanilla_sound( data, "ui", "ui/item_move_denied" )
+        play_sound( data, "error" )
     end
 end
 
@@ -896,7 +924,7 @@ function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_fu
     return uid, data
 end
 
-function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys ) --disable if the pos of the right applet is close
     local this_data = data.gmod
     if( this_data ~= nil and data.is_opened ) then
         local w,h = get_text_dim( this_data.name )
@@ -938,14 +966,30 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
         gonna_highlight = gonna_highlight or is_hovered
 
         local alpha = gonna_highlight and 1 or 0.3
-        if( gonna_reset ) then new_mode = 1 end
-        if( data.global_mode ~= new_mode ) then
-            if( new_mode < 1 ) then
-                new_mode = this_data.total_count
-            elseif( new_mode > this_data.total_count ) then
-                new_mode = 1
+        if( gonna_reset ) then
+            for i,gmod in ipairs( data.gmod.gmods ) do
+                if( gmod.is_default ) then
+                    new_mode = i
+                    break
+                end
             end
-            play_vanilla_sound( data, "ui", "ui/"..( gonna_reset and "replay_saved" or "button_click" ))
+        end
+        if( data.global_mode ~= new_mode ) then
+            local total_count = #this_data.gmods
+            local go_ahead = true
+            while( go_ahead ) do
+                if( new_mode < 1 ) then
+                    new_mode = total_count
+                elseif( new_mode > total_count ) then
+                    new_mode = 1
+                end
+                go_ahead = this_data.gmods[ new_mode ].is_hidden or false
+                if( go_ahead ) then
+                    new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 )
+                end
+            end
+
+            play_sound( data, gonna_reset and "reset" or "click" )
             ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
         end
 

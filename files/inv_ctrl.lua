@@ -1,5 +1,6 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
+global_global_settings = global_global_settings or {}
 ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
 dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
@@ -31,6 +32,56 @@ local fake_gui = nil
 local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 for i,controller_id in ipairs( ctrl_bodies ) do
+    global_global_settings[ controller_id ] = global_global_settings[ controller_id ] or {
+        main_dump = dofile_once( "mods/index_core/files/_structure.lua" ),
+
+        slot_pic = {
+            bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
+            bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
+            hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
+            active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
+            locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
+        },
+        loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
+        sfxes = {
+            click = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_click" ), "value_string" )),
+            select = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_select" ), "value_string" )),
+            hover = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_hover" ), "value_string" )),
+            open = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_open" ), "value_string" )),
+            close = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_close" ), "value_string" )),
+            error = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_error" ), "value_string" )),
+            reset = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_reset" ), "value_string" )),
+            move_empty = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_move_empty" ), "value_string" )),
+            move_item = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_move_item" ), "value_string" )),
+        },
+        
+        mute_applets = ComponentGetValue2( get_storage( controller_id, "mute_applets" ), "value_bool" ),
+        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
+        no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
+        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
+        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
+        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+        no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
+        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
+        hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
+        hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
+        hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
+        hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
+        fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
+        reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
+        delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
+        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
+        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
+        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
+        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
+        info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
+        info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
+        epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" ),
+        max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
+        in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
+    }
+    local global_settings = global_global_settings[ controller_id ]
     local main_x, main_y = EntityGetTransform( controller_id )
 
     local hooman = EntityGetParent( controller_id )
@@ -107,7 +158,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
         pointer_mtr = most_mtr_count > 5 and most_mtr or 0
         
-        local epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" )
+        local epsilon = global_settings.epsilon
 
         local perk_tbl, effect_tbl = {}, {ings={},stains={},misc={}}
         local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
@@ -375,7 +426,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         local uid = 0
         local pos_tbl = {}
         local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
-        local z_layers, global_modes, item_types, inv = unpack( dofile_once( "mods/index_core/files/_structure.lua" ))
+        local z_layers, global_modes, global_mutators, applets, item_cats, inv = unpack( global_settings.main_dump )
         local data = {
             the_gui = real_gui,
             a_gui = fake_gui,
@@ -408,6 +459,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
 
             global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
             gmod = {},
+            applets = applets,
 
             icon_data = effect_tbl,
             perk_data = perk_tbl,
@@ -421,52 +473,46 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             inventories = {},
             inventories_extra = {},
             slot_state = {},
-            item_types = item_types,
+            item_cats = item_cats,
             item_list = {},
-
-            slot_pic = {
-                bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
-                bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
-                hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
-                active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
-                locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
-            },
 
             dragger = {
                 swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
                 item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
                 inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
                 is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
-                x = ComponentGetValue2( get_storage( controller_id, "dragger_x" ), "value_float" ),
-                y = ComponentGetValue2( get_storage( controller_id, "dragger_y" ), "value_float" ),
             },
 
-            player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
-            no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
-            throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
-            throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
-            throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
-            no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
-            short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
-            hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
-            hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
-            hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
-            hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
-            fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
-            reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
-            delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
-            short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
-            info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
-            info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
-            info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
-            info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
-            info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
-            effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
-            min_effect_time = epsilon,
-            max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
-            in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
-            loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
+            slot_pic = global_settings.slot_pic,
+            loot_marker = global_settings.loot_marker,
+            sfxes = global_settings.sfxes,
 
+            mute_applets = global_settings.mute_applets,
+            player_core_off = global_settings.player_core_off,
+            no_inv_shooting = global_settings.no_inv_shooting,
+            throw_pos_rad = global_settings.throw_pos_rad,
+            throw_pos_size = global_settings.throw_pos_size,
+            throw_force = global_settings.throw_force,
+            no_action_on_drop = global_settings.no_action_on_drop,
+            short_hp = global_settings.short_hp,
+            hp_threshold = global_settings.hp_threshold,
+            hp_threshold_min = global_settings.hp_threshold_min,
+            hp_flashing = global_settings.hp_flashing,
+            hp_flashing_intensity = global_settings.hp_flashing_intensity,
+            fancy_potion_bar = global_settings.fancy_potion_bar,
+            reload_threshold = global_settings.reload_threshold,
+            delay_threshold = global_settings.delay_threshold,
+            short_gold = global_settings.short_gold,
+            info_pointer = global_settings.info_pointer,
+            info_radius = global_settings.info_radius,
+            info_threshold = global_settings.info_threshold,
+            info_mtr_fading = global_settings.info_mtr_fading,
+            info_mtr_static = global_settings.info_mtr_static,
+            effect_icon_spacing = global_settings.effect_icon_spacing,
+            min_effect_time = epsilon,
+            max_perks = global_settings.max_perks,
+            in_world_pickups = global_settings.in_world_pickups,
+            
             Controls = {},
             DamageModel = {},
             CharacterData = {},
@@ -590,11 +636,23 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         --allow fake spell injection
 
         data.gmod = global_modes[ data.global_mode ]
-        data.gmod.total_count = #global_modes
+        data.gmod.gmods = global_modes
         data.gmod.name = GameTextGetTranslatedOrNot( data.gmod.name )
         data.gmod.desc = GameTextGetTranslatedOrNot( data.gmod.desc )
         if( not( data.gmod.allow_advanced_draggables )) then
             data.drag_action = false
+        end
+        for i,mut in ipairs( global_mutators ) do
+            data = mut( data )
+        end
+        if( data.applets.done == nil ) then
+            data.applets.done = true
+            
+            --add closing to the end of each
+            if( data.mute_applets ) then
+                data.applets.l_state = false
+                data.applets.r_state = false
+            end
         end
 
         local global_callback = data.gmod.custom_func
@@ -606,7 +664,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 uid, data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
             end
             if( inv.applet_strip ~= nil ) then
-                uid, data, pos_tbl.applet_strip = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+                uid, data, pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
             
             local bars = inv.bars or {}
@@ -677,8 +735,10 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         end
 
         if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
-            play_vanilla_sound( data, "ui", "ui/inventory_"..( data.is_opened and "open" or "close" ))
-            ComponentSetValue2( iui_comp, "mActive", data.is_opened )
+            if( not( data.gmod.no_inv_toggle or false )) then
+                play_sound( data, data.is_opened and "open" or "close" )
+                ComponentSetValue2( iui_comp, "mActive", data.is_opened )
+            end
         end
         if( dragger_action and data.dragger.item_id > 0 ) then
             data.memo.not_wanna_drop = true
@@ -702,7 +762,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                         if( not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                             inv.drop( data.dragger.item_id, data )
                         else
-                            play_vanilla_sound( data, "ui", "ui/item_move_denied" )
+                            play_sound( data, "error" )
                         end
                     end
                     data.memo.not_wanna_drop = nil
@@ -713,11 +773,15 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
                 ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
                 ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
-                ComponentSetValue2( get_storage( controller_id, "dragger_x" ), "value_float", data.dragger.x or 0 )
-                ComponentSetValue2( get_storage( controller_id, "dragger_y" ), "value_float", data.dragger.y or 0 )
             end
             slot_going = false
         end
+    end
+
+    local storage_reset = get_storage( controller_id, "reset_settings" )
+    if( ComponentGetValue2( storage_reset, "value_bool" )) then
+        ComponentSetValue2( storage_reset, "value_bool", false )
+        global_global_settings[ controller_id ] = nil
     end
 end
 

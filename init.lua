@@ -87,7 +87,7 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki
+--DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers
 
 function OnWorldPreUpdate()
 	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0

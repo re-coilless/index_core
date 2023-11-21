@@ -414,11 +414,12 @@ function vanilla_lua_callback( entity_id, func_names, input )
 	end
 end
 
-function play_vanilla_sound( data, bank, event, x, y )
+function play_sound( data, sfx, x, y )
 	if( x == nil or y == nil ) then
 		x, y = unpack( data.player_xy )
 	end
-	GamePlaySound( "data/audio/Desktop/"..bank..".bank", event, x, y )
+	local sound = type( sfx ) == "table" and sfx or data.sfxes[ sfx ]
+	GamePlaySound( sound[1], sound[2], x, y )
 end
 
 function get_active_wand( hooman )
@@ -574,6 +575,33 @@ function is_inv_empty( slot_state )
 	end
 
 	return is_empty
+end
+
+function get_item_num( data, inv_id, item_id )
+	local slot_tbl = data.slot_state[ inv_id ]
+	local is_fancy, gonna_add = slot_tbl.quickest ~= nil, true
+	local num, quickest_num = 0, 0
+	for i,col in pairs( slot_tbl ) do
+		for e,slot in ipairs( col ) do
+			if( slot ) then
+				if( slot == item_id ) then
+					if( is_fancy and i == "quick" ) then
+						gonna_add = false
+					else
+						return i == "quickest" and quickest_num or num
+					end
+				else
+					if( i == "quickest" ) then
+						quickest_num = quickest_num + 1
+					elseif( gonna_add ) then
+						num = num + 1
+					end
+				end
+			end
+		end
+	end
+	
+	return is_fancy and ( num + quickest_num ) or -1
 end
 
 function inv_check( data, item_info, inv_info )
@@ -803,9 +831,12 @@ function get_item_data( item_id, data, inventory_data )
 		slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 	end
 	
-	for k,kind in ipairs( data.item_types ) do
+	for k,kind in ipairs( data.item_cats ) do
 		if( kind.on_check( item_id, data, slot_info )) then
-			slot_info.kind = k
+			slot_info.cat = k
+			slot_info.is_wand = kind.is_wand or false
+			slot_info.is_potion = kind.is_potion or false
+			slot_info.is_spell = kind.is_spell or false
 			slot_info.is_quickest = kind.is_quickest or false
 			slot_info.is_hidden = kind.is_hidden or false
 			slot_info.advanced_pic = kind.advanced_pic or false
@@ -813,15 +844,15 @@ function get_item_data( item_id, data, inventory_data )
 		end
 	end
 	slot_info.name = get_item_name( item_id, abil_comp, item_comp )
-	if( slot_info.kind == nil ) then
+	if( slot_info.cat == nil ) then
 		return
 	elseif(( slot_info.name or "" ) == "" ) then
-		slot_info.name = data.item_types[slot_info.kind].name
+		slot_info.name = data.item_cats[ slot_info.cat ].name
 	end
 	slot_info.name = capitalizer( slot_info.name )
 
-	if( data.item_types[ slot_info.kind ].on_data ~= nil ) then
-		data, slot_info = data.item_types[ slot_info.kind ].on_data( item_id, data, slot_info )
+	if( data.item_cats[ slot_info.cat ].on_data ~= nil ) then
+		data, slot_info = data.item_cats[ slot_info.cat ].on_data( item_id, data, slot_info )
 	end
 	
 	return data, slot_info
@@ -835,8 +866,8 @@ function get_items( hooman, data )
 			data, new_item = get_item_data( child, data, inv_data )
 			if( new_item ~= nil ) then
 				if( not( EntityHasTag( new_item.id, "index_processed" ))) then
-					if( data.item_types[ new_item.kind ].on_processed ~= nil ) then
-						data.item_types[ new_item.kind ].on_processed( new_item.id, data, new_item )
+					if( data.item_cats[ new_item.cat ].on_processed ~= nil ) then
+						data.item_cats[ new_item.cat ].on_processed( new_item.id, data, new_item )
 					end
 					
 					ComponentSetValue2( new_item.ItemC, "inventory_slot", -5, -5 )
@@ -844,8 +875,8 @@ function get_items( hooman, data )
 				end
 
 				new_item.pic = register_item_pic( data, new_item, new_item.advanced_pic )
-				if( data.item_types[ new_item.kind ].ctrl_script ~= nil ) then
-					data.item_types[ new_item.kind ].ctrl_script( new_item.id, data, new_item )
+				if( data.item_cats[ new_item.cat ].ctrl_script ~= nil ) then
+					data.item_cats[ new_item.cat ].ctrl_script( new_item.id, data, new_item )
 				else
 					inventory_man( new_item.id, data, new_item )
 				end
@@ -865,12 +896,12 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 	if( not( is_silent or false )) then
 		GamePrint( GameTextGet( "$log_pickedup", this_data.name ))
 		if( do_the_sound ) then
-			play_vanilla_sound( data, "event_cues", this_data.cost == nil and "event_cues/pick_item_generic/create" or "event_cues/shop_item/create" )
+			play_sound( data, { "data/audio/Desktop/event_cues.bank", this_data.cost == nil and "event_cues/pick_item_generic/create" or "event_cues/shop_item/create" })
 		end
 	end
 	
 	local gonna_pause = 0
-	local callback = data.item_types[ this_data.kind ].on_pickup
+	local callback = data.item_cats[ this_data.cat ].on_pickup
 	if( callback ~= nil ) then
 		gonna_pause = callback( entity_id, data, this_data, false )
 	end
@@ -1535,7 +1566,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			end
 		end
 	end
-	if( pickup_info.id > 0 and not( data.is_opened) and data.in_world_pickups ) then --add option to force in-world text
+	if( pickup_info.id > 0 and not( data.is_opened ) and ( data.in_world_pickups or EntityHasTag( pickup_info.id, "index_txt" ))) then
 		if(( pickup_info.txt or "" ) ~= "" ) then
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
@@ -1568,14 +1599,13 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 						data.dragger.swap_soon = true
 						table.insert( slot_anim, {
 							id = id,
-							x = data.dragger.x,
-							y = data.dragger.y,
+							x = data.memo.dragger_x,
+							y = data.memo.dragger_y,
 							frame = data.frame_num,
 						})
 					end
 
-					data.dragger.x = new_x
-					data.dragger.y = new_y
+					data.memo.dragger_x, data.memo.dragger_y = new_x, new_y
 					data.dragger.inv_type = info.inv_type
 					data.dragger.is_quickest = info.is_quickest
 					pic_x, pic_y = new_x, new_y
@@ -1897,55 +1927,86 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	return uid, w, h
 end
 
-function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, is_active, can_drag, is_full, is_quick )
-	kind_tbl = kind_tbl or {}
+function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, is_active, can_drag, is_full, is_quick )
+	cat_tbl = cat_tbl or {}
+	local slot_pics = {
+		bg_alt = slot_data.pic_bg_alt or data.slot_pic.bg_alt,
+		bg = slot_data.pic_bg or data.slot_pic.bg,
+		active = slot_data.pic_active or data.slot_pic.active,
+		hl = slot_data.pic_hl or data.slot_pic.hl,
+		locked = slot_data.pic_locked or data.slot_pic.locked,
+	}
+	local slot_sfxes = {
+		select = slot_data.sfx_select or data.sfxes.select,
+		move_item = slot_data.sfx_move_item or data.sfxes.move_item,
+		move_empty = slot_data.sfx_move_empty or data.sfxes.move_empty,
+		hover = slot_data.sfx_hover or data.sfxes.hover,
+	}
 	
-	if( data.dragger.item_id > 0 and data.dragger.item_id == info.id ) then
-		colourer( data.the_gui, {150,150,150})
+	if( info.id > 0 ) then
+		if( EntityHasTag( info.id, "index_locked" )) then
+			can_drag = false
+		end
+		if( data.dragger.item_id == info.id ) then
+			colourer( data.the_gui, {150,150,150})
+		end
 	end
 	local pic_bg, clicked, r_clicked, is_hovered = ( is_full == true ) and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
 	local w, h = get_pic_dim( pic_bg )
 	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
 	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
 	local might_swap = not( data.is_opened ) and is_quick and is_hovered
-	if( clicked and info.id > 0 and might_swap ) then
-		-- play_vanilla_sound( data, "ui", "ui/item_equipped" )
-		
-		--swap to item
-		--mActiveItem, mActualActiveItem, mInitialized (for a frame after), mForceRefresh
-		--check the gun.lua to force the weapon reset
+	if(( clicked or slot_data.force_equip ) and info.id > 0 ) then
+		local do_default = might_swap or slot_data.force_equip
+		if( cat_tbl.on_action ~= nil ) then
+			if( cat_tbl.on_action( info.id, data, info, 1 )) then
+				play_sound( data, slot_sfxes.select )
+				do_default = false
+			end
+		end
+		if( do_default and data.active_item ~= info.id ) then
+			play_sound( data, slot_sfxes.select )
+			ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+			ComponentSetValue2( data.inventory, "mActualActiveItem", 0 )
+			ComponentSetValue2( data.inventory, "mInitialized", false )
+			ComponentSetValue2( data.inventory, "mSavedActiveItemIndex", get_item_num( data, slot_data.inv_id, info.id ))
+		end
 	end
 	
 	local dragger_hovered = false
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if( is_active ) then
-		uid = new_image( gui, uid, pic_x, pic_y, zs.main, data.slot_pic.active )
+		uid = new_image( gui, uid, pic_x, pic_y, zs.icons_front + 0.0001, data.slot_pic.active )
 	end
-	if( can_drag and data.dragger.item_id > 0 ) then
+	if( data.dragger.item_id > 0 ) then
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
 			data.dragger.wont_drop = true
+			
+			if( can_drag ) then
+				local dragged_data = from_tbl_with_id( data.item_list, data.dragger.item_id )
+				if( slot_swap_check( data, dragged_data, info, slot_data )) then
+					if( data.dragger.swap_now ) then
+						if( info.id > 0 ) then
+							table.insert( slot_anim, {
+								id = info.id,
+								x = pic_x,
+								y = pic_y,
+								frame = data.frame_num,
+							})
+						end
+						play_sound( data, slot_sfxes[ info.id > 0 and "move_item" or "move_empty" ])
+						
+						--custom swap callback
 
-			local dragged_data = from_tbl_with_id( data.item_list, data.dragger.item_id )
-			if( slot_swap_check( data, dragged_data, info, slot_data )) then
-				if( data.dragger.swap_now ) then
-					if( info.id > 0 ) then
-						table.insert( slot_anim, {
-							id = info.id,
-							x = pic_x,
-							y = pic_y,
-							frame = data.frame_num,
-						})
+						if( slot_swap( data.dragger.item_id, slot_data, data.active_item )) then
+							ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+						end
+						data.dragger.item_id = -1
 					end
-					play_vanilla_sound( data, "ui", info.id > 0 and "ui/item_switch_places" or "ui/item_move_success" )
-
-					if( slot_swap( data.dragger.item_id, slot_data, data.active_item )) then
-						ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
+						dragger_hovered = true
+						uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.icons_front + 0.00001, data.slot_pic.hl )
 					end
-					data.dragger.item_id = -1
-				end
-				if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
-					dragger_hovered = true
-					uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.icons + 0.01, data.slot_pic.hl )
 				end
 			end
 		end
@@ -1954,7 +2015,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		local slot_uid = tonumber( slot_data.inv_id ).."|"..slot_data.inv_slot[1]..":"..slot_data.inv_slot[2]
 		if( slot_hover_sfx[1] ~= slot_uid ) then
 			slot_hover_sfx[1] = slot_uid
-			play_vanilla_sound( data, "ui", "ui/item_move_over_new_slot" )
+			play_sound( data, slot_sfxes.hover )
 		end
 		slot_hover_sfx[2] = true
 	end
@@ -1963,16 +2024,27 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, kind_tbl, 
 		if( info.id > 0 and not( data.dragger.swap_now or slot_going )) then
 			data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
 		end
-	elseif( data.is_opened ) then --add an ability to lock the item in slot + add an ability to lock the slot itself
+	elseif( data.is_opened ) then
 		uid = new_image( gui, uid, pic_x - 10, pic_y - w/2, zs.icons_front + 0.001, data.slot_pic.locked )
 	end
-	if( slot_data.inv_slot[1] == 1 and slot_data.inv_slot[2] == 2 ) then
-		print( tostring( info.kind ))
-	end
+	
 	if( info.id > 0 ) then
-		if( kind_tbl.on_slot ~= nil ) then
+		local is_dragged, suppress_action = slot_memo[ data.dragger.item_id ] and data.dragger.item_id == info.id, false
+		if( cat_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
-			uid = kind_tbl.on_slot( gui, uid, info.id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, kind_tbl.on_tooltip, is_full, is_active, is_quick, slot_memo[ data.dragger.item_id ] and data.dragger.item_id == info.id, might_swap and 1.2 or 1 )
+			uid, suppress_action = cat_tbl.on_slot( gui, uid, info.id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, cat_tbl.on_tooltip, cat_tbl.on_action, is_full, is_active, is_quick, is_dragged, might_swap and 1.2 or 1 )
+		end
+		if( not( suppress_action or false )) then
+			if( cat_tbl.on_action ~= nil ) then
+                if( is_dragged ) then
+                    if( data.drag_action ) then
+                        cat_tbl.on_action( info.id, data, info, 3 )
+                    end
+                elseif( r_clicked and data.is_opened and is_quick ) then
+					this_info.rmb_is_usable = is_quick
+                    cat_tbl.on_action( info.id, data, info, 2 )
+                end
+            end
 		end
 	end
 	
@@ -1987,12 +2059,12 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, slot_data, can
 	else
 		item = from_tbl_with_id( data.item_list, slot_data.id )
 	end
-	local type_callbacks = data.item_types[item.kind]
-	
+
+	local cat_callbacks = data.item_cats[ item.cat ]
 	local w, h, clicked, r_clicked, is_hovered = false, false, false
-	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, type_callbacks, item.id == data.active_item, can_drag, is_full, is_quick )
-	if( type_callbacks ~= nil and type_callbacks.on_inventory ~= nil ) then
-		uid, data = type_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, can_drag, data.dragger.item_id > 0 and data.dragger.item_id == item.id, item.id == data.active_item, is_quick )
+	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, cat_callbacks, item.id == data.active_item, can_drag, is_full, is_quick )
+	if( cat_callbacks ~= nil and cat_callbacks.on_inventory ~= nil ) then
+		uid, data = cat_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, can_drag, data.dragger.item_id > 0 and data.dragger.item_id == item.id, item.id == data.active_item, is_quick )
 	end
 	
 	return uid, w, h

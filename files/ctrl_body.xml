@@ -7,8 +7,35 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
+
 	<VariableStorageComponent
 		name="override_settings"
+		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="reset_settings"
+		value_bool="0"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="global_mode"
+		value_int="1"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="dragger_swap_now"
+		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_item_id"
+		value_int="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_inv_type"
+		value_float="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="dragger_is_quickest"
 		value_bool="0"
 	></VariableStorageComponent>
 
@@ -36,35 +63,47 @@
 		name="slot_pic_locked"
 		value_string="data/ui_gfx/inventory/inventory_box_inactive_overlay.png"
 	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="sfx_click"
+		value_string="|data/audio/Desktop/ui.bank|ui/button_click|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_select"
+		value_string="|data/audio/Desktop/ui.bank|ui/item_equipped|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_hover"
+		value_string="|data/audio/Desktop/ui.bank|ui/item_move_over_new_slot|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_open"
+		value_string="|data/audio/Desktop/ui.bank|ui/inventory_open|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_close"
+		value_string="|data/audio/Desktop/ui.bank|ui/inventory_close|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_error"
+		value_string="|data/audio/Desktop/ui.bank|ui/item_move_denied|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_reset"
+		value_string="|data/audio/Desktop/ui.bank|ui/replay_saved|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_move_empty"
+		value_string="|data/audio/Desktop/ui.bank|ui/item_move_success|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="sfx_move_item"
+		value_string="|data/audio/Desktop/ui.bank|ui/item_switch_places|"
+	></VariableStorageComponent>
 	
 	<VariableStorageComponent
-		name="dragger_swap_now"
+		name="mute_applets"
 		value_bool="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_item_id"
-		value_int="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_inv_type"
-		value_float="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_is_quickest"
-		value_bool="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_x"
-		value_float="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="dragger_y"
-		value_float="0"
-	></VariableStorageComponent>
-	
-	<VariableStorageComponent
-		name="global_mode"
-		value_int="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="player_core_off"

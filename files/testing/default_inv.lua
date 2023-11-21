@@ -9,7 +9,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
             local offset_x, offset_y = 9*#slot_data + step, 9*#slot_data[1] + step
             local core_x, core_y = pic_x - offset_x, pic_y - offset_y
             pic_x, pic_y = core_x, core_y
-            for i,col in ipairs( slot_data ) do
+            for i,col in pairs( slot_data ) do
                 for e,slot in ipairs( col ) do
                     uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
                         inv_id = inv_id,
@@ -31,7 +31,12 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
                 if( is_hovered ) then alpha = 1 end
                 if( clicked ) then
                     data.is_opened = true
-                    ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", 2 )
+                    for i,gmod in ipairs( data.gmod.gmods ) do
+                        if( gmod.allow_external_inventories ) then
+                            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", i )
+                            break
+                        end
+                    end
                 end
             end
             
