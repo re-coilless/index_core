@@ -27,7 +27,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
             uid = new_image( data.the_gui, uid, pic_x - w/2, pic_y - w/2, zs.in_world_back + 0.0001, data.loot_marker, nil, nil, 0.3, true )
             if( not( data.is_opened )) then
                 clicked,_,is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
-                uid = new_vanilla_tooltip( data.the_gui, uid, nil, zs.tips, { is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
+                uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
                 if( is_hovered ) then alpha = 1 end
                 if( clicked ) then
                     data.is_opened = true

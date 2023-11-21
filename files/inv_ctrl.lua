@@ -647,8 +647,30 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         end
         if( data.applets.done == nil ) then
             data.applets.done = true
-            
-            --add closing to the end of each
+
+            local close_applets = {
+                name = "CLOSE",
+                
+                pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
+                    uid = new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z, "data/ui_gfx/status_indicators/neutralized.png", nil, nil, nil, true, angle )
+                    local clicked,_,hovered = GuiGetPreviousWidgetInfo( gui )
+                    return uid, clicked, hovered
+                end,
+                toggle = function( data, state )
+                    if( state ) then
+                        if( data.is_opened ) then
+                            data.applets.r_state = false
+                            data.memo.applets_r_drift = data.applets_r_drift
+                        else
+                            data.applets.l_state = false
+                            data.memo.applets_l_drift = data.applets_l_drift
+                        end
+                    end
+                end,
+            }
+            table.insert( data.applets.l, close_applets )
+            table.insert( data.applets.r, close_applets )
+
             if( data.mute_applets ) then
                 data.applets.l_state = false
                 data.applets.r_state = false
@@ -755,7 +777,6 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
             if( data.dragger.swap_soon ) then
                 ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
-                --reset all the misc globals and such on item swap (shot_count)
             else
                 if( not( slot_going ) or data.dragger.swap_now ) then
                     if( data.dragger.swap_now and data.dragger.item_id > 0 ) then

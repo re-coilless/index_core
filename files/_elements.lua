@@ -92,22 +92,100 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
 
     local this_data = data.applets
-    if( this_data ~= nil ) then --icons must be behind the wands
-        --pop up through sine (a little when pointer is nearby and all the way with bouncy once clicked)
+    if( this_data ~= nil ) then
+        absolutely_abominable_piece_of_shit = god_do_i_hate_this_one
+        local function applet_setup( gui, uid, data, this_data, pic_x, type )
+            local is_left = type == 1
+            local sign = is_left and -1 or 1
+            local tbl = {
+                { "l", "l_state", "l_frame", "applets_l_drift", "l_hover" },
+                { "r", "r_state", "r_frame", "applets_r_drift", "r_hover" },
+            }
+
+            local l = #this_data[tbl[type][1]]*11
+            local drift_target, core_off = 5, is_left and -10 or 0
+            local total_drift, allow_clicks = l - drift_target, true
+            if( not( this_data[tbl[type][2]])) then
+                local clicked, r_clicked, is_hovered = false
+                uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { is_left and -1 or ( screen_w - 10 ), -1, 11, 19, }, zs.tips_front )
+                uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
+                if( clicked ) then
+                    play_sound( data, "click" )
+                    this_data[tbl[type][2]] = true
+                    this_data[tbl[type][3]] = data.frame_num
+                    allow_clicks = false
+                end
+                if( not( is_hovered )) then
+                    drift_target = 0
+                end
+            else
+                local delta = data.frame_num - ( this_data[tbl[type][3]] or 0 )
+                if( delta < 16 ) then
+                    allow_clicks = false
+                    local k = 5
+                    local v = k*math.sin( delta*math.pi/k )/( math.pi*delta^2 )
+                    core_off = total_drift*( 1 - v )
+                else
+                    core_off = total_drift
+                end
+            end
+            
+            data[tbl[type][4]] = total_drift
+            local extra_off, arrow_off = simple_anim( data, tbl[type][4], drift_target, 0.2 ), is_left and ( l - 8 ) or 0
+            pic_x = pic_x - sign*( core_off + extra_off )
+            if( this_data[tbl[type][2]]) then
+                if( is_left ) then pic_x = pic_x - 10 end
+                arrow_off = arrow_off + extra_off + 2
+                local clicked, is_hovered, mute, reset_em, got_one = false, false, false, 0, false
+                for i,icon in ipairs( this_data[tbl[type][1]]) do
+                    local metahover = not( got_one ) and ( this_data[tbl[type][5]][i] or false )
+                    uid, clicked, is_hovered, mute = icon.pic( got_one and data.a_gui or data.the_gui, uid, data, pic_x + sign*( i - 1 )*11, pic_y, zs.main_back, metahover and math.rad( -5 ) or 0 )
+                    if( allow_clicks ) then
+                        uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { icon.name..( icon.desc == nil and "" or "@"..icon.desc ), is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, nil, metahover, not( is_left ))
+                        if( clicked and reset_em == 0 ) then
+                            if( not( mute or false )) then play_sound( data, "click" ) end
+                            
+                            reset_em = i
+                            if( icon.toggle ~= nil and icon.toggle( data, true )) then
+                                if( not( is_left )) then
+                                    for i,gmod in ipairs( data.gmod.gmods ) do
+                                        if( gmod.menu_capable ) then
+                                            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", i )
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                            for k,icn in ipairs( this_data[tbl[type][1]]) do
+                                if( icn.toggle ~= nil ) then icn.toggle( data, false ) end
+                            end
+                        end
+                    end
+                    if( is_hovered and not( this_data[tbl[type][5]][i] )) then play_sound( data, "hover" ) end
+                    this_data[tbl[type][5]][i] = is_hovered
+                    if( is_hovered ) then got_one = true end
+                end
+            else
+                colourer( gui, {255,255,178})
+            end
+
+            if( is_left ) then pic_x = pic_x - ( l - 10 ) end
+            uid = new_image( gui, uid, pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
+            uid = new_vanilla_plate( gui, uid, pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
+            if( is_left ) then
+                pic_x = pic_x + arrow_off + 11
+            else
+                pic_x = pic_x - ( 3 + arrow_off )
+            end
+            return uid, data, pic_x
+        end
+
         if( data.is_opened ) then
-            -- if( #this_data.r > 1 ) then
-                --hover area
-
-                --do anim
-                --draw all da shit
-                --draw vanilla plate
-
-                uid = new_vanilla_plate( gui, uid, pic_x_r, pic_y, zs.main_far_back - 0.1, { 20, 10 }) --extra 5 pixels to x dim
-
-                -- zs.main_back
-                pic_x_r = pic_x_r - 2
-            -- end
+            if( data.gmod.show_full and #this_data.r > 1 ) then
+                uid, data, pic_x_r = applet_setup( gui, uid, data, this_data, pic_x_r, 2 )
+            end
         elseif( #this_data.l > 1 ) then
+            uid, data, pic_x_l = applet_setup( gui, uid, data, this_data, pic_x_l, 1 )
         end
     end
 
@@ -927,79 +1005,83 @@ end
 function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys ) --disable if the pos of the right applet is close
     local this_data = data.gmod
     if( this_data ~= nil and data.is_opened ) then
+        local check = true
         local w,h = get_text_dim( this_data.name )
         local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
         if( not( this_data.show_full )) then
             pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
             pic_x = pic_x + 7 + w
             pic_y = pic_y + 13
+        elseif( xys.applets_r[1] <= ( pic_x + 5 )) then
+            check = false
         end
-        
-        local gonna_reset, gonna_highlight = false
-        local clicked, r_clicked, is_hovered = false
-        local arrow_left_c, arrow_right_c, arrow_left_a, arrow_right_a = {255,255,255}, {255,255,255}, 0.3, 0.3
-        local arrow_hl_c = {255,255,178}
+        if( check ) then
+            local gonna_reset, gonna_highlight = false
+            local clicked, r_clicked, is_hovered = false
+            local arrow_left_c, arrow_right_c, arrow_left_a, arrow_right_a = {255,255,255}, {255,255,255}, 0.3, 0.3
+            local arrow_hl_c = {255,255,178}
 
-        local new_mode = data.global_mode
-        uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - ( 11 + w ), pic_y - 11, 15, 10 }, zs.tips )
-        gonna_reset = gonna_reset or r_clicked
-        gonna_highlight = gonna_highlight or is_hovered
-        if( is_hovered ) then
-            arrow_left_c = arrow_hl_c
-            arrow_left_a = 1
-            if( clicked ) then
-                new_mode = new_mode - 1
-            end
-        end
-        uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - 10, pic_y - 11, 15, 10 }, zs.tips )
-        gonna_reset = gonna_reset or r_clicked
-        gonna_highlight = gonna_highlight or is_hovered
-        if( is_hovered ) then
-            arrow_right_c = arrow_hl_c
-            arrow_right_a = 1
-            if( clicked ) then
-                new_mode = new_mode + 1
-            end
-        end
-        uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
-        gonna_reset = gonna_reset or r_clicked
-        gonna_highlight = gonna_highlight or is_hovered
-
-        local alpha = gonna_highlight and 1 or 0.3
-        if( gonna_reset ) then
-            for i,gmod in ipairs( data.gmod.gmods ) do
-                if( gmod.is_default ) then
-                    new_mode = i
-                    break
+            local new_mode = data.global_mode
+            uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - ( 11 + w ), pic_y - 11, 15, 10 }, zs.tips )
+            gonna_reset = gonna_reset or r_clicked
+            gonna_highlight = gonna_highlight or is_hovered
+            if( is_hovered ) then
+                arrow_left_c = arrow_hl_c
+                arrow_left_a = 1
+                if( clicked ) then
+                    new_mode = new_mode - 1
                 end
             end
-        end
-        if( data.global_mode ~= new_mode ) then
-            local total_count = #this_data.gmods
-            local go_ahead = true
-            while( go_ahead ) do
-                if( new_mode < 1 ) then
-                    new_mode = total_count
-                elseif( new_mode > total_count ) then
-                    new_mode = 1
-                end
-                go_ahead = this_data.gmods[ new_mode ].is_hidden or false
-                if( go_ahead ) then
-                    new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 )
+            uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - 10, pic_y - 11, 15, 10 }, zs.tips )
+            gonna_reset = gonna_reset or r_clicked
+            gonna_highlight = gonna_highlight or is_hovered
+            if( is_hovered ) then
+                arrow_right_c = arrow_hl_c
+                arrow_right_a = 1
+                if( clicked ) then
+                    new_mode = new_mode + 1
                 end
             end
+            uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
+            gonna_reset = gonna_reset or r_clicked
+            gonna_highlight = gonna_highlight or is_hovered
 
-            play_sound( data, gonna_reset and "reset" or "click" )
-            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
+            local alpha = gonna_highlight and 1 or 0.3
+            if( gonna_reset ) then
+                for i,gmod in ipairs( data.gmod.gmods ) do
+                    if( gmod.is_default ) then
+                        new_mode = i
+                        break
+                    end
+                end
+            end
+            if( data.global_mode ~= new_mode ) then
+                local total_count = #this_data.gmods
+                local go_ahead = true
+                while( go_ahead ) do
+                    if( new_mode < 1 ) then
+                        new_mode = total_count
+                    elseif( new_mode > total_count ) then
+                        new_mode = 1
+                    end
+                    go_ahead = this_data.gmods[ new_mode ].is_hidden or false
+                    if( go_ahead ) then
+                        new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 )
+                    end
+                end
+
+                play_sound( data, gonna_reset and "reset" or "click" )
+                ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
+            end
+
+            new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
+            uid = new_vanilla_plate( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
+
+            colourer( gui, arrow_left_c )
+            uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )
+            colourer( gui, arrow_right_c )
+            uid = new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor.png", nil, nil, arrow_right_a )
         end
-
-        new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
-        uid = new_vanilla_plate( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
-
-        colourer( gui, arrow_left_c )
-        uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )
-        colourer( gui, arrow_right_c )
-        uid = new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor.png", nil, nil, arrow_right_a )
     end
 
     return uid, data

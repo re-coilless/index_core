@@ -48,9 +48,10 @@ local GLOBAL_MODES = {
         allow_advanced_draggables = true,
     },
     {
-        name = "CUSTOM_MENU",
+        name = "CUSTOM_MENU", --it should hide bars+icons too
         desc = "Dragging actions and complete in-world interactivity.",
         
+        menu_capable = true,
         is_hidden = true,
         no_inv_toggle = true,
     },
@@ -60,20 +61,21 @@ local GLOBAL_MUTATORS = {}
 local APPLETS = {
     l_state = false,
     r_state = true,
+    l_hover = {},
+    r_hover = {},
 
     l = {},
     r = {
-        {--? menu where all the controls will be described (+ some quick settings and settings refresh button)
-            name = "Balls",
-            desc = "Does some stuff.",
+        {
+            name = "README", --? menu where all the controls will be described (+ some quick settings and settings refresh button)
+            desc = "The complete user guide.",
 
-            pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )--rotate up 30 deg through sine on hover
-                --if one shit was activated, go through the rest and turn em all off
-                uid = new_image( gui, uid, pic_x, pic_y, pic_z, data.loot_marker, nil, nil, nil, true, angle ) --10x10 pics
+            pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
+                uid = new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z, "data/ui_gfx/status_indicators/confusion.png", nil, nil, nil, true, angle )
                 local clicked,_,hovered = GuiGetPreviousWidgetInfo( gui )
                 return uid, clicked, hovered
             end,
-            toggle = function( data, state ) end, --if returns true - enable CUSTOM_MENU gmode
+            toggle = function( data, state ) end,
         },
     },
 }
@@ -495,7 +497,7 @@ local GUI_STRUCT = {
 
     modder = new_generic_modder,
     extra = new_generic_extra,
-    custom = {}, --table of string-indexed funcs (sorted alphabetically)
+    custom = {}, --table of string-indexed funcs (sorted alphabetically + put README menu here)
 }
 
 --<{> MAGICAL APPEND MARKER <}>--
