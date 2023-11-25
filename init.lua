@@ -96,6 +96,33 @@ function OnWorldPreUpdate()
 		if( iui_comp ~= nil ) then
 			EntitySetComponentIsEnabled( hooman, iui_comp, false )
 		end
+		
+		local x, y = EntityGetTransform( hooman )
+		local entities = EntityGetInRadius( x, y, 250 ) or {}
+        if( #entities > 0 ) then
+			for i,ent in ipairs( entities ) do
+				local action_comp = EntityGetFirstComponentIncludingDisabled( ent, "InteractableComponent" )
+                if( action_comp ~= nil ) then
+					if( ComponentGetIsEnabled( action_comp )) then
+						local lua_comp = EntityGetFirstComponentIncludingDisabled( ent, "LuaComponent", "index_ctrl" )
+						if( lua_comp == nil ) then
+							EntitySetComponentIsEnabled( ent, action_comp, false )
+							EntityAddComponent( ent, "LuaComponent",
+							{
+								_tags = "index_ctrl",
+								script_source_file = "mods/index_core/files/misc/interaction_nuker.lua",
+								execute_every_n_frame = "1",
+							})
+						elseif( not( ComponentGetIsEnabled( lua_comp ))) then
+							ComponentSetValue2( lua_comp, "execute_on_added", true )
+							EntitySetComponentIsEnabled( ent, lua_comp, true )
+						else
+							EntitySetComponentIsEnabled( ent, action_comp, false )
+						end
+					end
+				end
+			end
+		end
 	end
 
 	if( not( matter_test_set or false )) then
@@ -151,7 +178,7 @@ function OnPlayerSpawned( hooman )
 	if( inv_comp ~= nil ) then
 		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
 	end
-
+	
 
 
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )

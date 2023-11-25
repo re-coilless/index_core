@@ -1,6 +1,5 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-global_global_settings = global_global_settings or {}
 ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
 dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
@@ -31,8 +30,9 @@ end
 local fake_gui = nil
 local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
-for i,controller_id in ipairs( ctrl_bodies ) do
-    global_global_settings[ controller_id ] = global_global_settings[ controller_id ] or {
+if( #ctrl_bodies > 0 ) then
+    local controller_id = ctrl_bodies[1]
+    global_settings = global_settings or {
         main_dump = dofile_once( "mods/index_core/files/_structure.lua" ),
 
         slot_pic = {
@@ -62,6 +62,9 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
         throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
         no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
+        quickest_size = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" ),
+        inv_spacings = D_extractor( ComponentGetValue2( get_storage( controller_id, "inv_spacings" ), "value_string" ), true ),
+
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
         hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
         hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
@@ -81,7 +84,6 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
         in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
     }
-    local global_settings = global_global_settings[ controller_id ]
     local main_x, main_y = EntityGetTransform( controller_id )
 
     local hooman = EntityGetParent( controller_id )
@@ -109,15 +111,13 @@ for i,controller_id in ipairs( ctrl_bodies ) do
     end
 
     if( is_going and inv_comp ~= nil ) then
-        if( i == 1 ) then
-            if( real_gui == nil ) then
-                real_gui = GuiCreate()
-            end
-            GuiStartFrame( real_gui )
-
-            fake_gui = GuiCreate()
-            GuiStartFrame( fake_gui )
+        if( real_gui == nil ) then
+            real_gui = GuiCreate()
         end
+        GuiStartFrame( real_gui )
+
+        fake_gui = GuiCreate()
+        GuiStartFrame( fake_gui )
 
         local m_x, m_y = DEBUG_GetMouseWorld()
         local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
@@ -420,8 +420,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             end)
         end
 
-        local quickest_slot_count = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" )
-        local dragger_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true )--drag action callback that overrides the generic one
+        local dragger_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true )
 
         local uid = 0
         local pos_tbl = {}
@@ -453,13 +452,18 @@ for i,controller_id in ipairs( ctrl_bodies ) do
 
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
             inventory = inv_comp,
-            inv_count_quickest = quickest_slot_count,
-            inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - quickest_slot_count,
+            inv_count_quickest = global_settings.quickest_size,
+            inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - global_settings.quickest_size,
             inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
 
             global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
             gmod = {},
             applets = applets,
+
+            slot_func = inv.slot,
+            icon_func = inv.icon,
+            tip_func = inv.tooltip,
+            plate_func = inv.plate,
 
             icon_data = effect_tbl,
             perk_data = perk_tbl,
@@ -494,6 +498,8 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             throw_pos_size = global_settings.throw_pos_size,
             throw_force = global_settings.throw_force,
             no_action_on_drop = global_settings.no_action_on_drop,
+            inv_spacings = global_settings.inv_spacings,
+
             short_hp = global_settings.short_hp,
             hp_threshold = global_settings.hp_threshold,
             hp_threshold_min = global_settings.hp_threshold_min,
@@ -575,7 +581,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             }
         end
         
-        data.inventories[ data.inventories_player[1]] = get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end)
+        data.inventories[ data.inventories_player[1]] = get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end )
         data.inventories[ data.inventories_player[2]] = get_inv_data( data.inventories_player[2], data.inv_count_full )
         local more_invs = EntityGetWithTag( "index_inventory" ) or {}
         if( #more_invs > 0 ) then
@@ -624,6 +630,11 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             if( itm.inv_slot == nil ) then
                 table.insert( nuke_em, i )
             end
+            if( data.item_cats[ itm.cat ].ctrl_script ~= nil ) then
+                data.item_cats[ itm.cat ].ctrl_script( itm.id, data, itm )
+            else
+                inventory_man( itm.id, data, itm )
+            end
         end
         if( #nuke_em > 0 ) then
             for i = #nuke_em,1,-1 do
@@ -633,7 +644,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
 
         --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
         --test actions materialized
-        --allow fake spell injection
+        --allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo)
 
         data.gmod = global_modes[ data.global_mode ]
         data.gmod.gmods = global_modes
@@ -670,7 +681,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             }
             table.insert( data.applets.l, close_applets )
             table.insert( data.applets.r, close_applets )
-
+            
             if( data.mute_applets ) then
                 data.applets.l_state = false
                 data.applets.r_state = false
@@ -681,9 +692,9 @@ for i,controller_id in ipairs( ctrl_bodies ) do
         if( global_callback ~= nil ) then
             uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
         end
-        if( not( data.gmod.nuke_em_all )) then
+        if( not( data.gmod.nuke_default )) then
             if( inv.full_inv ~= nil ) then
-                uid, data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+                uid, data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
             if( inv.applet_strip ~= nil ) then
                 uid, data, pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
@@ -742,7 +753,12 @@ for i,controller_id in ipairs( ctrl_bodies ) do
                 uid, data = inv.modder( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
             if( inv.extra ~= nil ) then
-                uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.slot )
+                uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
+        end
+        if( not( data.gmod.nuke_custom )) then
+            for cid,cfunc in magic_sorter( inv.custom ) do
+                uid, data, pos_tbl[ cid ] = cfunc( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
         end
         if( global_callback ~= nil ) then
@@ -756,11 +772,12 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
         end
 
-        if( ComponentGetValue2( iui_comp, "mActive" ) ~= data.is_opened ) then
-            if( not( data.gmod.no_inv_toggle or false )) then
-                play_sound( data, data.is_opened and "open" or "close" )
-                ComponentSetValue2( iui_comp, "mActive", data.is_opened )
-            end
+        if( data.inv_toggle and not( data.gmod.no_inv_toggle or false )) then
+            data.memo.inv_alpha = data.frame_num + 15
+            play_sound( data, data.is_opened and "open" or "close" )
+            ComponentSetValue2( iui_comp, "mActive", not( data.is_opened ))
+        elseif( data.gmod.no_inv_toggle and not( data.is_opened )) then
+            ComponentSetValue2( iui_comp, "mActive", true )
         end
         if( dragger_action and data.dragger.item_id > 0 ) then
             data.memo.not_wanna_drop = true
@@ -780,10 +797,15 @@ for i,controller_id in ipairs( ctrl_bodies ) do
             else
                 if( not( slot_going ) or data.dragger.swap_now ) then
                     if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
-                        if( not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
-                            inv.drop( data.dragger.item_id, data )
+                        local storage_external = get_storage( controller_id, "dragger_done_externally" )
+                        if( ComponentGetValue2( storage_external, "value_bool" )) then
+                            ComponentSetValue2( storage_external, "value_bool", false )
                         else
-                            play_sound( data, "error" )
+                            if( not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
+                                inv.drop( data.dragger.item_id, data )
+                            else
+                                play_sound( data, "error" )
+                            end
                         end
                     end
                     data.memo.not_wanna_drop = nil
@@ -802,7 +824,7 @@ for i,controller_id in ipairs( ctrl_bodies ) do
     local storage_reset = get_storage( controller_id, "reset_settings" )
     if( ComponentGetValue2( storage_reset, "value_bool" )) then
         ComponentSetValue2( storage_reset, "value_bool", false )
-        global_global_settings[ controller_id ] = nil
+        global_settings = nil
     end
 end
 

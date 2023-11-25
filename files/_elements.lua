@@ -1,6 +1,6 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
     local root_x, root_y = 19, 20
     local pic_x, pic_y = root_x, root_y
     
@@ -27,7 +27,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
         local inv_id = data.inventories_player[1]
         local slot_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( slot_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-1},
@@ -36,11 +36,11 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             pic_x, pic_y = pic_x + w + step, pic_y
         end
         
-        pic_x = pic_x + 2
+        pic_x = pic_x + data.inv_spacings[1]
         local cat_items = pic_x
         slot_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( slot_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-2},
@@ -49,28 +49,25 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             pic_x, pic_y = pic_x + w + step, pic_y
         end
 
-        if( data.Controls[2][2]) then
-            data.memo.inv_alpha = data.frame_num + 15
-            data.is_opened = not( data.is_opened )
-        end
-
         if( data.is_opened ) then
             new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-            if( data.gmod.show_full ) then --by default display only the first row of full inv ( data.gmod.show_fullest )
-                pic_x = pic_x + 9
+            if( data.gmod.show_full ) then
+                pic_x = pic_x + data.inv_spacings[2]
                 new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
                 
                 local core_y = pic_y
                 inv_id = data.inventories_player[2]
                 slot_data = data.slot_state[ inv_id ]
                 for i,col in ipairs( slot_data ) do
-                    for e,slot in ipairs( col ) do
-                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+                    local count = not( data.gmod.show_fullest or false ) and 1 or #col
+                    for e = 1,count do
+                        local slot = col[e]
+                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
-                        }, data.is_opened, true, true )
+                        }, data.is_opened, false, true )
                         pic_x, pic_y = pic_x, pic_y + h + step
                     end
                     pic_x, pic_y = pic_x + w + step, core_y
@@ -83,6 +80,10 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys, slo
             root_x, root_y = root_x - 3, root_y - 3
             pic_x, pic_y = pic_x + 3 - step, pic_y + 3
         end
+
+        if( data.Controls[2][2]) then
+            data.inv_toggle = true
+        end
     end
     
     return uid, data, {root_x,root_y}, {pic_x,pic_y}
@@ -92,7 +93,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
 
     local this_data = data.applets
-    if( this_data ~= nil ) then
+    if( this_data ~= nil and not( data.gmod.menu_capable )) then
         absolutely_abominable_piece_of_shit = god_do_i_hate_this_one
         local function applet_setup( gui, uid, data, this_data, pic_x, type )
             local is_left = type == 1
@@ -108,7 +109,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
             if( not( this_data[tbl[type][2]])) then
                 local clicked, r_clicked, is_hovered = false
                 uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { is_left and -1 or ( screen_w - 10 ), -1, 11, 19, }, zs.tips_front )
-                uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
+                uid = data.tip_func( gui, uid, nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
                 if( clicked ) then
                     play_sound( data, "click" )
                     this_data[tbl[type][2]] = true
@@ -141,7 +142,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
                     local metahover = not( got_one ) and ( this_data[tbl[type][5]][i] or false )
                     uid, clicked, is_hovered, mute = icon.pic( got_one and data.a_gui or data.the_gui, uid, data, pic_x + sign*( i - 1 )*11, pic_y, zs.main_back, metahover and math.rad( -5 ) or 0 )
                     if( allow_clicks ) then
-                        uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { icon.name..( icon.desc == nil and "" or "@"..icon.desc ), is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, nil, metahover, not( is_left ))
+                        uid = data.tip_func( gui, uid, nil, zs.tips, { icon.name..( icon.desc == nil and "" or "@"..icon.desc ), is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, nil, metahover, not( is_left ))
                         if( clicked and reset_em == 0 ) then
                             if( not( mute or false )) then play_sound( data, "click" ) end
                             
@@ -171,7 +172,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
 
             if( is_left ) then pic_x = pic_x - ( l - 10 ) end
             uid = new_image( gui, uid, pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-            uid = new_vanilla_plate( gui, uid, pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
+            uid = data.plate_func( gui, uid, pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
             if( is_left ) then
                 pic_x = pic_x + arrow_off + 11
             else
@@ -197,7 +198,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     local red_shift = 0
 
     local this_data = data.DamageModel
-    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1])) then
+    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         local max_hp = this_data[2]
         if( max_hp > 0 ) then
             local length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
@@ -242,7 +243,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {length,4,length*hp/max_hp}, pic )
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
-            uid = tipping( gui, uid, nil, {
+            uid = tipping( gui, uid, nil, nil, {
                 pic_x - ( length + 2 ),
                 pic_y - 1,
                 length + 4,
@@ -261,14 +262,14 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.hp )
 
     local this_data = data.DamageModel
-    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1])) then
+    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
             uid = new_font_vanilla_small( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { 255, 255, 255, 0.9 })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$hud_air" )..hud_num_fix( this_data[8], this_data[7], 2 )
-            uid = tipping( gui, uid, nil, {
+            uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -286,26 +287,26 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.air )
     
     local this_data = data.CharacterData
-    if( #this_data > 0 and this_data[2] and this_data[3] > 0 ) then
+    if( #this_data > 0 and this_data[2] and this_data[3] > 0 and not( data.gmod.menu_capable )) then
         if( data.memo.flight_shake == nil ) then
             if( #data.Controls > 0 and data.Controls[4][1] and this_data[4] <= 0 ) then
-                data.memo.flight_shake = data.frame_num + 20
+                data.memo.flight_shake = data.frame_num
             end
         end
-        local shake_frame = ( data.memo.flight_shake or data.frame_num ) - data.frame_num
+        local shake_frame = data.frame_num - ( data.memo.flight_shake or data.frame_num )
         uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png" )
-        uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and 20-shake_frame or nil )
+        uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_jetpack" )..hud_num_fix( this_data[4], this_data[3], 2 )
-        uid = tipping( gui, uid, nil, {
+        uid = tipping( gui, uid, nil, nil, {
             pic_x - 42,
             pic_y - 1,
             44,
             6,
         }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 
-        if( shake_frame < 0 ) then
+        if( shake_frame >= 20 ) then
             data.memo.flight_shake = nil
         end
         pic_y = pic_y + 8
@@ -319,7 +320,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.mana_shake = data.memo.mana_shake or {}
 
     local this_data = data.active_info
-    if( this_data.id ~= nil ) then
+    if( this_data.id ~= nil and not( data.gmod.menu_capable )) then
         local potion_data = {}
         local throw_it_back = nil
         
@@ -331,12 +332,12 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( data.memo.mana_shake[data.active_item] == nil ) then
                 if( data.no_mana_4life ) then
-                    data.memo.mana_shake[data.active_item] = data.frame_num + 20
+                    data.memo.mana_shake[data.active_item] = data.frame_num
                 end
             end
-            local shake_frame = ( data.memo.mana_shake[data.active_item] or data.frame_num ) - data.frame_num
-            throw_it_back = data.memo.mana_shake[data.active_item] ~= nil and shake_frame-20 or nil
-            if( shake_frame < 0 ) then
+            local shake_frame = data.frame_num - ( data.memo.mana_shake[data.active_item] or data.frame_num )
+            throw_it_back = data.memo.mana_shake[data.active_item] ~= nil and -shake_frame or nil
+            if( shake_frame >= 20 ) then
                 data.memo.mana_shake[data.active_item] = nil
             end
         elseif( this_data.matter_info ~= nil ) then
@@ -361,13 +362,13 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local tip = ""
             if( potion_data[3] ~= nil ) then
-                tip = this_data.name.."@"..this_data.fullness
+                tip = this_data.name..( this_data.fullness ~= nil and "@"..this_data.fullness or "" )
             else
                 tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
             end
 
             local tip_x, tip_y = unpack( xys.hp )
-            uid = tipping( gui, uid, nil, {
+            uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -387,30 +388,30 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.reload_max = data.memo.reload_max or {}
     
     local this_data = data.active_info
-    if( this_data.wand_info ~= nil and not( this_data.wand_info.main[9])) then
+    if( this_data.wand_info ~= nil and not( this_data.wand_info.main[9]) and not( data.gmod.menu_capable )) then
         local reloading = this_data.wand_info.main[10]
         data.memo.reload_max[data.active_item] = ( data.memo.reload_max[data.active_item] or -1 ) < reloading and reloading or data.memo.reload_max[data.active_item]
         if( data.memo.reload_max[data.active_item] > data.reload_threshold ) then
             if( data.memo.reload_max[data.active_item] ~= reloading ) then
                 if( data.memo.reload_shake[data.active_item] == nil and data.just_fired ) then
-                    data.memo.reload_shake[data.active_item] = data.frame_num + 20
+                    data.memo.reload_shake[data.active_item] = data.frame_num
                 end
             end
             
-            local shake_frame = ( data.memo.reload_shake[data.active_item] or data.frame_num ) - data.frame_num
+            local shake_frame = data.frame_num - ( data.memo.reload_shake[data.active_item] or data.frame_num )
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png" )
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and 20-shake_frame or nil )
+            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-            uid = tipping( gui, uid, nil, {
+            uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
                 6,
             }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 
-            if( shake_frame < 0 ) then
+            if( shake_frame >= 20 ) then
                 data.memo.reload_shake[data.active_item] = nil
             end
             pic_y = pic_y + 8
@@ -429,23 +430,23 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.delay_max = data.memo.delay_max or {}
 
     local this_data = data.active_info
-    if( this_data.wand_info ~= nil ) then
+    if( this_data.wand_info ~= nil and not( data.gmod.menu_capable )) then
         local cast_delay = this_data.wand_info.main[11]
         data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < cast_delay and cast_delay or data.memo.delay_max[data.active_item]
         if( data.memo.delay_max[data.active_item] > data.delay_threshold ) then
             if( data.memo.delay_max[data.active_item] ~= cast_delay ) then
                 if( data.memo.delay_shake[data.active_item] == nil and data.just_fired ) then
-                    data.memo.delay_shake[data.active_item] = data.frame_num + 20
+                    data.memo.delay_shake[data.active_item] = data.frame_num
                 end
             end
             
-            local shake_frame = ( data.memo.delay_shake[data.active_item] or data.frame_num ) - data.frame_num
+            local shake_frame = data.frame_num - ( data.memo.delay_shake[data.active_item] or data.frame_num )
             uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/fire_rate_wait.png" )
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and 20-shake_frame or nil )
+            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
-            uid = tipping( gui, uid, nil, {
+            uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -469,8 +470,8 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.delay )
 
     local this_data = data.Wallet
-    if( #this_data > 0 and this_data[3] >= 0 ) then
-        local god_i_love_money_holy_fuck = "i"
+    if( #this_data > 0 and this_data[3] >= 0 and not( data.gmod.menu_capable )) then
+        local god_i_love_money_holy_fuck = -1
         if( not( this_data[2])) then
             data.memo.money = data.memo.money or this_data[3]
             local delta = this_data[3] - data.memo.money
@@ -485,7 +486,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
-        uid = tipping( gui, uid, nil, {
+        uid = tipping( gui, uid, nil, nil, {
             pic_x + 2.5,
             pic_y - 1,
             10.5 + final_length,
@@ -501,7 +502,7 @@ end
 function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.gold )
     
-    if( data.orbs > 0 ) then
+    if( data.orbs > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 1
 
         local final_length = 0
@@ -510,7 +511,7 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
-        uid = tipping( gui, uid, nil, {
+        uid = tipping( gui, uid, nil, nil, {
             pic_x + 2,
             pic_y - 1,
             11 + final_length,
@@ -538,39 +539,42 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         if( hover_func ~= nil ) then hover_func( offset_x ) end
         new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
     end
-
-    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then --this should be a callback
+    
+    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then
         local info = ""
 
         local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
         if( #entities > 0 ) then
-            local best_kind = 0
+            local best_kind = -1
             local dist_tbl = {}
             for i,entity_id in ipairs( entities ) do
                 if( EntityGetRootEntity( entity_id ) == entity_id and entity_id ~= data.player_id ) then
-                    local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
+                    local kind = {}
                     local item_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemComponent" )
-                    local matter_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "MaterialInventoryComponent" )
-                    local abil_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "AbilityComponent" )
-                    local action_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemActionComponent" )
                     
-                    local v = ""
+                    local name = ""
+                    local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
                     if( info_comp ~= nil ) then
-                        v = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
+                        name = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
+                    end
+                    if( not( string_bullshit[name] or false )) then
+                        kind = { 0, name }
+                    elseif( ComponentGetValue2( item_comp, "is_pickable" )) then
+                        for k,cat in ipairs( data.item_cats ) do
+                            if( cat.on_check( entity_id )) then
+                                kind = { k, cat.on_info_name == nil and cat.name or cat.on_info_name( entity_id, item_comp, cat.name )}
+                                break
+                            end
+                        end
+                    elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
+                        name = EntityGetName( entity_id )
+                        if( not( string_bullshit[name] or false )) then
+                            kind = { 0, GameTextGetTranslatedOrNot( name )}
+                        end
                     end
 
-                    local kind = {}
-                    if( #v > 0 ) then
-                        kind = { 1, v }
-                    elseif( not( EntityHasTag( entity_id, "not_a_potion" )) and item_comp ~= nil and matter_comp ~= nil ) then
-                        kind = { 2, {entity_id,item_comp,matter_comp,abil_comp}}
-                    elseif( abil_comp ~= nil and item_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )) then
-                        kind = { 3, {entity_id,item_comp,abil_comp}}
-                    elseif( action_comp ~= nil ) then
-                        kind = { 4, "Spell" }
-                    end
                     if( #kind > 0 ) then
-                        if( best_kind < kind[1]) then best_kind = kind[1] end
+                        if( best_kind < 0 or best_kind > kind[1]) then best_kind = kind[1] end
                         table.insert( dist_tbl, { entity_id, unpack( kind )})
                     end
                 end
@@ -580,26 +584,11 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     return thing[2] == best_kind
                 end)
                 if( the_one ~= 0 ) then
-                    local msg_list = {
-                        function( v ) return v end,
-                        function( v )
-                            local barrel_size = EntityGetFirstComponentIncludingDisabled( v[1], "MaterialSuckerComponent" )
-                            barrel_size = barrel_size == nil and ComponentGetValue2( v[3], "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
-                            
-                            local v1, v2 = get_potion_info( entity_id, get_item_name(v[1],v[4],v[2]), barrel_size, get_matters( ComponentGetValue2( v[3], "count_per_material_type" )))
-                            return v1..v2
-                        end,
-                        function( v )
-                            v = get_item_name( v[1], v[3], v[2] ) or ""
-                            return v == "" and "Relic" or v
-                        end,
-                        function( v ) return v end,
-                    }
-                    info = msg_list[best_kind]( the_one[3])
+                    info = the_one[3]
                 end
             end
         end
-        if( info ~= "" ) then
+        if( not( string_bullshit[info] or false )) then
             local inter_alpha = 1
             if( data.info_pointer ) then
                 pic_x, pic_y = unpack( data.pointer_ui )
@@ -613,40 +602,42 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
 
-    local fading = 0.5
-    data.memo.mtr_prb = data.memo.mtr_prb or { 0, 0 }
-    local matter = data.memo.mtr_prb[1]
-    if( data.pointer_matter > 0 ) then
-        matter = data.pointer_matter
-        data.memo.mtr_prb = { data.pointer_matter, math.max( data.memo.mtr_prb[2], data.frame_num )}
-    elseif( data.memo.mtr_prb[1] > 0 ) then
-        local delta = data.frame_num - data.memo.mtr_prb[2]
-        if( delta > 2*data.info_mtr_fading ) then
-            data.memo.mtr_prb = nil
-            matter = 0
-        elseif( delta > data.info_mtr_fading ) then
-            fading = math.max( fading*math.sin(( 2*data.info_mtr_fading - delta )*math.pi/( 2*data.info_mtr_fading )), 0.01 )
+    if( not( data.gmod.menu_capable )) then
+        local fading = 0.5
+        data.memo.mtr_prb = data.memo.mtr_prb or { 0, 0 }
+        local matter = data.memo.mtr_prb[1]
+        if( data.pointer_matter > 0 ) then
+            matter = data.pointer_matter
+            data.memo.mtr_prb = { data.pointer_matter, math.max( data.memo.mtr_prb[2], data.frame_num )}
+        elseif( data.memo.mtr_prb[1] > 0 ) then
+            local delta = data.frame_num - data.memo.mtr_prb[2]
+            if( delta > 2*data.info_mtr_fading ) then
+                data.memo.mtr_prb = nil
+                matter = 0
+            elseif( delta > data.info_mtr_fading ) then
+                fading = math.max( fading*math.sin(( 2*data.info_mtr_fading - delta )*math.pi/( 2*data.info_mtr_fading )), 0.01 )
+            end
         end
-    end
-    if( matter > 0 or data.info_mtr_static ) then
-        if( data.info_mtr_static ) then
-            fading = 1
-        elseif( data.memo.mtr_prb[2] > data.frame_num ) then
-            fading = math.min( fading*4, 1 )
+        if( matter > 0 or data.info_mtr_static ) then
+            if( data.info_mtr_static ) then
+                fading = 1
+            elseif( data.memo.mtr_prb[2] > data.frame_num ) then
+                fading = math.min( fading*4, 1 )
+            end
+            
+            pic_x, pic_y = unpack( xys.delay )
+            local alphaer = function( offset_x )
+                local hovered = false
+                uid, _, _, hovered = new_interface( gui, uid, { pic_x + 2 - offset_x, pic_y - 1, offset_x, 8 }, zs.tips )
+                if( hovered ) then data.memo.mtr_prb = { matter, data.frame_num + 300 } end
+            end
+            
+            local txt = "air"
+            if( not( data.info_mtr_static and matter == 0 )) then
+                txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
+            end
+            do_info( gui, pic_x + 3, pic_y - 2.5, txt, fading, true, alphaer )
         end
-        
-        pic_x, pic_y = unpack( xys.delay )
-        local alphaer = function( offset_x )
-            local hovered = false
-            uid, _, _, hovered = new_interface( gui, uid, { pic_x + 2 - offset_x, pic_y - 1, offset_x, 8 }, zs.tips )
-            if( hovered ) then data.memo.mtr_prb = { matter, data.frame_num + 300 } end
-        end
-        
-        local txt = "air"
-        if( not( data.info_mtr_static and matter == 0 )) then
-            txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
-        end
-        do_info( gui, pic_x + 3, pic_y - 2.5, txt, fading, true, alphaer )
     end
     
     return uid, data, {pic_x,pic_y}
@@ -657,11 +648,11 @@ function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
     pic_y = pic_y + data.effect_icon_spacing
 
     local this_data = data.icon_data.ings
-    if( #this_data > 0 ) then
+    if( #this_data > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 3
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = 0, 0
-            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 1 )
+            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
         pic_y = pic_y + 4
@@ -674,10 +665,10 @@ function new_generic_stains( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.ingestions )
 
     local this_data = data.icon_data.stains
-    if( #this_data > 0 ) then
+    if( #this_data > 0 and not( data.gmod.menu_capable )) then
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = 0, 0
-            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 2 )
+            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
         pic_y = pic_y + 3
@@ -690,10 +681,10 @@ function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.stains )
 
     local this_data = data.icon_data.misc
-    if( #this_data > 0 ) then
+    if( #this_data > 0 and not( data.gmod.menu_capable )) then
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = 0, 0
-            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 3 )
+            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
         pic_y = pic_y + 3
@@ -706,7 +697,7 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.effects )
     
     local this_data = data.perk_data
-    if( #this_data > 0 ) then
+    if( #this_data > 0 and not( data.gmod.menu_capable )) then
         local perk_tbl_short = {}
         if( #this_data > data.max_perks ) then
             local extra_perk = {
@@ -740,7 +731,7 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
 
         for i,this_one in ipairs( perk_tbl_short ) do
             local step_x, step_y = 0, 0
-            uid, step_x, step_y = new_icon( gui, uid, pic_x, pic_y, zs.main, this_one, 4 )
+            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
         pic_y = pic_y + 5
@@ -759,8 +750,8 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
             local stuff_to_figure = table_init( #data.item_cats + 1, {})
             local interactables = {}
             for i,ent in ipairs( entities ) do
-                local action_comp = EntityGetFirstComponent( ent, "InteractableComponent" )
-                if( action_comp ~= nil ) then
+                local action_comp = EntityGetFirstComponentIncludingDisabled( ent, "InteractableComponent" )
+                if( action_comp ~= nil and EntityGetFirstComponent( ent, "LuaComponent", "index_ctrl" ) ~= nil ) then
                     local b_x, b_y = EntityGetTransform( ent )
                     local dist = math.sqrt(( x - b_x )^2 + ( y - b_y )^2 )
 
@@ -861,8 +852,8 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         local info_dump = false
                         if( cost_check ) then
                             local will_pause = data.item_cats[ item_data[10].cat ].on_gui_pause ~= nil
-                            ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 ) --is_hidden and slotless go to full by default
-                            local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=1} or set_to_slot( item_data[10], data, true ))
+                            ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
+                            local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=0} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
                                 if( i > 1 ) then
                                     pickup_info.id = item_data[1][1]
@@ -874,10 +865,8 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                                         pickup_info.desc = { pickup_info.desc, item_data[10].desc }
                                     end
 
-                                    if( i > 1 ) then
-                                        button_time = false
-                                        break
-                                    end
+                                    button_time = false
+                                    break
                                 else
                                     pick_up_item( data.player_id, data, item_data[10], item_data[6])
                                 end
@@ -936,29 +925,51 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         pickup_info.info.name = pickup_info.info.name..pickup_info.info.fullness
                     end
 
-                    data.Controls[3][2] = false
                     pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
-                    ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
 
                     pickup_info.info.name = orig_name
                 end
             end
 
-            local special_buttons = {} --search for the 19a buttons
-            if( button_time ) then
-                if( #interactables > 0 and #special_buttons == 0 ) then
-                    table.sort( interactables, function( a, b )
-                        return a[5] < b[5]
-                    end)
-                    --allow for custom code injection for info and trigger check (suppress the toggle event and the info overlay if is false)
-                    uid = info_func( gui, uid, screen_h, screen_w, data, {
-                        id = interactables[1][1],
-                        desc = { capitalizer( interactables[1][3]), string.gsub( interactables[1][4], "$0", "[USE]" )},
+            local do_action = button_time and #interactables > 0
+            if( do_action ) then
+                table.sort( interactables, function( a, b )
+                    return a[5] < b[5]
+                end)
+
+                local will_show = true
+                local this_info = interactables[1]
+                local storage_check = get_storage( this_info[1], "index_check" )
+                if( storage_check ~= nil ) then
+                    this_info, will_show, button_time = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, this_info )
+                end
+                if( will_show ) then
+                    local message_func = info_func
+                    local storage_info = get_storage( this_info[1], "index_message" )
+                    if( storage_check ~= nil ) then
+                        message_func = dofile_once( ComponentGetValue2( storage_info, "value_string" ))
+                    end
+
+                    uid = message_func( gui, uid, screen_h, screen_w, data, {
+                        id = this_info[1],
+                        desc = { capitalizer( this_info[3]), string.gsub( this_info[4], "$0", "[USE]" )},
                         txt = "[USE]",
                     }, zs, xyz )
                 end
-            else
-                --suppress all the 19a buttons 
+            end
+            if( data.Controls[3][2]) then
+                data.Controls[3][2] = false
+                
+                if( do_action and not( data.memo.action_skip_next or false )) then
+                    local action_id = interactables[1][1]
+                    EntitySetComponentIsEnabled( action_id, EntityGetFirstComponentIncludingDisabled( action_id, "InteractableComponent" ), true )
+                    EntitySetComponentIsEnabled( action_id, EntityGetFirstComponent( action_id, "LuaComponent", "index_ctrl" ), false )
+                    ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", data.frame_num + 1 )
+                    data.memo.action_skip_next = true
+                else
+                    ComponentSetValue2( data.Controls[1], "mButtonFrameInteract", 0 )
+                    data.memo.action_skip_next = false
+                end
             end
         end
     end
@@ -989,22 +1000,22 @@ function new_generic_drop( this_item, data )
     end
 end
 
-function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys, slot_func )
+function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #data.inventories_extra > 0 ) then
         for i,extra_inv in ipairs( data.inventories_extra ) do
             local this_data = data.inventories[ extra_inv ]
             local x, y = EntityGetTransform( extra_inv )
             local pic_x, pic_y = world2gui( x, y )
-            uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, slot_func )
+            uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, data.slot_func )
         end
     end
 
     return uid, data
 end
 
-function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys ) --disable if the pos of the right applet is close
+function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.gmod
-    if( this_data ~= nil and data.is_opened ) then
+    if( this_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
         local check = true
         local w,h = get_text_dim( this_data.name )
         local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
@@ -1042,7 +1053,12 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys ) --dis
                     new_mode = new_mode + 1
                 end
             end
-            uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, { pic_x - ( 6 + w ), pic_y - 11, w + 6, 10 }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
+            uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, nil, {
+                pic_x - ( 6 + w ),
+                pic_y - 11,
+                w + 6,
+                10
+            }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
 
@@ -1075,7 +1091,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys ) --dis
             end
 
             new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
-            uid = new_vanilla_plate( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
+            uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
 
             colourer( gui, arrow_left_c )
             uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )

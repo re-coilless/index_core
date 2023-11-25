@@ -23,6 +23,10 @@
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
+		name="dragger_done_externally"
+		value_bool="0"
+	></VariableStorageComponent>
+	<VariableStorageComponent
 		name="dragger_swap_now"
 		value_bool="0"
 	></VariableStorageComponent>
@@ -133,7 +137,11 @@
 		name="quickest_size"
 		value_int="4"
 	></VariableStorageComponent>
-
+	<VariableStorageComponent
+		name="inv_spacings"
+		value_string="|2|9|"
+	></VariableStorageComponent>
+	
 	<VariableStorageComponent
 		name="short_hp"
 		value_bool="1"
@@ -154,7 +162,7 @@
 		name="low_hp_flashing_intensity"
 		value_float="0.75"
 	></VariableStorageComponent>
-
+	
 	<VariableStorageComponent
 		name="fancy_potion_bar"
 		value_bool="1"

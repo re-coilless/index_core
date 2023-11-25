@@ -14,6 +14,13 @@ font_tbl = {
 	},
 }
 
+string_bullshit = {
+	default = 1,
+	unknown = 1,
+	[" "] = 1,
+	[""] = 1,
+}
+
 --core backend
 function b2n( a )
 	return a and 1 or 0
@@ -113,6 +120,25 @@ function magic_copy( orig, copies )
     return copy
 end
 
+function magic_sorter( tbl, func )
+    local out_tbl = {}
+    for n in pairs( tbl ) do
+        table.insert( out_tbl, n )
+    end
+    table.sort( out_tbl, func )
+	
+    local i = 0
+    local iter = function ()
+        i = i + 1
+        if( out_tbl[i] == nil ) then
+            return nil
+        else
+            return out_tbl[i], tbl[out_tbl[i]]
+        end
+    end
+    return iter
+end
+
 function generic_random( a, b, macro_drift, bidirectional )
 	bidirectional = bidirectional or false
 	
@@ -133,6 +159,22 @@ function generic_random( a, b, macro_drift, bidirectional )
 	SetRandomSeed( math.random( GameGetFrameNum(), macro_drift ), (((( tm[2]*30 + tm[3] )*24 + tm[4] )*60 + tm[5] )*60 + tm[6] )%macro_drift )
 	Random( 1, 5 ); Random( 1, 5 ); Random( 1, 5 )
 	return bidirectional and ( Random( a, b*2 ) - b ) or Random( a, b )
+end
+
+function get_table_count( tbl, just_checking )
+	tbl = tbl or 0
+	if( type( tbl ) ~= "table" ) then
+		return 0
+	end
+	
+	local table_count = 0
+	for i,element in pairs( tbl ) do
+		table_count = table_count + 1
+		if( just_checking ) then
+			break
+		end
+	end
+	return table_count
 end
 
 function get_most_often( tbl )
@@ -394,6 +436,7 @@ function child_play_full( dude_id, func, params )
 end
 
 function vanilla_lua_callback( entity_id, func_names, input )
+	local got_some = false
 	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
 	if( #comps > 0 ) then
 		local real_GetUpdatedEntityID = GetUpdatedEntityID
@@ -403,6 +446,8 @@ function vanilla_lua_callback( entity_id, func_names, input )
 		for i,comp in ipairs( comps ) do
 			local path = ComponentGetValue2( comp, func_names[1]) or ""
 			if( path ~= "" ) then
+				got_some = true
+
 				GetUpdatedComponentID = function() return comp end
 				dofile( path )
 				_G[ func_names[2]]( unpack( input ))
@@ -412,6 +457,7 @@ function vanilla_lua_callback( entity_id, func_names, input )
 		GetUpdatedEntityID = real_GetUpdatedEntityID
 		GetUpdatedComponentID = real_GetUpdatedComponentID
 	end
+	return got_some
 end
 
 function play_sound( data, sfx, x, y )
@@ -577,31 +623,17 @@ function is_inv_empty( slot_state )
 	return is_empty
 end
 
-function get_item_num( data, inv_id, item_id )
-	local slot_tbl = data.slot_state[ inv_id ]
-	local is_fancy, gonna_add = slot_tbl.quickest ~= nil, true
-	local num, quickest_num = 0, 0
-	for i,col in pairs( slot_tbl ) do
-		for e,slot in ipairs( col ) do
-			if( slot ) then
-				if( slot == item_id ) then
-					if( is_fancy and i == "quick" ) then
-						gonna_add = false
-					else
-						return i == "quickest" and quickest_num or num
-					end
-				else
-					if( i == "quickest" ) then
-						quickest_num = quickest_num + 1
-					elseif( gonna_add ) then
-						num = num + 1
-					end
-				end
+function get_child_num( inv_id, item_id )
+	local children = EntityGetAllChildren( inv_id ) or {}
+	if( #children > 0 ) then
+		for i,child in ipairs( children ) do
+			if( child == item_id ) then
+				return i-1
 			end
 		end
 	end
-	
-	return is_fancy and ( num + quickest_num ) or -1
+
+	return 0
 end
 
 function inv_check( data, item_info, inv_info )
@@ -614,6 +646,13 @@ function inv_check( data, item_info, inv_info )
 	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
 	
 	local val = ( from_tbl_with_id( inv_info.kind, "universal" ) ~= 0 ) or ( #from_tbl_with_id( get_valid_inventories( item_info.inv_type, item_info.is_quickest ), inv_info.kind ) > 0 and ( inv_data.check == nil or inv_data.check( item_info, inv_info )))
+	if( val ) then
+		local storage_check = get_storage( item_info.id, "index_check" )
+		if( storage_check ~= nil ) then
+			val = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( item_info, inv_info )
+		end
+	end
+	
 	inv_info.kind = kind_memo
 	return val
 end
@@ -668,7 +707,8 @@ function set_to_slot( slot_info, data, is_player )
 	
 	local valid_invs = get_valid_inventories( slot_info.inv_type, slot_info.is_quickest )
 	local slot_num = { ComponentGetValue2( slot_info.ItemC, "inventory_slot" )}
-	if( slot_num[1] ~= -1 or slot_num[2] ~= -1 ) then
+	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
+	if( not( is_hidden )) then
 		if( slot_num[1] == -5 ) then
 			if( slot_info.is_hidden ) then
 				slot_num = {-1,-1}
@@ -723,9 +763,10 @@ function set_to_slot( slot_info, data, is_player )
 			data.slot_state[ slot_info.inv_id ][ slot_num[1] + 1 ][ slot_num[2] + 1 ] = slot_info.id
 			slot_info.inv_kind = slot_info.inv_kind[1]
 		end
+
+		slot_num[1], slot_num[2] = slot_num[1] + 1, slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
 	end
 	
-	slot_num[1], slot_num[2] = slot_num[1] + 1, slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
 	slot_info.inv_slot = slot_num
 	return slot_info
 end
@@ -758,18 +799,11 @@ function slot_swap( item_in, slot_data, active_item )
 	return active_reset
 end
 
-function get_item_name( entity_id, abil_comp, item_comp )
-	local actual_bullshit = {
-		default = 1,
-		unknown = 1,
-		[" "] = 1,
-		[""] = 1,
-	}
-	
+function get_item_name( entity_id, item_comp, abil_comp )
 	local name = abil_comp ~= nil and ComponentGetValue2( abil_comp, "ui_name" ) or ""
 	name = name == "" and EntityGetName( entity_id ) or name
-	local temp = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or actual_bullshit[ name ]) and ComponentGetValue2( item_comp, "item_name" ) or name
-	name = actual_bullshit[ temp ] and name or temp
+	local temp = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or string_bullshit[ name ]) and ComponentGetValue2( item_comp, "item_name" ) or name
+	name = ( string_bullshit[ temp ] or false ) and name or temp
 	return string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" )
 end
 
@@ -785,8 +819,11 @@ function get_potion_info( entity_id, name, max_count, total_count, matters )
 		end
 	end
 	
-	local v = tostring( math.floor( 100*total_count/max_count + 0.5 ))
-	return info..( info == "" and info or " " )..GameTextGetTranslatedOrNot( name ), GameTextGet( "$item_potion_fullness", v )
+	local v = nil
+	if( max_count > 0 ) then
+		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*total_count/max_count + 0.5 )))
+	end
+	return info..( info == "" and info or " " )..GameTextGetTranslatedOrNot( name ), v
 end
 
 function get_item_data( item_id, data, inventory_data )
@@ -798,17 +835,17 @@ function get_item_data( item_id, data, inventory_data )
 	
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	if( item_comp == nil ) then
-		return
+		return data
 	end
 
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
 	if( abil_comp ~= nil ) then
 		slot_info.AbilityC = abil_comp
-		slot_info.charges = {
-			ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
-			ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
-			ComponentGetValue2( abil_comp, "amount_in_inventory" ),
-		}
+		-- slot_info.charges = {
+		-- 	ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
+		-- 	ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
+		-- 	ComponentGetValue2( abil_comp, "amount_in_inventory" ),
+		-- }
 		slot_info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
 	end
 	if( item_comp ~= nil ) then
@@ -825,25 +862,26 @@ function get_item_data( item_id, data, inventory_data )
 		end
 
 		slot_info.desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
-		slot_info.uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
 		slot_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
-		slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" ) --check item name + path to stack
+		-- slot_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
+
 		slot_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+		slot_info.charges = ComponentGetValue2( item_comp, "uses_remaining" ) --check varstorage to override
 	end
 	
-	for k,kind in ipairs( data.item_cats ) do
-		if( kind.on_check( item_id, data, slot_info )) then
+	for k,cat in ipairs( data.item_cats ) do
+		if( cat.on_check( item_id )) then
 			slot_info.cat = k
-			slot_info.is_wand = kind.is_wand or false
-			slot_info.is_potion = kind.is_potion or false
-			slot_info.is_spell = kind.is_spell or false
-			slot_info.is_quickest = kind.is_quickest or false
-			slot_info.is_hidden = kind.is_hidden or false
-			slot_info.advanced_pic = kind.advanced_pic or false
+			slot_info.is_wand = cat.is_wand or false
+			slot_info.is_potion = cat.is_potion or false
+			slot_info.is_spell = cat.is_spell or false
+			slot_info.is_quickest = cat.is_quickest or false
+			slot_info.is_hidden = cat.is_hidden or false
+			slot_info.advanced_pic = cat.advanced_pic or false
 			break
 		end
 	end
-	slot_info.name = get_item_name( item_id, abil_comp, item_comp )
+	slot_info.name = get_item_name( item_id, item_comp, abil_comp )
 	if( slot_info.cat == nil ) then
 		return
 	elseif(( slot_info.name or "" ) == "" ) then
@@ -875,11 +913,6 @@ function get_items( hooman, data )
 				end
 
 				new_item.pic = register_item_pic( data, new_item, new_item.advanced_pic )
-				if( data.item_cats[ new_item.cat ].ctrl_script ~= nil ) then
-					data.item_cats[ new_item.cat ].ctrl_script( new_item.id, data, new_item )
-				else
-					inventory_man( new_item.id, data, new_item )
-				end
 				table.insert( item_tbl, new_item )
 			end
 		end)
@@ -891,16 +924,15 @@ end
 
 function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 	local entity_id = this_data.id
-	
-	this_data.name = this_data.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_data.ItemC, "item_name" ))
+	local gonna_pause, is_shopping = 0, this_data.cost ~= nil
 	if( not( is_silent or false )) then
+		this_data.name = this_data.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_data.ItemC, "item_name" ))
 		GamePrint( GameTextGet( "$log_pickedup", this_data.name ))
-		if( do_the_sound ) then
-			play_sound( data, { "data/audio/Desktop/event_cues.bank", this_data.cost == nil and "event_cues/pick_item_generic/create" or "event_cues/shop_item/create" })
+		if( do_the_sound or is_shopping ) then
+			play_sound( data, { "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
 		end
 	end
-	
-	local gonna_pause = 0
+
 	local callback = data.item_cats[ this_data.cat ].on_pickup
 	if( callback ~= nil ) then
 		gonna_pause = callback( entity_id, data, this_data, false )
@@ -909,7 +941,7 @@ function pick_up_item( hooman, data, this_data, do_the_sound, is_silent )
 		local _,slot = ComponentGetValue2( this_data.ItemC, "inventory_slot" )
 		EntityAddChild( data.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
 
-		if( this_data.cost ~= nil ) then
+		if( is_shopping ) then
 			if( not( data.Wallet[2])) then
 				data.Wallet[3] = data.Wallet[3] - this_data.cost
 				ComponentSetValue2( data.Wallet[1], "money", data.Wallet[3])
@@ -1258,9 +1290,9 @@ function simple_anim( data, name, target, speed, min_delta )
 end
 
 function get_short_num( num, negative_inf )
-	negative_inf = negative_inf or false
+	no_subzero = no_subzero or false
 
-	if( num < 0 and negative_inf ) then
+	if( num < 0 and not( no_subzero )) then
 		return "i"
 	else
 		num = math.max( num, 0 )
@@ -1343,6 +1375,10 @@ function swap_anim( item_id, end_x, end_y, data )
 end
 
 function register_item_pic( data, this_data, is_advanced )
+	if( this_data.pic == nil ) then
+		return
+	end
+
 	item_pic_data[ this_data.pic ] = item_pic_data[ this_data.pic ] or {xy={0,0}, xml_xy={0,0}}
 	if( item_pic_data[ this_data.pic ].dims == nil ) then
 		item_pic_data[ this_data.pic ].dims = { get_pic_dim( this_data.pic )}
@@ -1562,7 +1598,8 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			new_shadow_text( gui, ( screen_w - w )/2, screen_h - 40, zs.in_world_ui, pickup_info.desc[1])
 			if( type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= "" ) then
 				w, h = get_text_dim( pickup_info.desc[2])
-				new_text( gui, ( screen_w - w )/2, screen_h - 28, zs.in_world_ui, pickup_info.desc[2], {127,127,127})
+				colourer( gui, {127,127,127})
+				new_shadow_text( gui, ( screen_w - w )/2, screen_h - 28, zs.in_world_ui, pickup_info.desc[2])
 			end
 		end
 	end
@@ -1623,13 +1660,14 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 	return data, pic_x, pic_y, clicked, r_clicked, hovered
 end
 
-function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims )
-	uid = new_image( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/pics/vanilla_plate.xml", dims[1], dims[2])
+function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
+	alpha = alpha or 1
+	uid = new_image( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/pics/vanilla_plate.xml", dims[1], dims[2], alpha )
 
-	uid = new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a1.xml" )
-	uid = new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a2.xml" )
-	uid = new_image( gui, uid, pic_x + dims[1], pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a3.xml" )
-	uid = new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a4.xml" )
+	uid = new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a1.xml", nil, nil, alpha )
+	uid = new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a2.xml", nil, nil, alpha )
+	uid = new_image( gui, uid, pic_x + dims[1], pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a3.xml", nil, nil, alpha )
+	uid = new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a4.xml", nil, nil, alpha )
 
 	local steps = {10,4,2,1}
 	local temp = 0
@@ -1642,8 +1680,8 @@ function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims )
 				break
 			end
 		end
-		uid = new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml" )
-		uid = new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml" )
+		uid = new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml", nil, nil, alpha )
+		uid = new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml", nil, nil, alpha )
 		temp = temp + steps[pic_id]
 	end
 
@@ -1657,8 +1695,8 @@ function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims )
 				break
 			end
 		end
-		uid = new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml" )
-		uid = new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml" )
+		uid = new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml", nil, nil, alpha )
+		uid = new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml", nil, nil, alpha )
 		temp = temp + steps[pic_id]
 	end
 
@@ -1669,8 +1707,7 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	local will_shake = shake_frame ~= nil
 	if( will_shake ) then
 		if( shake_frame < 0 ) then
-			shake_frame = shake_frame + 1
-			pic_x = pic_x + 10*math.sin( shake_frame*math.pi/6 )/shake_frame
+			pic_x = pic_x - 20*math.sin( shake_frame*math.pi/6.666 )/shake_frame
 		else
 			pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 )
 		end
@@ -1724,7 +1761,9 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			
 			local w, h = GuiGetScreenDimensions( gui )
 			local pic_x, pic_y = get_mouse_pos()
-			pic_x, pic_y = text[2] or ( pic_x + 5 ), text[3] or ( pic_y + 5 )
+			local p_off_x = is_right and -5 or 5
+			local p_off_y = is_up and -5 or 5
+			pic_x, pic_y = text[2] or ( pic_x + p_off_x ), text[3] or ( pic_y + p_off_y )
 			
 			local length = 0
 			if( text[1] ~= "" ) then
@@ -1749,13 +1788,20 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 				if( is_up ) then
 					pic_y = pic_y - y_offset + 9 + edge_spacing
 				end
-			else
-				if( w < pic_x + x_offset + 1 ) then
-					pic_x = w - x_offset - 1
+			end
+			if( is_right ) then
+				if( pic_x < 0 ) then
+					pic_x = 1
 				end
-				if( h < pic_y + y_offset + 1 ) then
-					pic_y = h - y_offset - 1
+			elseif( w < pic_x + x_offset + 1 ) then
+				pic_x = w - x_offset - 1
+			end
+			if( is_up ) then
+				if( pic_y < 0 ) then
+					pic_y = 1
 				end
+			elseif( h < pic_y + y_offset + 1 ) then
+				pic_y = h - y_offset - 1
 			end
 
 			local inter_alpha = math.sin( math.min( anim_frame, 10 )*math.pi/20 )
@@ -1787,7 +1833,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 	return uid, is_triggered
 end
 
-function tipping( gui, uid, tid, pos, tip, zs, is_right, is_debugging )
+function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_debugging )
 	if( type( zs ) ~= "table" ) then
 		zs = {zs}
 	end
@@ -1796,9 +1842,10 @@ function tipping( gui, uid, tid, pos, tip, zs, is_right, is_debugging )
 	if( zs[2] ~= nil and is_hovered ) then
 		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
 	end
+
 	is_right = is_right or false
-	
-	local out = { new_vanilla_tooltip( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, is_hovered, is_right )}
+	tip_func = tip_func or new_vanilla_tooltip
+	local out = { tip_func( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, is_hovered, is_right, is_up )}
 	table.insert( out, clicked )
 	table.insert( out, r_clicked )
 	return unpack( out )
@@ -1834,11 +1881,11 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 	colourer( gui, {0,0,0})
 	off_x, off_y = rotate_offset( sign*0.5, sign*0.5, angle )
 	uid = new_image( gui, uid, pic_x + extra_scale*off_x, pic_y + extra_scale*off_y, z, pic, extra_scale*scale_x, extra_scale*scale_y, 0.25, false, angle )
-	
+
 	return uid, pic_x, pic_y
 end
 
-function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
+function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	local pic_off_x, pic_off_y = 0, 0
 	if( kind == 2 ) then
 		pic_off_x, pic_off_y = 0.5, 0.5
@@ -1898,10 +1945,7 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 		new_text( gui, pic_x - t_x + w, pic_y + h + 2, pic_z, info.desc, info.is_danger and {224,96,96} or nil, anim )
 		
 		local bg_x = pic_x - ( t_x + 2 ) + w
-		local bg_pic = "mods/index_core/files/pics/vanilla_tooltip_"
-		uid = new_image( gui, uid, bg_x, pic_y + h + 2, pic_z + 0.01, bg_pic.."2.xml", t_x + 3, 1, anim*0.5 )
-		uid = new_image( gui, uid, bg_x, pic_y + h + 3, pic_z + 0.01, bg_pic.."0.xml", t_x + 3, 8, anim*0.8 )
-		uid = new_image( gui, uid, bg_x, pic_y + h + 11, pic_z + 0.01, bg_pic.."2.xml", t_x + 3, 1, anim*0.5 )
+		uid = new_vanilla_plate( gui, uid, bg_x, pic_y + h + 4, pic_z + 0.01, { t_x + 3, 6 }, anim*0.8 )
 		
 		h = h + t_h + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 )
 	end
@@ -1927,7 +1971,7 @@ function new_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	return uid, w, h
 end
 
-function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, is_active, can_drag, is_full, is_quick )
+function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, is_active, can_drag, is_full, is_quick )
 	cat_tbl = cat_tbl or {}
 	local slot_pics = {
 		bg_alt = slot_data.pic_bg_alt or data.slot_pic.bg_alt,
@@ -1969,14 +2013,14 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, i
 			ComponentSetValue2( data.inventory, "mActiveItem", 0 )
 			ComponentSetValue2( data.inventory, "mActualActiveItem", 0 )
 			ComponentSetValue2( data.inventory, "mInitialized", false )
-			ComponentSetValue2( data.inventory, "mSavedActiveItemIndex", get_item_num( data, slot_data.inv_id, info.id ))
+			ComponentSetValue2( data.inventory, "mSavedActiveItemIndex", get_child_num( slot_data.inv_id, info.id ))
 		end
 	end
 	
 	local dragger_hovered = false
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if( is_active ) then
-		uid = new_image( gui, uid, pic_x, pic_y, zs.icons_front + 0.0001, data.slot_pic.active )
+		uid = new_image( gui, uid, pic_x, pic_y, zs[( not( data.is_opened ) or can_drag ) and "main_front" or "icons_front" ] + 0.0001, data.slot_pic.active )
 	end
 	if( data.dragger.item_id > 0 ) then
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
@@ -1995,8 +2039,6 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, i
 							})
 						end
 						play_sound( data, slot_sfxes[ info.id > 0 and "move_item" or "move_empty" ])
-						
-						--custom swap callback
 
 						if( slot_swap( data.dragger.item_id, slot_data, data.active_item )) then
 							ComponentSetValue2( data.inventory, "mActiveItem", 0 )
@@ -2005,7 +2047,7 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, i
 					end
 					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
 						dragger_hovered = true
-						uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.icons_front + 0.00001, data.slot_pic.hl )
+						uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.main_front + 0.001, data.slot_pic.hl )
 					end
 				end
 			end
@@ -2020,19 +2062,20 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, i
 		slot_hover_sfx[2] = true
 	end
 	
+	local slot_x, slot_y = pic_x - w/2, pic_y - h/2
 	if( can_drag ) then
 		if( info.id > 0 and not( data.dragger.swap_now or slot_going )) then
 			data, pic_x, pic_y = new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2, data )
 		end
 	elseif( data.is_opened ) then
-		uid = new_image( gui, uid, pic_x - 10, pic_y - w/2, zs.icons_front + 0.001, data.slot_pic.locked )
+		uid = new_image( gui, uid, slot_x, slot_y, zs.icons_front + 0.001, data.slot_pic.locked )
 	end
 	
 	if( info.id > 0 ) then
-		local is_dragged, suppress_action = slot_memo[ data.dragger.item_id ] and data.dragger.item_id == info.id, false
+		local is_dragged, suppress_charges, suppress_action = slot_memo[ data.dragger.item_id ] and data.dragger.item_id == info.id, false, false
 		if( cat_tbl.on_slot ~= nil ) then
 			pic_x, pic_y = swap_anim( info.id, pic_x, pic_y, data )
-			uid, suppress_action = cat_tbl.on_slot( gui, uid, info.id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, cat_tbl.on_tooltip, cat_tbl.on_action, is_full, is_active, is_quick, is_dragged, might_swap and 1.2 or 1 )
+			uid, suppress_charges, suppress_action = cat_tbl.on_slot( gui, uid, info.id, data, info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, cat_tbl.on_tooltip, cat_tbl.on_action, is_full, is_active, is_quick, is_dragged, might_swap and 1.2 or 1 )
 		end
 		if( not( suppress_action or false )) then
 			if( cat_tbl.on_action ~= nil ) then
@@ -2041,17 +2084,30 @@ function new_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, cat_tbl, i
                         cat_tbl.on_action( info.id, data, info, 3 )
                     end
                 elseif( r_clicked and data.is_opened and is_quick ) then
-					this_info.rmb_is_usable = is_quick
                     cat_tbl.on_action( info.id, data, info, 2 )
                 end
             end
+		end
+		if( not( suppress_charges or false )) then
+			slot_x, slot_y = slot_x + 2, slot_y + 2
+			if( info.charges > -1 ) then
+				if( info.charges == 0 ) then
+					if( info.is_consumable ) then
+						EntityKill( info.id )
+					else
+						uid = new_image( gui, uid, slot_x, slot_y, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
+					end
+				else
+					uid = new_font_vanilla_small( gui, uid, slot_x, slot_y, zs.icons_front, info.charges )
+				end
+			end
 		end
 	end
 	
 	return uid, data, w-1, h-1, clicked, r_clicked, is_hovered
 end
 
-function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, slot_data, can_drag, is_full, is_quick )
+function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_data, can_drag, is_full, is_quick )
 	local item = {}
 	if( not( slot_data.id )) then
 		slot_data.id = -1
@@ -2062,9 +2118,9 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, slot_data, can
 
 	local cat_callbacks = data.item_cats[ item.cat ]
 	local w, h, clicked, r_clicked, is_hovered = false, false, false
-	uid, data, w, h, clicked, r_clicked, is_hovered = slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, cat_callbacks, item.id == data.active_item, can_drag, is_full, is_quick )
+	uid, data, w, h, clicked, r_clicked, is_hovered = data.slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, cat_callbacks, item.id == data.active_item, can_drag, is_full, is_quick )
 	if( cat_callbacks ~= nil and cat_callbacks.on_inventory ~= nil ) then
-		uid, data = cat_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, can_drag, data.dragger.item_id > 0 and data.dragger.item_id == item.id, item.id == data.active_item, is_quick )
+		uid, data = cat_callbacks.on_inventory( gui, uid, item.id, data, item, pic_x, pic_y, zs, can_drag, data.dragger.item_id > 0 and data.dragger.item_id == item.id, item.id == data.active_item, is_quick, is_full )
 	end
 	
 	return uid, w, h

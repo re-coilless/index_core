@@ -11,11 +11,11 @@ local Z_LAYERS = {
     main_far_back = 1, --slot background
     main_back = 0.01, --bar background
     main = 0, --bars, perks, effects
-    main_front = -0.01,
+    main_front = -0.01, --slot highlights
 
     icons_back = -0.09,
     icons = -1, --inventory item icons
-    icons_front = -1.01, --spell charges, slot highlights
+    icons_front = -1.01, --spell charges
 
     tips_back = -10100,
     tips = -10101, --tooltips duh
@@ -48,8 +48,8 @@ local GLOBAL_MODES = {
         allow_advanced_draggables = true,
     },
     {
-        name = "CUSTOM_MENU", --it should hide bars+icons too
-        desc = "Dragging actions and complete in-world interactivity.",
+        name = "CUSTOM_MENU",
+        desc = "Completely clears the entire right side and limits interactions.",
         
         menu_capable = true,
         is_hidden = true,
@@ -59,7 +59,7 @@ local GLOBAL_MODES = {
 
 local GLOBAL_MUTATORS = {}
 local APPLETS = {
-    l_state = false,
+    l_state = true,
     r_state = true,
     l_hover = {},
     r_hover = {},
@@ -87,16 +87,15 @@ local ITEM_CATS = {
         is_quickest = true,
         advanced_pic = true,
 
-        on_check = function( item_id, data, this_info )
-            return this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_gun_script" )
+        on_check = function( item_id )
+            local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
+            return abil_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )
         end,
         on_data = function( item_id, data, this_info )
-            -- dofile_once( "data/scripts/gun/gun.lua" )
-            
-            --add wand invs to data.inventories, add an ability to do custom code for this + check for is spell
+            --add wand invs to data.inventories, add an ability to do custom code for this
             --insert spells to item list
             --wand slot count should be slot_count - always_casts
-            --charges to upper left + marker if the wand can't fire (is empty, not enough mana) for bottom right
+            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana) for bottom right
 
             this_info.wand_info = {
                 main = {
@@ -134,7 +133,7 @@ local ITEM_CATS = {
             return data, this_info
         end,
 
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick, is_full )
             --if is_quick, do em wands
             return uid, data
         end,
@@ -147,7 +146,7 @@ local ITEM_CATS = {
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
-            return uid
+            return uid--, true
         end,
         
         on_pickup = function( item_id, data, this_info, is_post )
@@ -156,9 +155,8 @@ local ITEM_CATS = {
                     return 0
                 end,
                 function( item_id, data, this_info )
-                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then --figure out the wand effect
-                        local emitter = EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( this_info.xy ))
-                        EntityRemoveComponent( emitter, EntityGetFirstComponentIncludingDisabled( emitter, "LifetimeComponent" ))
+                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
+                        EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( this_info.xy ))
                         ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
                     end
                 end,
@@ -172,12 +170,16 @@ local ITEM_CATS = {
         -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
         --     return uid
         -- end,
+        on_info_name = function( item_id, item_comp, default_name )
+            local name = get_item_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
+            return name == "" and default_name or name
+        end,
     },
     {
         name = GameTextGetTranslatedOrNot( "$item_potion" ),
         is_potion = true,
 
-        on_check = function( item_id, data, this_info )
+        on_check = function( item_id )
             return not( EntityHasTag( item_id, "not_a_potion" )) and EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" ) ~= nil
         end,
         on_data = function( item_id, data, this_info )
@@ -201,7 +203,7 @@ local ITEM_CATS = {
                 }
             end
             this_info.matter_info[1] = this_info.bottle_info == nil and this_info.matter_info[1] or this_info.bottle_info[1]
-            
+
             local loop_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AudioLoopComponent" )
             if( loop_comp ~= nil ) then
                 this_info.SprayC = loop_comp
@@ -212,11 +214,12 @@ local ITEM_CATS = {
             end
 
             this_info.name, this_info.fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+            if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
 
             return data, this_info
         end,
         
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick ) --don't do this in full invs
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick, is_full )
             local cap_max = this_info.matter_info[1]
             local mtrs = this_info.matter_info[2]
             local content_total = mtrs[1]
@@ -227,25 +230,27 @@ local ITEM_CATS = {
                 uid = new_image( gui, uid, pic_x + 2, pic_y + 2, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
             end
             
-            pic_x, pic_y = pic_x + w/2, pic_y + h/2
-            w, h = w - 4, h - 4
-            pic_x, pic_y = pic_x - w/2, pic_y + h/2
+            if( not( is_full )) then
+                pic_x, pic_y = pic_x + w/2, pic_y + h/2
+                w, h = w - 4, h - 4
+                pic_x, pic_y = pic_x - w/2, pic_y + h/2
 
-            local k = h/cap_max
-            local size = k*math.min( content_total, cap_max )
-            local alpha = is_dragged and 0.7 or 0.9
-            local delta = 0
-            for i,m in ipairs( content_tbl ) do
-                local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
-                colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
-                delta = delta + sz
-                uid = new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ), data.pixel, w, sz, alpha )
-                if( delta >= h ) then
-                    break
+                local k = h/cap_max
+                local size = k*math.min( content_total, cap_max )
+                local alpha = is_dragged and 0.7 or 0.9
+                local delta = 0
+                for i,m in ipairs( content_tbl ) do
+                    local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
+                    colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
+                    delta = delta + sz
+                    uid = new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ), data.pixel, w, sz, alpha )
+                    if( delta >= h ) then
+                        break
+                    end
                 end
-            end
-            if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
-                uid = new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, w, 0.5 )
+                if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
+                    uid = new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, w, 0.5 )
+                end
             end
 
             return uid, data
@@ -299,7 +304,7 @@ local ITEM_CATS = {
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
             uid = new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
             
-            return uid, true
+            return uid, true, true
         end,
 
         on_pickup = function( item_id, data, this_info, is_post )
@@ -409,12 +414,21 @@ local ITEM_CATS = {
             }
             return func_tbl[ type ]( item_id, data, this_info )
         end,
+
+        on_info_name = function( item_id, item_comp, default_name )
+            local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
+            local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
+            barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
+            
+            local name, cap = get_potion_info( item_id, get_item_name( item_comp, item_comp ), barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+            return name..( cap or "" )
+        end,
     },
     {
         name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
         is_spell = true,
 
-        on_check = function( item_id, data, this_info )
+        on_check = function( item_id )
             return EntityHasTag( item_id, "card_action" ) or EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ) ~= nil
         end,
         on_data = function( item_id, data, this_info )
@@ -422,7 +436,13 @@ local ITEM_CATS = {
             this_info.ActionC = action_comp
             this_info.spell_id = ComponentGetValue2( action_comp, "action_id" )
             
+            --pull the info from spell table
+
             return data, this_info
+        end,
+        on_processed = function( item_id, data, this_info )
+            local pic_comp = EntityGetFirstComponentIncludingDisabled( item_id, "SpriteComponent", "item_unidentified" )
+            if( pic_comp ~= nil ) then EntityRemoveComponent( item_id, pic_comp ) end
         end,
         
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
@@ -435,8 +455,28 @@ local ITEM_CATS = {
     {
         name = "tablet",
 
-        on_check = function( item_id, data, this_info )
+        on_check = function( item_id )
             return EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ) ~= nil
+        end,
+        
+        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+            return uid
+        end,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+            return uid, true
+        end,
+
+        on_info_name = function( item_id, item_comp, default_name )
+            local name = get_item_name( item_id, item_comp )
+            return name == "" and default_name or name
+        end,
+    },
+    {
+        name = GameTextGetTranslatedOrNot( "$mat_item_box2d" ),
+
+        on_check = function( item_id )
+            return true
         end,
         
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
@@ -446,27 +486,22 @@ local ITEM_CATS = {
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             return uid
         end,
-    },
-    {
-        name = GameTextGetTranslatedOrNot( "$mat_item_box2d" ),
 
-        on_check = function( item_id, data, this_info )
-            return true
-        end,
-
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
-            return uid
+        on_info_name = function( item_id, item_comp, default_name )
+            local name = get_item_name( item_id, item_comp )
+            return name == "" and default_name or name
         end,
     },
 }
 
 local GUI_STRUCT = {
-    slot = new_slot,
+    slot = new_vanilla_slot,
+    icon = new_vanilla_icon,
+    tooltip = new_vanilla_tooltip,
+    plate = new_vanilla_plate,
+
     full_inv = new_generic_inventory,
+    modder = new_generic_modder,
     applet_strip = new_generic_applets,
     
     bars = {
@@ -490,14 +525,18 @@ local GUI_STRUCT = {
         effects = new_generic_effects,
         perks = new_generic_perks,
     },
-    
+
     pickup = new_generic_pickup,
     pickup_info = new_pickup_info,
     drop = new_generic_drop,
 
-    modder = new_generic_modder,
     extra = new_generic_extra,
-    custom = {}, --table of string-indexed funcs (sorted alphabetically + put README menu here)
+    custom = {
+        aa_readme = function( gui, uid, screen_w, screen_h, data, zs, xys )
+            --? menu where all the controls will be described (+ some quick settings and settings refresh button; put README menu in custom)
+            return uid, data, {0,0}
+        end,
+    },
 }
 
 --<{> MAGICAL APPEND MARKER <}>--

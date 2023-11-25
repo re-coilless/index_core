@@ -1,5 +1,10 @@
+use inv_boy instead
+
+
+
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_type - all the inventory kinds this item can be inserted into
+check dragger_done_externally and if it goes false after you set it to true - this is the moment to swap
 
 [GENERAL]
 Changes to vanilla game:
@@ -164,7 +169,7 @@ local data = {
             pic = ComponentGetValue2( abil_comp, "sprite_file" )
             ItemC = item_comp
             inv_type = invs[inv_name] --numerical value
-            name = get_item_name( item_id, abil_comp, item_comp )
+            name = get_item_name( item_id, item_comp, abil_comp )
             desc = GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" ))
             uses_left = ComponentGetValue2( item_comp, "uses_remaining" )
             is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
@@ -203,6 +208,8 @@ local data = {
         name = "FULL",
         desc = "Wand editing with minimal obstruction.",
 
+        menu_capable = true,
+        force_show = true,
         no_inv_toggle = true,
         is_hidden = true,
         allow_wand_editing = true,
@@ -212,8 +219,9 @@ local data = {
         can_see = true,
         allow_shooting = true,
         allow_advanced_draggables = true,
-        nuke_em_all = true,
-
+        nuke_default = true,
+        nuke_custom = true,
+        
         custom_func = function( gui, uid, screen_w, screen_h, data, zs, xys, inv, is_post )
             return uid, data, inv
         end,

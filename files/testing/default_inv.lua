@@ -11,7 +11,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
             pic_x, pic_y = core_x, core_y
             for i,col in pairs( slot_data ) do
                 for e,slot in ipairs( col ) do
-                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_func, {
+                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                         inv_id = inv_id,
                         id = slot,
                         inv_slot = {i,e},
@@ -20,17 +20,30 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
                 end
                 pic_x, pic_y = pic_x + w + step, core_y
             end
-        else --make it shake periodically + allow overriding pic
+        else
+            if( not( data.is_opened )) then
+                local anim_var = data.frame_num%200
+                if( anim_var < 30 ) then
+                    pic_y = pic_y + ( 0.15*( anim_var - 15 ))^2 - 5.06
+                end
+            end
+            
+            local pic = data.loot_marker
+            local storage_pic = get_storage( inv_id, "loot_marker" )
+            if( storage_pic ~= nil ) then
+                pic = ComponentGetValue2( storage_pic, "value_string" )
+            end
+            
             local alpha, clicked, is_hovered = 0.7, false, false
-            local w,h = get_pic_dim( data.loot_marker )
-            colourer( data.the_gui, {0,0,0} )
-            uid = new_image( data.the_gui, uid, pic_x - w/2, pic_y - w/2, zs.in_world_back + 0.0001, data.loot_marker, nil, nil, 0.3, true )
+            local w,h = get_pic_dim( pic )
+            colourer( data.the_gui, {0,0,0})
+            uid = new_image( data.the_gui, uid, pic_x - w/2, pic_y - w/2, zs.in_world_back + 0.0001, pic, nil, nil, 0.3, true )
             if( not( data.is_opened )) then
                 clicked,_,is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
-                uid = new_vanilla_tooltip( gui, uid, nil, zs.tips, { is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
+                uid = data.tip_func( gui, uid, nil, zs.tips, { is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
                 if( is_hovered ) then alpha = 1 end
                 if( clicked ) then
-                    data.is_opened = true
+                    data.inv_toggle = true
                     for i,gmod in ipairs( data.gmod.gmods ) do
                         if( gmod.allow_external_inventories ) then
                             ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", i )
