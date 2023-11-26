@@ -1,7 +1,3 @@
-use inv_boy instead
-
-
-
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_type - all the inventory kinds this item can be inserted into
 check dragger_done_externally and if it goes false after you set it to true - this is the moment to swap
@@ -114,6 +110,8 @@ local data = {
             end,
             on_data = function( item_id, data, this_info )
                 return data, this_info
+            end,
+            ctrl_script = function( itm.id, data, itm )
             end,
 
             on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick )

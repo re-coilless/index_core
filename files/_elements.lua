@@ -1,7 +1,7 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
 function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
-    local root_x, root_y = 19, 20
+    local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
     local pic_x, pic_y = root_x, root_y
     
     local this_data = data.item_list
@@ -194,7 +194,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
 end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
-    local pic_x, pic_y = screen_w - 41, 20
+    local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
     local red_shift = 0
 
     local this_data = data.DamageModel
@@ -453,7 +453,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
                 6,
             }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 
-            if( shake_frame < 0 ) then
+            if( shake_frame >= 20 ) then
                 data.memo.delay_shake[data.active_item] = nil
             end
             pic_y = pic_y + 8
@@ -644,8 +644,11 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
 end
 
 function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
-    local pic_x, pic_y = unpack( xys.orbs )
+    local pic_x, pic_y = unpack( xys.hp )
     pic_y = pic_y + data.effect_icon_spacing
+    local orb_x, orb_y = unpack( xys.orbs )
+    pic_x, orb_y = orb_x, orb_y + 5
+    if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
 
     local this_data = data.icon_data.ings
     if( #this_data > 0 and not( data.gmod.menu_capable )) then
@@ -851,7 +854,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
                         local info_dump = false
                         if( cost_check ) then
-                            local will_pause = data.item_cats[ item_data[10].cat ].on_gui_pause ~= nil
+                            local will_pause = cat_callback( data, item_data[10], "on_gui_pause" ) ~= nil
                             ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
                             local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=0} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
@@ -903,13 +906,16 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 if( data.is_opened and data.gmod.show_full ) then
                     pickup_info.id = -1
                     pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
-                elseif( data.item_cats[ pickup_info.info.cat ].on_gui_world ~= nil ) then
-                    local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
-                    local pic_x, pic_y = world2gui( i_x, i_y )
-                    uid = data.item_cats[ pickup_info.info.cat ].on_gui_world( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
+                else
+                    local guiing = cat_callback( data, pickup_info.info, "on_gui_world" )
+                    if( guiing ~= nil ) then
+                        local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
+                        local pic_x, pic_y = world2gui( i_x, i_y )
+                        uid = guiing( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
+                    end
                 end
                 
-                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xyz )
+                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
                 if( pickup_info.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )
@@ -941,7 +947,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 local this_info = interactables[1]
                 local storage_check = get_storage( this_info[1], "index_check" )
                 if( storage_check ~= nil ) then
-                    this_info, will_show, button_time = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, this_info )
+                    this_info, will_show, do_action = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, this_info )
                 end
                 if( will_show ) then
                     local message_func = info_func
@@ -954,7 +960,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         id = this_info[1],
                         desc = { capitalizer( this_info[3]), string.gsub( this_info[4], "$0", "[USE]" )},
                         txt = "[USE]",
-                    }, zs, xyz )
+                    }, zs, xys )
                 end
             end
             if( data.Controls[3][2]) then
@@ -984,7 +990,7 @@ function new_generic_drop( this_item, data )
 
         local do_default = true
         local this_data = from_tbl_with_id( data.item_list, this_item )
-        local callback = data.item_cats[ this_data.cat ].on_drop
+        local callback = cat_callback( data, this_data, "on_drop" )
         if( callback ~= nil ) then
             do_default = callback( this_item, data, this_data, false )
         end
@@ -1092,7 +1098,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
 
             new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
             uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
-
+            
             colourer( gui, arrow_left_c )
             uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )
             colourer( gui, arrow_right_c )

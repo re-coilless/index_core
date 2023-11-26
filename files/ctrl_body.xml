@@ -202,10 +202,10 @@
 		name="info_mtr_static"
 		value_bool="0"
 	></VariableStorageComponent>
-
+	
 	<VariableStorageComponent
 		name="effect_icon_spacing"
-		value_int="5"
+		value_int="35"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="min_effect_duration"

@@ -67,7 +67,7 @@ local APPLETS = {
     l = {},
     r = {
         {
-            name = "README", --? menu where all the controls will be described (+ some quick settings and settings refresh button)
+            name = "README",
             desc = "The complete user guide.",
 
             pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
@@ -85,22 +85,23 @@ local ITEM_CATS = {
         name = GameTextGetTranslatedOrNot( "$item_wand" ),
         is_wand = true,
         is_quickest = true,
+        do_full_man = true,
         advanced_pic = true,
 
         on_check = function( item_id )
             local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
             return abil_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )
         end,
-        on_data = function( item_id, data, this_info )
-            --add wand invs to data.inventories, add an ability to do custom code for this
-            --insert spells to item list
-            --wand slot count should be slot_count - always_casts
-            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana) for bottom right
-
+        on_info_name = function( item_id, item_comp, default_name )
+            local name = get_item_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
+            return name == "" and default_name or name
+        end,
+        on_data = function( item_id, data, this_info, item_list_wip )
             this_info.wand_info = {
                 main = {
-                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
+
+                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
@@ -113,8 +114,6 @@ local ITEM_CATS = {
                     math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
                 },
                 misc = {
-                    _G[ComponentGetValue2( this_info.AbilityC, "slot_consumption_function" )] or function() return -1 end,
-
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
@@ -128,12 +127,19 @@ local ITEM_CATS = {
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
                     ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
+
+                    -- _G[ComponentGetValue2( this_info.AbilityC, "slot_consumption_function" )] or function() return -1 end, --gun.lua for this
                 },
             }
+            
+            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end ) --wand slot count should be slot_count - always_casts
+            
+            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana) for bottom right
+
             return data, this_info
         end,
 
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick, is_full )
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             --if is_quick, do em wands
             return uid, data
         end,
@@ -141,12 +147,12 @@ local ITEM_CATS = {
             --use this for in-world tips too
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
             --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
-            return uid--, true
+            return uid
         end,
         
         on_pickup = function( item_id, data, this_info, is_post )
@@ -170,10 +176,6 @@ local ITEM_CATS = {
         -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
         --     return uid
         -- end,
-        on_info_name = function( item_id, item_comp, default_name )
-            local name = get_item_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
-            return name == "" and default_name or name
-        end,
     },
     {
         name = GameTextGetTranslatedOrNot( "$item_potion" ),
@@ -182,7 +184,15 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return not( EntityHasTag( item_id, "not_a_potion" )) and EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" ) ~= nil
         end,
-        on_data = function( item_id, data, this_info )
+        on_info_name = function( item_id, item_comp, default_name )
+            local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
+            local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
+            barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
+            
+            local name, cap = get_potion_info( item_id, get_item_name( item_comp, item_comp ), barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+            return name..( cap or "" )
+        end,
+        on_data = function( item_id, data, this_info, item_list_wip )
             local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
             this_info.MatterC = matter_comp
             this_info.matter_info = {
@@ -219,7 +229,7 @@ local ITEM_CATS = {
             return data, this_info
         end,
         
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, can_drag, is_dragged, in_hand, is_quick, is_full )
+        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             local cap_max = this_info.matter_info[1]
             local mtrs = this_info.matter_info[2]
             local content_total = mtrs[1]
@@ -230,14 +240,14 @@ local ITEM_CATS = {
                 uid = new_image( gui, uid, pic_x + 2, pic_y + 2, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
             end
             
-            if( not( is_full )) then
+            if( not( john_bool.is_full )) then
                 pic_x, pic_y = pic_x + w/2, pic_y + h/2
                 w, h = w - 4, h - 4
                 pic_x, pic_y = pic_x - w/2, pic_y + h/2
 
                 local k = h/cap_max
                 local size = k*math.min( content_total, cap_max )
-                local alpha = is_dragged and 0.7 or 0.9
+                local alpha = john_bool.is_dragged and 0.7 or 0.9
                 local delta = 0
                 for i,m in ipairs( content_tbl ) do
                     local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
@@ -258,17 +268,17 @@ local ITEM_CATS = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
 
             local nuke_it, target_angle = true, 0
             if( action_func ~= nil ) then
-                if( is_dragged ) then
+                if( john_bool.is_dragged ) then
                     if( data.drag_action ) then
                         nuke_it, target_angle = unpack( action_func( item_id, data, this_info, 3 ))
                     end
-                elseif( r_clicked and data.is_opened and is_usable ) then
+                elseif( john_bool.is_rmb and data.is_opened and john_bool.is_usable ) then
                     action_func( item_id, data, this_info, 2 )
                 end
             end
@@ -293,7 +303,7 @@ local ITEM_CATS = {
             end
             
             local angle = 0
-            if( is_dragged ) then
+            if( john_bool.is_dragged ) then
                 angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
                 pic_y = pic_y + simple_anim( data, "sucking_drift", 0, 0.2 )
             end
@@ -414,15 +424,6 @@ local ITEM_CATS = {
             }
             return func_tbl[ type ]( item_id, data, this_info )
         end,
-
-        on_info_name = function( item_id, item_comp, default_name )
-            local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
-            local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
-            barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
-            
-            local name, cap = get_potion_info( item_id, get_item_name( item_comp, item_comp ), barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
-            return name..( cap or "" )
-        end,
     },
     {
         name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
@@ -431,11 +432,20 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return EntityHasTag( item_id, "card_action" ) or EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ) ~= nil
         end,
-        on_data = function( item_id, data, this_info )
+        on_data = function( item_id, data, this_info, item_list_wip )
             local action_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" )
             this_info.ActionC = action_comp
             this_info.spell_id = ComponentGetValue2( action_comp, "action_id" )
+            this_info.pic = data.loot_marker
             
+            local parent_id = EntityGetParent( item_id ) or 0
+            if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
+                parent_id = from_tbl_with_id( item_list_wip, parent_id )
+                if( parent_id.is_wand ) then
+                    this_info.in_wand = parent_id.id
+                end
+            end
+
             --pull the info from spell table
 
             return data, this_info
@@ -448,7 +458,9 @@ local ITEM_CATS = {
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale, false )
+            --do the type-based frame
             return uid
         end,
     },
@@ -458,18 +470,17 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ) ~= nil
         end,
-        
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
-            return uid, true
-        end,
-
         on_info_name = function( item_id, item_comp, default_name )
             local name = get_item_name( item_id, item_comp )
             return name == "" and default_name or name
+        end,
+
+        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+            return uid
+        end,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale, false )
+            return uid, true
         end,
     },
     {
@@ -478,18 +489,17 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return true
         end,
+        on_info_name = function( item_id, item_comp, default_name )
+            local name = get_item_name( item_id, item_comp )
+            return name == "" and default_name or name
+        end,
         
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             return uid
         end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, clicked, r_clicked, is_hovered, hov_func, action_func, is_full, in_hand, is_usable, is_dragged, hov_scale )
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             return uid
-        end,
-
-        on_info_name = function( item_id, item_comp, default_name )
-            local name = get_item_name( item_id, item_comp )
-            return name == "" and default_name or name
         end,
     },
 }

@@ -179,8 +179,8 @@ function OnPlayerSpawned( hooman )
 		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
 	end
 	
-
-
+	
+	CreateItemActionEntity( "LIGHTNING", x, y )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 end
 

@@ -475,6 +475,7 @@ if( #ctrl_bodies > 0 ) then
 
             inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )},
             inventories = {},
+            inventories_init = {},
             inventories_extra = {},
             slot_state = {},
             item_cats = item_cats,
@@ -630,10 +631,12 @@ if( #ctrl_bodies > 0 ) then
             if( itm.inv_slot == nil ) then
                 table.insert( nuke_em, i )
             end
-            if( data.item_cats[ itm.cat ].ctrl_script ~= nil ) then
-                data.item_cats[ itm.cat ].ctrl_script( itm.id, data, itm )
+
+            local ctrl_func = cat_callback( data, itm, "ctrl_script" )
+            if( ctrl_func ~= nil ) then
+                ctrl_func( itm.id, data, itm )
             else
-                inventory_man( itm.id, data, itm )
+                inventory_man( itm.id, data, itm, itm.id == data.active_item )
             end
         end
         if( #nuke_em > 0 ) then
@@ -654,7 +657,7 @@ if( #ctrl_bodies > 0 ) then
             data.drag_action = false
         end
         for i,mut in ipairs( global_mutators ) do
-            data = mut( data )
+            data, z_layers, pos_tbl = mut( data, z_layers, pos_tbl )
         end
         if( data.applets.done == nil ) then
             data.applets.done = true
@@ -774,7 +777,7 @@ if( #ctrl_bodies > 0 ) then
 
         if( data.inv_toggle and not( data.gmod.no_inv_toggle or false )) then
             data.memo.inv_alpha = data.frame_num + 15
-            play_sound( data, data.is_opened and "open" or "close" )
+            play_sound( data, data.is_opened and "close" or "open" )
             ComponentSetValue2( iui_comp, "mActive", not( data.is_opened ))
         elseif( data.gmod.no_inv_toggle and not( data.is_opened )) then
             ComponentSetValue2( iui_comp, "mActive", true )
