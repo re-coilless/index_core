@@ -124,6 +124,17 @@ local data = {
                 return uid
             end,
 
+            on_equip = function( item_id, data, this_info )
+            end,
+            on_action = function( item_id, data, this_info, type )
+                local func_tbl = {
+                    function( item_id, data, this_info )
+                    end,
+                    function( item_id, data, this_info )
+                    end,
+                }
+                return func_tbl[ type ]( item_id, data, this_info )
+            end,
             on_pickup = function( item_id, data, this_info, is_post )
                 local func_tbl = {
                     function( item_id, data, this_info )

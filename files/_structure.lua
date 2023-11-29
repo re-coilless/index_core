@@ -132,7 +132,7 @@ local ITEM_CATS = {
                 },
             }
             
-            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end ) --wand slot count should be slot_count - always_casts
+            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end )
             
             --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana) for bottom right
 
@@ -140,8 +140,18 @@ local ITEM_CATS = {
         end,
 
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
-            --if is_quick, do em wands
+            if( data.gmod.allow_wand_editing and john_bool.is_quick and data.is_opened ) then
+                pic_x, pic_y = unpack( data.wand_inventory == nil and data.xys.full_inv or data.wand_inventory )
+                
+                local w,h = 0,0
+                uid, w, h = data.wand_func( gui, uid, pic_x + 2*b2n( john_bool.in_hand ), pic_y, zs, data, this_info, false, john_bool.in_hand )
+                data.wand_inventory = { pic_x, pic_y + h }
+            end
+            
             return uid, data
+        end,
+        on_inv_edit = function( item_id, data, this_info )
+            return item_id == data.active_item
         end,
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
             --use this for in-world tips too
@@ -173,7 +183,7 @@ local ITEM_CATS = {
         on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
             return uid
         end,
-        -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --(if no noitapatcher, drop to 20 frames - off by default)
+        -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --should know the state (if is picked or not)
         --     return uid
         -- end,
     },
@@ -276,10 +286,10 @@ local ITEM_CATS = {
             if( action_func ~= nil ) then
                 if( john_bool.is_dragged ) then
                     if( data.drag_action ) then
-                        nuke_it, target_angle = unpack( action_func( item_id, data, this_info, 3 ))
+                        nuke_it, target_angle = unpack( action_func( item_id, data, this_info, 2 ))
                     end
-                elseif( john_bool.is_rmb and data.is_opened and john_bool.is_usable ) then
-                    action_func( item_id, data, this_info, 2 )
+                elseif( john_bool.is_rmb and data.is_opened and john_bool.is_quick ) then
+                    action_func( item_id, data, this_info, 1 )
                 end
             end
             if( not( nuke_it )) then
@@ -317,21 +327,8 @@ local ITEM_CATS = {
             return uid, true, true
         end,
 
-        on_pickup = function( item_id, data, this_info, is_post )
-            local func_tbl = {
-                function( item_id, data, this_info ) return 0 end,
-                function( item_id, data, this_info )
-                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
-                        local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( this_info.xy ))
-                        ComponentGetValue2( EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" ), "emitted_material_name", CellFactory_GetName( this_info.matter_info[2][2][1][1]))
-                    end
-                end,
-            }
-            return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
-        end,
         on_action = function( item_id, data, this_info, type )
             local func_tbl = {
-                function( item_id, data, this_info ) end,
                 function( item_id, data, this_info )
                     if( this_info.matter_info[3] ) then
                         if( this_info.matter_info[2][1] > 0 ) then
@@ -424,6 +421,18 @@ local ITEM_CATS = {
             }
             return func_tbl[ type ]( item_id, data, this_info )
         end,
+        on_pickup = function( item_id, data, this_info, is_post )
+            local func_tbl = {
+                function( item_id, data, this_info ) return 0 end,
+                function( item_id, data, this_info )
+                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
+                        local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( this_info.xy ))
+                        ComponentGetValue2( EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" ), "emitted_material_name", CellFactory_GetName( this_info.matter_info[2][2][1][1]))
+                    end
+                end,
+            }
+            return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
+        end,
     },
     {
         name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
@@ -433,20 +442,25 @@ local ITEM_CATS = {
             return EntityHasTag( item_id, "card_action" ) or EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ) ~= nil
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
+            if( this_info.is_permanent ) then
+                this_info.charges = -1
+            end
+
             local action_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" )
             this_info.ActionC = action_comp
-            this_info.spell_id = ComponentGetValue2( action_comp, "action_id" )
-            this_info.pic = data.loot_marker
-            
+
+            local spell_id = ComponentGetValue2( action_comp, "action_id" )
+            data, this_info.spell_info = get_action_data( data, spell_id )
+            this_info.pic = this_info.spell_info.sprite
+            this_info.spell_id = spell_id
+
             local parent_id = EntityGetParent( item_id ) or 0
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
-                parent_id = from_tbl_with_id( item_list_wip, parent_id )
+                parent_id = from_tbl_with_id( item_list_wip, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then
                     this_info.in_wand = parent_id.id
                 end
             end
-
-            --pull the info from spell table
 
             return data, this_info
         end,
@@ -456,11 +470,32 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+            if( in_world ) then
+                return uid
+            end
+            --do full metadata table dump
+            --switch to the top if won't fit
+            
+            uid = data.tip_func( gui, uid, nil, pic_z + 0.1, { "", pic_x, pic_y, 100, 50 }, nil, true ) --option to make the bg alpha 1
+            
             return uid
         end,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale, false )
-            --do the type-based frame
+            local angle, is_considered = 0, john_bool.is_dragged or john_bool.is_hov
+            if( john_bool.can_drag ) then
+                local spd = data.spell_anim_frames
+                angle = -math.rad( 10 )*( is_considered and 1.5 or math.sin(( data.frame_num%spd )*math.pi/spd ))
+            end
+            local pic_z = slot_z( data, this_info.id, zs.icons )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
+            if( is_considered ) then colourer( gui, { 185, 220, 223 }) end
+            uid = new_spell_frame( gui, uid, pic_x, pic_y, ( john_bool.is_dragged and pic_z or zs.icons ) + 0.001, this_info.spell_info.type )
+            
+            if( john_bool.is_hov and hov_func ~= nil ) then
+                pic_x, pic_y = unpack( data.spell_tip )
+                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+            end
+
             return uid
         end,
     },
@@ -509,6 +544,7 @@ local GUI_STRUCT = {
     icon = new_vanilla_icon,
     tooltip = new_vanilla_tooltip,
     plate = new_vanilla_plate,
+    wand = new_vanilla_wand,
 
     full_inv = new_generic_inventory,
     modder = new_generic_modder,

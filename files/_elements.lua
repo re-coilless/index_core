@@ -22,12 +22,13 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         local w, h, step = 0, 0, 1
-        
+        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
+
         local cat_wands = pic_x
         local inv_id = data.inventories_player[1]
         local slot_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( slot_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+            uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-1},
@@ -40,7 +41,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         local cat_items = pic_x
         slot_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( slot_data ) do
-            uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+            uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-2},
@@ -63,7 +64,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
                     local count = not( data.gmod.show_fullest or false ) and 1 or #col
                     for e = 1,count do
                         local slot = col[e]
-                        uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+                        uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
@@ -851,7 +852,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                                 cost_check = false
                             end
                         end
-
+                        
                         local info_dump = false
                         if( cost_check ) then
                             local will_pause = cat_callback( data, item_data[10], "on_gui_pause" ) ~= nil

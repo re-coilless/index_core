@@ -25,7 +25,7 @@ function OnModInit()
 	local shader_file = "data/shaders/post_final.frag"
 	local file = ModTextFileGetContent( shader_file )
 	file = string.gsub( file, "uniform float low_health_indicator_alpha;", "uniform float low_health_indicator_alpha;\r\nuniform vec4 low_health_indicator_alpha_proper;" )
-	file = string.gsub( file, "* low_health_indicator_alpha;", "* low_health_indicator_alpha_proper[0];" )
+	file = string.gsub( file, "%* low_health_indicator_alpha;", "* low_health_indicator_alpha_proper[0];" )
 	ModTextFileSetContent( shader_file, file )
 
 	local gun_file = "data/scripts/gun/gun.lua"
@@ -75,11 +75,22 @@ function OnModInit()
 	end
 end
 
--- function OnPausePreUpdate()
--- 	if( not( InputIsKeyDown( 8 --[[e]] ))) then
--- 		magic_pause( false )
--- 	end
--- end
+function OnPausePreUpdate()
+	-- if( not( InputIsKeyDown( 8 --[[e]] ))) then
+	-- 	magic_pause( false )
+	-- end
+	
+	--escape closes, e again picks up in the first free slot or replaces the currently held
+	--(if no noitapatcher, drop to 20 frames - off by default)
+	--pause code in a func
+
+	--top half is the shit being picked up
+	--bottom half is the shit to pick + scrollbar
+	--darker background
+	--display inv slots and the descs if said slots in as a vert paged shit
+	--only display the stuff that actually has on_gui_pause func and only check the quick+quickest invs
+	--upon hovering over the slot, the list gets reodered to show the hovered at the top
+end
 
 -- function OnWorldPreUpdate()
 -- 	if( InputIsKeyDown( 8 --[[e]] )) then

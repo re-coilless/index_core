@@ -167,6 +167,14 @@
 		name="fancy_potion_bar"
 		value_bool="1"
 	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="spell_anim_frames"
+		value_int="60"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="no_wand_scaling"
+		value_bool="0"
+	></VariableStorageComponent>
 	
 	<VariableStorageComponent
 		name="reload_threshold"
@@ -205,7 +213,7 @@
 	
 	<VariableStorageComponent
 		name="effect_icon_spacing"
-		value_int="35"
+		value_int="40"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="min_effect_duration"
@@ -215,7 +223,7 @@
 		name="max_perk_count"
 		value_int="5"
 	></VariableStorageComponent>
-
+	
 	<VariableStorageComponent
 		name="in_world_pickups"
 		value_bool="0"

@@ -11,7 +11,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
             pic_x, pic_y = core_x, core_y
             for i,col in pairs( slot_data ) do
                 for e,slot in ipairs( col ) do
-                    uid, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+                    uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
                         inv_id = inv_id,
                         id = slot,
                         inv_slot = {i,e},
