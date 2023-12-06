@@ -132,10 +132,10 @@ local ITEM_CATS = {
                 },
             }
             
-            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end )
+            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
             
-            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana) for bottom right
-
+            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana, actions_per_round < 1) for bottom right
+            
             return data, this_info
         end,
 
@@ -150,14 +150,8 @@ local ITEM_CATS = {
             
             return uid, data
         end,
-        on_inv_edit = function( item_id, data, this_info )
-            return item_id == data.active_item
-        end,
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            --use this for in-world tips too
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+        on_tooltip = new_vanilla_wtt,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
@@ -199,7 +193,8 @@ local ITEM_CATS = {
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
             
-            local name, cap = get_potion_info( item_id, get_item_name( item_comp, item_comp ), barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+            local v1, v2 = get_item_name( item_id, item_comp )
+            local name, cap = get_potion_info( item_id, v1, barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
             return name..( cap or "" )
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
@@ -233,7 +228,7 @@ local ITEM_CATS = {
                 }
             end
 
-            this_info.name, this_info.fullness = get_potion_info( item_id, this_info.name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+            this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
 
             return data, this_info
@@ -275,22 +270,18 @@ local ITEM_CATS = {
 
             return uid, data
         end,
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+        on_tooltip = new_vanilla_ptt,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
 
             local nuke_it, target_angle = true, 0
-            if( action_func ~= nil ) then
-                if( john_bool.is_dragged ) then
-                    if( data.drag_action ) then
-                        nuke_it, target_angle = unpack( action_func( item_id, data, this_info, 2 ))
-                    end
-                elseif( john_bool.is_rmb and data.is_opened and john_bool.is_quick ) then
-                    action_func( item_id, data, this_info, 1 )
+            if( john_bool.is_dragged ) then
+                if( drag_func ~= nil and data.drag_action ) then
+                    nuke_it, target_angle = unpack( drag_func( item_id, data, this_info ))
                 end
+            elseif( rmb_func ~= nil and john_bool.is_rmb and data.is_opened and john_bool.is_quick ) then
+                rmb_func( item_id, data, this_info )
             end
             if( not( nuke_it )) then
                 if( item_pic_data[ this_info.pic ].memo_xy == nil ) then
@@ -327,9 +318,9 @@ local ITEM_CATS = {
             return uid, true, true
         end,
 
-        on_action = function( item_id, data, this_info, type )
+        on_action = function( type )
             local func_tbl = {
-                function( item_id, data, this_info )
+                [1] = function( item_id, data, this_info )
                     if( this_info.matter_info[3] ) then
                         if( this_info.matter_info[2][1] > 0 ) then
                             play_sound( data, { "data/audio/Desktop/misc.bank", "misc/potion_drink" })
@@ -339,7 +330,7 @@ local ITEM_CATS = {
                         end
                     end
                 end,
-                function( item_id, data, this_info )
+                [2] = function( item_id, data, this_info )
                     local out = { true, 0 }
 
                     local x, y = unpack( data.player_xy )
@@ -419,7 +410,7 @@ local ITEM_CATS = {
                     return out
                 end,
             }
-            return func_tbl[ type ]( item_id, data, this_info )
+            return func_tbl[ type ]
         end,
         on_pickup = function( item_id, data, this_info, is_post )
             local func_tbl = {
@@ -454,7 +445,7 @@ local ITEM_CATS = {
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
 
-            local parent_id = EntityGetParent( item_id ) or 0
+            local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
                 parent_id = from_tbl_with_id( item_list_wip, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then
@@ -469,18 +460,8 @@ local ITEM_CATS = {
             if( pic_comp ~= nil ) then EntityRemoveComponent( item_id, pic_comp ) end
         end,
         
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            if( in_world ) then
-                return uid
-            end
-            --do full metadata table dump
-            --switch to the top if won't fit
-            
-            uid = data.tip_func( gui, uid, nil, pic_z + 0.1, { "", pic_x, pic_y, 100, 50 }, nil, true ) --option to make the bg alpha 1
-            
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+        on_tooltip = new_vanilla_stt,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local angle, is_considered = 0, john_bool.is_dragged or john_bool.is_hov
             if( john_bool.can_drag ) then
                 local spd = data.spell_anim_frames
@@ -488,11 +469,11 @@ local ITEM_CATS = {
             end
             local pic_z = slot_z( data, this_info.id, zs.icons )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
-            if( is_considered ) then colourer( gui, { 185, 220, 223 }) end
+            if( is_considered ) then colourer( gui, {185,220,223}) end
             uid = new_spell_frame( gui, uid, pic_x, pic_y, ( john_bool.is_dragged and pic_z or zs.icons ) + 0.001, this_info.spell_info.type )
             
             if( john_bool.is_hov and hov_func ~= nil ) then
-                pic_x, pic_y = unpack( data.spell_tip )
+                pic_x, pic_y = pic_x - 10, pic_y + 10
                 uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
@@ -509,12 +490,16 @@ local ITEM_CATS = {
             local name = get_item_name( item_id, item_comp )
             return name == "" and default_name or name
         end,
-
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+        
+        on_tooltip = new_vanilla_ttt,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale, false )
+
+            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+                pic_x, pic_y = pic_x - 10, pic_y + 10
+                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+            end
+
             return uid, true
         end,
     },
@@ -529,11 +514,15 @@ local ITEM_CATS = {
             return name == "" and default_name or name
         end,
         
-        on_tooltip = function( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-            return uid
-        end,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, action_func, hov_func, hov_scale )
+        on_tooltip = new_vanilla_itt,
+        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+
+            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+                pic_x, pic_y = pic_x - 10, pic_y + 10
+                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+            end
+
             return uid
         end,
     },

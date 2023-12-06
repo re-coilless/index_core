@@ -51,11 +51,11 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         if( data.is_opened ) then
-            new_text( gui, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            new_text( gui, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+            uid = new_font_vanilla_shadow( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
+            uid = new_font_vanilla_shadow( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
             if( data.gmod.show_full ) then
                 pic_x = pic_x + data.inv_spacings[2]
-                new_text( gui, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+                uid = new_font_vanilla_shadow( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
                 
                 local core_y = pic_y
                 inv_id = data.inventories_player[2]
@@ -68,7 +68,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
-                        }, data.is_opened, false, true )
+                        }, data.is_opened, true, true )
                         pic_x, pic_y = pic_x, pic_y + h + step
                     end
                     pic_x, pic_y = pic_x + w + step, core_y
@@ -77,6 +77,8 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         pic_y = pic_y + h
+        data.xys.inv_root_orig = { root_x, root_y }
+        data.xys.full_inv_orig = { pic_x, pic_y }
         if( data.is_opened ) then
             root_x, root_y = root_x - 3, root_y - 3
             pic_x, pic_y = pic_x + 3 - step, pic_y + 3
@@ -319,7 +321,7 @@ end
 function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.flight )
     data.memo.mana_shake = data.memo.mana_shake or {}
-
+    
     local this_data = data.active_info
     if( this_data.id ~= nil and not( data.gmod.menu_capable )) then
         local potion_data = {}
@@ -530,7 +532,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
 
     function do_info( gui, p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
-
+        
         txt = capitalizer( txt )
         if( is_right ) then
             local w,h = get_text_dim( txt )
@@ -538,7 +540,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             p_x = p_x - offset_x
         end
         if( hover_func ~= nil ) then hover_func( offset_x ) end
-        new_shadow_text( gui, p_x, p_y, zs.main, txt, alpha )
+        uid = new_font_vanilla_shadow( gui, uid, p_x, p_y, zs.main, txt, {255,255,255,alpha})
     end
     
     if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then
@@ -558,7 +560,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( info_comp ~= nil ) then
                         name = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
                     end
-                    if( not( string_bullshit[name] or false )) then
+                    if( check_item_name( name )) then
                         kind = { 0, name }
                     elseif( ComponentGetValue2( item_comp, "is_pickable" )) then
                         for k,cat in ipairs( data.item_cats ) do
@@ -569,7 +571,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                         end
                     elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
                         name = EntityGetName( entity_id )
-                        if( not( string_bullshit[name] or false )) then
+                        if( check_item_name( name )) then
                             kind = { 0, GameTextGetTranslatedOrNot( name )}
                         end
                     end
@@ -589,7 +591,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
             end
         end
-        if( not( string_bullshit[info] or false )) then
+        if( check_item_name( info )) then
             local inter_alpha = 1
             if( data.info_pointer ) then
                 pic_x, pic_y = unpack( data.pointer_ui )
@@ -868,7 +870,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                                     if( item_data[7]) then
                                         pickup_info.desc = { pickup_info.desc, item_data[10].desc }
                                     end
-
+                                    
                                     button_time = false
                                     break
                                 else
@@ -917,6 +919,9 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
+                uid = cat_callback( data, pickup_info.info, "on_tooltip", {
+                    gui, uid, pickup_info.id, data, pickup_info.info, pic_x, pic_y, zs.tips, true
+                }, { uid })
                 if( pickup_info.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )
@@ -926,7 +931,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         y = anim_y,
                         frame = data.frame_num,
                     })
-
+                    
                     local orig_name = pickup_info.info.name
                     if( pickup_info.info.fullness ~= nil ) then
                         pickup_info.info.name = pickup_info.info.name..pickup_info.info.fullness
@@ -991,9 +996,18 @@ function new_generic_drop( this_item, data )
 
         local do_default = true
         local this_data = from_tbl_with_id( data.item_list, this_item )
+        local inv_data = data.inventories[ this_data.inv_id ] or {}
         local callback = cat_callback( data, this_data, "on_drop" )
         if( callback ~= nil ) then
             do_default = callback( this_item, data, this_data, false )
+        end
+        if( inv_data.update ~= nil ) then
+            if( inv_data.update( data, from_tbl_with_id( data.item_list, p, nil, nil, inv_data ), this_data, {})) then
+                local reset_id = get_item_owner( p, true )
+                if( reset_id > 0 ) then
+                    active_item_reset( reset_id )
+                end
+            end
         end
         if( do_default ) then
             local x, y = unpack( data.player_xy )
@@ -1097,7 +1111,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
             end
 
-            new_text( gui, pic_x - ( 3 + w ), pic_y - h, zs.main, this_data.name, {255,255,255,alpha})
+            new_text( gui, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, this_data.name, {255,255,255,alpha})
             uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
             
             colourer( gui, arrow_left_c )

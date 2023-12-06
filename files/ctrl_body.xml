@@ -169,7 +169,7 @@
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="spell_anim_frames"
-		value_int="60"
+		value_int="75"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="no_wand_scaling"

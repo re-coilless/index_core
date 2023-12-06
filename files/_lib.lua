@@ -1,24 +1,66 @@
 dofile_once( "data/scripts/lib/utilities.lua" )
 
 --utility lists
-font_tbl = {
-	vanilla_small = {
-		default = { 4, 4 },
-		space = 0,
-		height = 6,
-	},
-	[""] = { 
-		default = { 6, 6, },
-		space = 4,
-		height = 7,
-	},
-}
-
 string_bullshit = {
 	default = 1,
 	unknown = 1,
 	[" "] = 1,
 	[""] = 1,
+}
+str2id = {
+	[" "]=32,	["!"]=33,	["\""]=34,	["#"]=35,	["$"]=36,	["%"]=37,	["&"]=38,	["'"]=39,	["("]=40,	[")"]=41,	["*"]=42,
+	["+"]=43,	[","]=44,	["-"]=45,	["."]=46,	["/"]=47,	["0"]=48,	["1"]=49,	["2"]=50,	["3"]=51,	["4"]=52,	["5"]=53,
+	["6"]=54,	["7"]=55,	["8"]=56,	["9"]=57,	[":"]=58,	[";"]=59,	["<"]=60,	["="]=61,	[">"]=62,	["?"]=63,	["@"]=64,
+	["A"]=65,	["B"]=66,	["C"]=67,	["D"]=68,	["E"]=69,	["F"]=70,	["G"]=71,	["H"]=72,	["I"]=73,	["J"]=74,	["K"]=75,
+	["L"]=76,	["M"]=77,	["N"]=78,	["O"]=79,	["P"]=80,	["Q"]=81,	["R"]=82,	["S"]=83,	["T"]=84,	["U"]=85,	["V"]=86,
+	["W"]=87,	["X"]=88,	["Y"]=89,	["Z"]=90,	["["]=91,	["\\"]=92,	["]"]=93,	["^"]=94,	["_"]=95,	["`"]=96,	["a"]=97,
+	["b"]=98,	["c"]=99,	["d"]=100,	["e"]=101,	["f"]=102,	["g"]=103,	["h"]=104,	["i"]=105,	["j"]=106,	["k"]=107,	["l"]=108,
+	["m"]=109,	["n"]=110,	["o"]=111,	["p"]=112,	["q"]=113,	["r"]=114,	["s"]=115,	["t"]=116,	["u"]=117,	["v"]=118,	["w"]=119,
+	["x"]=120,	["y"]=121,	["z"]=122,	["|"]=124,	["~"]=126,	["¡"]=161,	["©"]=169,	["«"]=171,	["¬"]=172,	["»"]=187,	["¿"]=191,
+	["À"]=192,	["Á"]=193,	["Â"]=194,	["Ã"]=195,	["Ä"]=196,	["Å"]=197,	["Ç"]=199,	["È"]=200,	["É"]=201,	["Ê"]=202,	["Ë"]=203,
+	["Ì"]=204,	["Í"]=205,	["Î"]=206,	["Ï"]=207,	["Ñ"]=209,	["Ó"]=211,	["Ô"]=212,	["Õ"]=213,	["Ö"]=214,	["Ø"]=216,	["Ù"]=217,
+	["Ú"]=218,	["Û"]=219,	["Ü"]=220,	["ß"]=223,	["à"]=224,	["á"]=225,	["â"]=226,	["ã"]=227,	["ä"]=228,	["å"]=229,	["ç"]=231,
+	["è"]=232,	["é"]=233,	["ê"]=234,	["ë"]=235,	["ì"]=236,	["í"]=237,	["î"]=238,	["ï"]=239,	["ñ"]=241,	["ó"]=243,	["ô"]=244,
+	["õ"]=245,	["ö"]=246,	["ø"]=248,	["ù"]=249,	["ú"]=250,	["û"]=251,	["ü"]=252,	["Ą"]=260,	["ą"]=261,	["Ć"]=262,	["ć"]=263,
+	["Ę"]=280,	["ę"]=281,	["Ł"]=321,	["ł"]=322,	["Ń"]=323,	["ń"]=324,	["Œ"]=338,	["œ"]=339,	["Ś"]=346,	["ś"]=347,	["Ź"]=377,
+	["ź"]=378,	["Ż"]=379,	["ż"]=380,	["Ё"]=1025,	["А"]=1040,	["Б"]=1041,	["В"]=1042,	["Г"]=1043,	["Д"]=1044,	["Е"]=1045,	["Ж"]=1046,
+	["З"]=1047,	["И"]=1048,	["Й"]=1049,	["К"]=1050,	["Л"]=1051,	["М"]=1052,	["Н"]=1053,	["О"]=1054,	["П"]=1055,	["Р"]=1056,	["С"]=1057,
+	["Т"]=1058,	["У"]=1059,	["Ф"]=1060,	["Х"]=1061,	["Ц"]=1062,	["Ч"]=1063,	["Ш"]=1064,	["Щ"]=1065,	["Ъ"]=1066,	["Ы"]=1067,	["Ь"]=1068,
+	["Э"]=1069,	["Ю"]=1070,	["Я"]=1071,	["а"]=1072,	["б"]=1073,	["в"]=1074,	["г"]=1075,	["д"]=1076,	["е"]=1077,	["ж"]=1078,	["з"]=1079,
+	["и"]=1080,	["й"]=1081,	["к"]=1082,	["л"]=1083,	["м"]=1084,	["н"]=1085,	["о"]=1086,	["п"]=1087,	["р"]=1088,	["с"]=1089,	["т"]=1090,
+	["у"]=1091,	["ф"]=1092,	["х"]=1093,	["ц"]=1094,	["ч"]=1095,	["ш"]=1096,	["щ"]=1097,	["ъ"]=1098,	["ы"]=1099,	["ь"]=1100,	["э"]=1101,
+	["ю"]=1102,	["я"]=1103,	["ё"]=1105,	["–"]=8211,	["—"]=8212,	["’"]=8217,	["“"]=8220,	["”"]=8221,	["„"]=8222,	["…"]=8230,	["∞"]=8734,
+}
+byte2id = {
+	[32]=32,	[33]=33,	[34]=34,	[35]=35,	[36]=36,	[37]=37,	[38]=38,	[39]=39,	[40]=40,	[41]=41,	[42]=42,
+	[43]=43,	[44]=44,	[45]=45,	[46]=46,	[47]=47,	[48]=48,	[49]=49,	[50]=50,	[51]=51,	[52]=52,	[53]=53,
+	[54]=54,	[55]=55,	[56]=56,	[57]=57,	[58]=58,	[59]=59,	[60]=60,	[61]=61,	[62]=62,	[63]=63,	[64]=64,
+	[65]=65,	[66]=66,	[67]=67,	[68]=68,	[69]=69,	[70]=70,	[71]=71,	[72]=72,	[73]=73,	[74]=74,	[75]=75,
+	[76]=76,	[77]=77,	[78]=78,	[79]=79,	[80]=80,	[81]=81,	[82]=82,	[83]=83,	[84]=84,	[85]=85,	[86]=86,
+	[87]=87,	[88]=88,	[89]=89,	[90]=90,	[91]=91,	[92]=92,	[93]=93,	[94]=94,	[95]=95,	[96]=96,	[97]=97,
+	[98]=98,	[99]=99,	[100]=100,	[101]=101,	[102]=102,	[103]=103,	[104]=104,	[105]=105,	[106]=106,	[107]=107,	[108]=108,
+	[109]=109,	[110]=110,	[111]=111,	[112]=112,	[113]=113,	[114]=114,	[115]=115,	[116]=116,	[117]=117,	[118]=118,	[119]=119,
+	[120]=120,	[121]=121,	[122]=122,	[124]=124,	[126]=126,
+	[198817]=161,	[198825]=169,	[198827]=171,	[198828]=172,	[198843]=187,	[198847]=191,	[199808]=192,	[199809]=193,
+	[199810]=194,	[199811]=195,	[199812]=196,	[199813]=197,	[199815]=199,	[199816]=200,	[199817]=201,	[199818]=202,
+	[199819]=203,	[199820]=204,	[199821]=205,	[199822]=206,	[199823]=207,	[199825]=209,	[199827]=211,	[199828]=212,
+	[199829]=213,	[199830]=214,	[199832]=216,	[199833]=217,	[199834]=218,	[199835]=219,	[199836]=220,	[199839]=223,
+	[199840]=224,	[199841]=225,	[199842]=226,	[199843]=227,	[199844]=228,	[199845]=229,	[199847]=231,	[199848]=232,
+	[199849]=233,	[199850]=234,	[199851]=235,	[199852]=236,	[199853]=237,	[199854]=238,	[199855]=239,	[199857]=241,
+	[199859]=243,	[199860]=244,	[199861]=245,	[199862]=246,	[199864]=248,	[199865]=249,	[199866]=250,	[199867]=251,
+	[199868]=252,	[200836]=260,	[200837]=261,	[200838]=262,	[200839]=263,	[200856]=280,	[200857]=281,	[201857]=321,
+	[201858]=322,	[201859]=323,	[201860]=324,	[201874]=338,	[201875]=339,	[201882]=346,	[201883]=347,	[201913]=377,
+	[201914]=378,	[201915]=379,	[201916]=380,	[213121]=1025,	[213136]=1040,	[213137]=1041,	[213138]=1042,	[213139]=1043,
+	[213140]=1044,	[213141]=1045,	[213142]=1046,	[213143]=1047,	[213144]=1048,	[213145]=1049,	[213146]=1050,	[213147]=1051,
+	[213148]=1052,	[213149]=1053,	[213150]=1054,	[213151]=1055,	[213152]=1056,	[213153]=1057,	[213154]=1058,	[213155]=1059,
+	[213156]=1060,	[213157]=1061,	[213158]=1062,	[213159]=1063,	[213160]=1064,	[213161]=1065,	[213162]=1066,	[213163]=1067,
+	[213164]=1068,	[213165]=1069,	[213166]=1070,	[213167]=1071,	[213168]=1072,	[213169]=1073,	[213170]=1074,	[213171]=1075,
+	[213172]=1076,	[213173]=1077,	[213174]=1078,	[213175]=1079,	[213176]=1080,	[213177]=1081,	[213178]=1082,	[213179]=1083,
+	[213180]=1084,	[213181]=1085,	[213182]=1086,	[213183]=1087,	[214144]=1088,	[214145]=1089,	[214146]=1090,	[214147]=1091,
+	[214148]=1092,	[214149]=1093,	[214150]=1094,	[214151]=1095,	[214152]=1096,	[214153]=1097,	[214154]=1098,	[214155]=1099,
+	[214156]=1100,	[214157]=1101,	[214158]=1102,	[214159]=1103,	[214161]=1105,
+	[237109395]=8211,	[237109396]=8212,	[237109401]=8217,	[237109404]=8220,
+	[237109405]=8221,	[237109406]=8222,	[237109414]=8230,	[237117598]=8734,
 }
 
 --core backend
@@ -276,6 +318,105 @@ function D_packer( data, div )
 	return data_raw
 end
 
+function font_extractor( font_name )
+	font_database = font_database or {}
+	if( font_database[ font_name ] ~= nil ) then return font_database[ font_name ] end
+
+	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "font_kid" ), font_name )
+	if( storage == nil ) then return end
+	local font_raw = ComponentGetValue2( storage, "value_string" )
+
+	local font_tbl = {}
+	for value in string.gmatch( font_raw, "([^|]+)" ) do
+		if( font_tbl.path == nil ) then
+			font_tbl.path = value
+		elseif( font_tbl.height == nil ) then
+			font_tbl.height = tonumber( value )
+		else
+			font_tbl.dims = font_tbl.dims or {}
+			for char in string.gmatch( value, "([^:]+)" ) do
+				local char_tbl = {}
+				for v in string.gmatch( char, "([^&]+)" ) do
+					table.insert( char_tbl, tonumber( v ))
+				end
+				font_tbl.dims[ char_tbl[1]] = { char_tbl[2], char_tbl[3]}
+			end
+		end
+	end
+	font_database[ font_name ] = font_tbl
+
+	return font_tbl
+end
+
+function font_packer( font_tbl )
+	local dims_raw = ":"
+	for id,dim in pairs( font_tbl.dims ) do
+		dims_raw = dims_raw.."&"..id.."&"..dim[1].."&"..dim[2].."&:"
+	end
+	return ( "|"..font_tbl.path.."|"..font_tbl.height.."|"..dims_raw.."|" )
+end
+
+function init_metafont()
+    local out, memo = "", {}
+	for l,id in magic_sorter( str2id ) do
+	    local num = 0
+	    for c in string.gmatch( l, "." ) do
+	        num = bit.lshift( num, 10 ) + string.byte( c )
+	    end
+	    if( memo[ num ]) then print( num.." :: "..memo[ num ].."|"..id ) end
+        out = out.."["..num.."]="..id..",\t"
+        memo[ num ] = id
+	end
+    print( out )
+end
+
+function test_metafont()
+	GlobalsSetValue( "METAFONT_TEST", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz|~¡©«¬»¿ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÓÔÕÖØÙÚÛÜßàáâãäåçèéêëìíîïñóôõöøùúûüĄąĆćĘęŁłŃńŒœŚśŹźŻżЁАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяё–—’“”„…∞" )
+    local str = GlobalsGetValue( "METAFONT_TEST", "" )
+    local num, new_str = 0, ""
+	for c in string.gmatch( str, "." ) do
+	    num = bit.lshift( num, 10 ) + string.byte( c )
+	    
+	    local id = byte2id[ num ]
+	    if( id ) then
+	        num = 0
+	        for char,i in pairs( str2id ) do
+	            if( id == i ) then
+					print( char.."|"..id )
+	                new_str = new_str..char
+	                break
+                end
+	        end
+        end
+	end
+	print( tostring( str == new_str ))
+end
+
+function get_metafont( str )
+	metafont_memo = metafont_memo or {}
+	if( metafont_memo[ str ] ~= nil ) then
+		local out = metafont_memo[ str ]
+		if( GameGetFrameNum()%36000 == 0 ) then
+			metafont_memo = nil
+		end
+		return out
+	end
+	
+	local str_tbl, num = {}, 0
+	for c in string.gmatch( str, "." ) do
+		num = bit.lshift( num, 10 ) + string.byte( c )
+	    
+	    local id = byte2id[ num ]
+	    if( id ) then
+			table.insert( str_tbl, id )
+	        num = 0
+        end
+	end
+	metafont_memo[ str ] = str_tbl
+
+	return str_tbl
+end
+
 function clean_append( to_file, from_file )
 	local marker = "%-%-<{> MAGICAL APPEND MARKER <}>%-%-"
 	local line_wrecker = "\n\n\n"
@@ -515,10 +656,14 @@ function play_sound( data, sfx, x, y )
 	GamePlaySound( sound[1], sound[2], x, y )
 end
 
-function active_item_reset( inv_comp )
-	ComponentSetValue2( inv_comp, "mActiveItem", 0 )
-	ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
-	ComponentSetValue2( inv_comp, "mInitialized", false )
+function active_item_reset( inv_id )
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( inv_id or 0, "Inventory2Component" )
+	if( inv_comp ~= nil ) then
+		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
+		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
+		ComponentSetValue2( inv_comp, "mInitialized", false )
+	end
+	return inv_comp
 end
 
 function get_active_wand( hooman )
@@ -528,6 +673,44 @@ function get_active_wand( hooman )
 	end
 	
 	return 0
+end
+
+function get_item_owner( item_id, figure_it_out )
+	if( item_id ~= nil ) then
+		local root_man = EntityGetRootEntity( item_id )
+		local parent = item_id
+		while( parent ~= root_man ) do
+			parent = EntityGetParent( parent )
+
+			local wand_check = get_active_wand( parent )
+			if( figure_it_out or false ) then
+				wand_check = wand_check > 0
+			else
+				wand_check = wand_check == item_id
+			end
+
+			if( wand_check ) then
+				return parent
+			end
+		end
+	end
+	
+	return 0
+end
+
+function is_wand_useless( wand_id )
+	local children = EntityGetAllChildren( wand_id ) or {}
+	if( #children > 0 ) then
+		for i,child in ipairs( children ) do
+			local itm_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
+			if( itm_comp ~= nil ) then
+				if( ComponentGetValue2( itm_comp, "uses_remaining" ) ~= 0 ) then
+					return false
+				end
+			end
+		end
+	end
+	return true
 end
 
 function get_phys_mass( entity_id )
@@ -580,7 +763,25 @@ function get_action_data( data, spell_id )
 		data.memo.spell_data[ spell_id ] = magic_copy( thisdata )
 		if( thisdata.action ~= nil ) then
 			add_projectile_old = add_projectile
-			add_projectile = function( path ) table.insert( c.projs, path ) end
+			add_projectile = function( path )
+				table.insert( c.projs, { 1, path })
+			end
+			add_projectile_trigger_timer_old = add_projectile_trigger_timer
+			add_projectile_trigger_timer = function( path, delay, draw_count )
+				table.insert( c.projs, { 2, path, draw_count, delay })
+			end
+			add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
+			add_projectile_trigger_hit_world = function( path, draw_count )
+				table.insert( c.projs, { 3, path, draw_count })
+			end
+			add_projectile_trigger_death_old = add_projectile_trigger_death
+			add_projectile_trigger_death = function( path, draw_count )
+				table.insert( c.projs, { 4, path, draw_count })
+			end
+			draw_actions_old = draw_actions
+			draw_actions = function( draw_count )
+				c.draw_many = draw_count
+			end
 			current_reload_time, dont_draw_actions, shot_effects = 0, true, {}
 
 			ConfigGunShotEffects_Init( shot_effects )
@@ -592,7 +793,12 @@ function get_action_data( data, spell_id )
 			thisdata.action()
 			metadata.state.reload_time, metadata.shot_effects = current_reload_time, magic_copy( shot_effects )
 
-			c, current_reload_time, dont_draw_actions, shot_effects, add_projectile = nil, nil, nil, nil, add_projectile_old
+			c, current_reload_time, dont_draw_actions, shot_effects = nil, nil, nil, nil
+			add_projectile = add_projectile_old
+			add_projectile_trigger_timer = add_projectile_trigger_timer_old
+			add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
+			add_projectile_trigger_death = add_projectile_trigger_death_old
+			draw_actions = draw_actions_old
 			data.memo.spell_data[ spell_id ].meta = magic_copy( metadata )
 		end
 	end
@@ -656,7 +862,7 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
-function get_inv_data( inv_id, slot_count, kind, kind_func, check_func, gui_func )
+function get_inv_data( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func )
 	local storage_kind = get_storage( inv_id, "index_kind" )
 	if( storage_kind ~= nil ) then
 		kind = D_extractor( ComponentGetValue2( storage_kind, "value_string" ))
@@ -677,6 +883,10 @@ function get_inv_data( inv_id, slot_count, kind, kind_func, check_func, gui_func
 	if( storage_check ~= nil ) then
 		check_func = dofile_once( ComponentGetValue2( storage_check, "value_string" ))
 	end
+	local storage_update = get_storage( inv_id, "index_update" )
+	if( storage_update ~= nil ) then
+		update_func = dofile_once( ComponentGetValue2( storage_update, "value_string" ))
+	end
 	
 	local inv_ts = {
 		inventory_full = { "full" },
@@ -689,6 +899,7 @@ function get_inv_data( inv_id, slot_count, kind, kind_func, check_func, gui_func
 		size = slot_count,
 		func = gui_func,
 		check = check_func,
+		update = update_func,
 	}
 end
 
@@ -718,7 +929,7 @@ function inv_check( data, item_info, inv_info )
 	local inv_data = inv_info.full or data.inventories[ inv_info.inv_id ]
 	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
 	
-	local val = ( from_tbl_with_id( inv_info.kind, "universal" ) ~= 0 ) or ( #from_tbl_with_id( get_valid_inventories( item_info.inv_type, item_info.is_quickest ), inv_info.kind ) > 0 and ( inv_data.check == nil or inv_data.check( item_info, inv_info )))
+	local val = (( from_tbl_with_id( inv_info.kind, "universal" ) ~= 0 ) or #from_tbl_with_id( get_valid_inventories( item_info.inv_type, item_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( item_info, inv_info ))
 	if( val ) then
 		val = cat_callback( data, item_info, "on_inv_check", {
 			item_info, inv_info
@@ -739,10 +950,9 @@ end
 
 function inventory_boy( item_id, data, this_info, in_hand )
 	local in_wand = ( this_info.in_wand or 0 ) > 0
-	if( in_wand ) then
-		in_hand = this_info.in_wand == data.active_item
-	elseif( in_hand == nil ) then
-		in_hand = item_id == data.active_item
+	if( in_wand or in_hand == nil ) then
+		local wand_id = in_wand and this_info.in_wand or item_id
+		in_hand = get_item_owner( wand_id ) > 0
 	end
 	
 	local hooman = EntityGetRootEntity( item_id )
@@ -783,7 +993,7 @@ end
 
 function set_to_slot( item_info, data, is_player )
 	if( is_player == nil ) then
-		local parent_id = EntityGetParent( item_info.id ) or 0
+		local parent_id = EntityGetParent( item_info.id )
 		is_player = data.inventories_player[1] == parent_id or data.inventories_player[2] == parent_id
 	end
 	
@@ -811,7 +1021,16 @@ function set_to_slot( item_info, data, is_player )
 									if( not( is_fancy and from_tbl_with_id( valid_invs, i ) == 0 )) then
 										local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
 										if( inv_check( data, item_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt, })) then
-											if( temp_slot[2] < 0 ) then temp_slot[2] = temp_slot[2] + 1 end
+											if( temp_slot[2] < 0 ) then
+												temp_slot[2] = temp_slot[2] + 1
+											end
+											
+											local parent_check = EntityGetParent( item_info.id )
+											if( parent_check > 0 and inv_id ~= parent_check) then
+												EntityRemoveFromParent( item_info.id )
+												EntityAddChild( inv_id, item_info.id )
+											end
+
 											slot_num = temp_slot
 											data.slot_state[ inv_id ][i][k] = item_info.id
 											break
@@ -854,16 +1073,33 @@ function set_to_slot( item_info, data, is_player )
 end
 
 function slot_swap( data, item_in, slot_data )
-	local active_reset = false
+	local reset = { 0, 0 }
 
-	local parent1 = EntityGetParent( item_in ) or 0
+	local parent1 = EntityGetParent( item_in )
 	local parent2 = slot_data.inv_id
+	local tbl = { parent1, parent2 }
+	local idata = {}
+	for i = 1,2 do
+		local p = tbl[i]
+		if( p > 0 ) then
+			local p_info = data.inventories[p] or {}
+			if( p_info.update ~= nil ) then
+				if( #idata == 0 ) then
+					idata[1] = from_tbl_with_id( data.item_list, item_in, nil, nil, {})
+					idata[2] = from_tbl_with_id( data.item_list, slot_data.id, nil, nil, {})
+				end
+				if( p_info.update( data, from_tbl_with_id( data.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
+					table.insert( reset, get_item_owner( p, true ))
+				end
+			end
+		end
+	end
 	if( parent1 ~= parent2 ) then
-		active_reset = item_in == data.active_item or slot_data.id == data.active_item
-
+		reset[1] = get_item_owner( item_in )
 		EntityRemoveFromParent( item_in )
 		EntityAddChild( parent2, item_in )
 		if( slot_data.id > 0 ) then
+			reset[2] = get_item_owner( slot_data.id )
 			EntityRemoveFromParent( slot_data.id )
 			EntityAddChild( parent1, slot_data.id )
 		end
@@ -878,26 +1114,29 @@ function slot_swap( data, item_in, slot_data )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
 	end
 
-	local tbl = { parent1, parent2 }
-	for i = 1,2 do
-		local p = tbl[i]
-		if( p > 0 ) then
-			local p_info = from_tbl_with_id( data.item_list, p, nil, nil, {})
-			if( p_info.id ~= nil ) then
-				active_reset = cat_callback( data, p_info, "on_inv_edit", { p, data, p_info }) or false
-			end
+	for i,deadman in pairs( reset ) do
+		if( deadman > 0 ) then
+			active_item_reset( deadman )
 		end
 	end
+end
 
-	return active_reset
+function check_item_name( name )
+	if( name == nil ) then return false end
+	return not( string_bullshit[ name ] or false ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
 end
 
 function get_item_name( entity_id, item_comp, abil_comp )
-	local name = abil_comp ~= nil and ComponentGetValue2( abil_comp, "ui_name" ) or ""
-	name = name == "" and EntityGetName( entity_id ) or name
-	local temp = ( ComponentGetValue2( item_comp, "always_use_item_name_in_ui" ) or string_bullshit[ name ]) and ComponentGetValue2( item_comp, "item_name" ) or name
-	name = ( string_bullshit[ temp ] or false ) and name or temp
-	return string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" )
+	local name = ComponentGetValue2( item_comp, "item_name" )
+	if( abil_comp ~= nil ) then
+		local temp = ComponentGetValue2( abil_comp, "ui_name" )
+		name = check_item_name( temp ) and temp or name
+	end
+	if( check_item_name( name )) then
+		local temp = EntityGetName( entity_id )
+		name = check_item_name( temp ) and temp or name
+	end
+	return check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
 function get_potion_info( entity_id, name, max_count, total_count, matters )
@@ -916,7 +1155,13 @@ function get_potion_info( entity_id, name, max_count, total_count, matters )
 	if( max_count > 0 ) then
 		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*total_count/max_count + 0.5 )))
 	end
-	return info..( info == "" and info or " " )..GameTextGetTranslatedOrNot( name ), v
+
+	if( string.sub(name,1,1) == "$" ) then
+		name = capitalizer( GameTextGet( name, info ))
+	else
+		name = info..( info == "" and info or " " )..string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" )
+	end
+	return name, v
 end
 
 function get_item_data( item_id, data, inventory_data, item_list )
@@ -973,7 +1218,6 @@ function get_item_data( item_id, data, inventory_data, item_list )
 
 			"on_inv_check",
 			"on_inventory",
-			"on_inv_edit",
 			"on_tooltip",
 			"on_slot",
 
@@ -1011,7 +1255,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			break
 		end
 	end
-	slot_info.name = get_item_name( item_id, item_comp, abil_comp )
+	slot_info.name, slot_info.raw_name = get_item_name( item_id, item_comp, abil_comp )
 	if( slot_info.cat == nil ) then
 		return
 	elseif(( slot_info.name or "" ) == "" ) then
@@ -1025,6 +1269,9 @@ function get_item_data( item_id, data, inventory_data, item_list )
 	data, slot_info = cat_callback( data, slot_info, "on_data", {
 		item_id, data, slot_info, item_list
 	}, { data, slot_info })
+	
+	local wand_id = ( slot_info.in_wand or false ) and slot_info.in_wand or item_id
+	slot_info.in_hand = get_item_owner( wand_id )
 	
 	return data, slot_info
 end
@@ -1119,9 +1366,9 @@ function drop_item( h_x, h_y, this_data, data, throw_force, do_action )
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
 	local from_x, from_y = 0, 0
-	if( data.active_item == this_item ) then
+	if(( this_data.in_hand or 0 ) > 0 ) then
 		from_x, from_y = EntityGetTransform( this_item )
-		ComponentSetValue2( data.inventory, "mActiveItem", 0 )
+		active_item_reset( this_data.in_hand )
 	else
 		data.throw_pos_rad = data.throw_pos_rad + data.throw_pos_size
 		from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
@@ -1130,7 +1377,6 @@ function drop_item( h_x, h_y, this_data, data, throw_force, do_action )
 		data.throw_pos_rad = data.throw_pos_rad - data.throw_pos_size
 		from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
 	end
-
 	local extra_v_force = 0
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
 	if( vel_comp ~= nil ) then
@@ -1199,20 +1445,33 @@ end
 
 function get_text_dim( text, char_table )
 	local w, h = 0, 0
-	
-	if( char_table == nil ) then
-		local gui = GuiCreate()
-		GuiStartFrame( gui )
-		w, h = GuiGetTextDimensions( gui, text, 1, 2 )
-		GuiDestroy( gui )
-	else
-		h = char_table.height or 0
-		for chr in string.gmatch( text, "." ) do
-			w = w + ( chr == " " and ( char_table.space or 1 ) or ( char_table[chr] or char_table.default[ 1 + b2n( tonumber( chr ) ~= nil )]))
-		end
+	if( type( text ) ~= "table" ) then
+		text = { text }
 	end
 	
-	return w, h
+	local total_w, total_h = 0, 0
+	for i,txt in ipairs( text ) do
+		if( txt == "" or txt == " " ) then
+			w,h = 0,11
+		else
+			if( char_table == nil ) then
+				local gui = GuiCreate()
+				GuiStartFrame( gui )
+				w, h = GuiGetTextDimensions( gui, txt, 1, 2 )
+				GuiDestroy( gui )
+			else
+				h = char_table.height or 0
+				for chr in string.gmatch( txt, "." ) do
+					w = w + char_table.dims[ string.byte( chr )][1]
+				end
+			end
+		end
+
+		if( w > total_w ) then total_w = w end
+		total_h = total_h + h - 2
+	end
+	
+	return total_w, total_h
 end
 
 function get_pic_dim( path )
@@ -1244,6 +1503,8 @@ end
 function liner( text, length, height, length_k, clean_mode, forced_reverse )
 	local formated = {}
 	if( text ~= nil and text ~= "" ) then
+		text = string.gsub( text, "\n", "@" )
+
 		local length_counter = 0
 		if( height ~= nil ) then
 			length_k = length_k or 6
@@ -1431,7 +1692,7 @@ function get_short_num( num, negative_inf )
 	no_subzero = no_subzero or false
 
 	if( num < 0 and not( no_subzero )) then
-		return "i"
+		return "∞"
 	else
 		num = math.max( num, 0 )
 	end
@@ -1455,7 +1716,7 @@ function get_short_num( num, negative_inf )
 		local _, pos = string.find( num, "+", 1, true )
 		num = string.sub( num, 1, 1 ).."e"..string.sub( 100 + tonumber( string.sub( num, pos+1, #num )), 2 )
 	else
-		num = "i"
+		num = "∞"
 	end
 	return num
 end
@@ -1516,12 +1777,18 @@ function register_item_pic( data, this_data, is_advanced )
 	if( this_data.pic == nil ) then
 		return
 	end
-
+	
+	local forced_update = EntityHasTag( this_data.id, "index_pic_update" )
 	item_pic_data[ this_data.pic ] = item_pic_data[ this_data.pic ] or {xy={0,0}, xml_xy={0,0}}
-	if( item_pic_data[ this_data.pic ].dims == nil ) then
+	if( item_pic_data[ this_data.pic ].dims == nil or forced_update ) then
 		item_pic_data[ this_data.pic ].dims = { get_pic_dim( this_data.pic )}
 
-		local is_xml = string.sub( this_data.pic, -4 ) == ".xml" and is_advanced
+		local is_xml = false
+		if( not( forced_update )) then
+			is_xml = string.sub( this_data.pic, -4 ) == ".xml" and is_advanced
+		else
+			EntityRemoveTag( this_data.id, "index_update" )
+		end
 
 		local storage_anim = get_storage( this_data.id, "index_pic_anim" )
 		if( storage_anim ~= nil ) then
@@ -1573,6 +1840,59 @@ function register_item_pic( data, this_data, is_advanced )
 	end
 
 	return this_data.pic
+end
+
+function register_new_font( name, penman_r, penman_w, path_from, path_to, colours )
+	local default_char = string.gsub( penman_r( "mods/index_core/files/fonts/char.xml" ), "|filename|", path_from..".png" )
+	local dims, max_height = {}, 1
+
+	colours = colours or {1,1,1,1}
+	default_char = default_char:gsub( "|rgb_r|", colours[1])
+	default_char = default_char:gsub( "|rgb_g|", colours[2])
+	default_char = default_char:gsub( "|rgb_b|", colours[3])
+	default_char = default_char:gsub( "|alpha|", colours[4])
+
+	local nxml = dofile_once( "mods/index_core/nxml.lua" )
+	local font = nxml.parse( penman_r( path_from..".xml" ))
+	for i,char in ipairs( font:all_of( "QuadChar" )) do
+		local this_char, id = default_char, char.attr.id
+		local pos_x, pos_y = char.attr.rect_x or 0, char.attr.rect_y or 0
+		local size_x, size_y = char.attr.rect_w or 0, char.attr.rect_h or 0
+		this_char = this_char:gsub( "|pos_x|", pos_x )
+		this_char = this_char:gsub( "|pos_y|", pos_y )
+		this_char = this_char:gsub( "|width|", size_x )
+		this_char = this_char:gsub( "|height|", size_y )
+		
+		dims[id] = { size_x, size_y }
+		if( max_height < tonumber( size_y )) then max_height = tonumber( size_y ) end
+
+		local scale = ( char.attr.rect_w or 0 )/( char.attr.width or char.attr.rect_w or 1 )
+		this_char = this_char:gsub( "|scale_x|", scale )
+		this_char = this_char:gsub( "|scale_y|", scale )
+		
+		penman_w( path_to..id..".xml", this_char )
+	end
+	
+	local world_id = GameGetWorldStateEntity()
+	local kid = get_hooman_child( world_id, "font_kid" ) or 0
+	if( kid == 0 ) then
+		kid = EntityLoad( "mods/index_core/files/misc/font_kid.xml" )
+		EntityAddChild( world_id, kid )
+	end
+
+	local storage = get_storage( kid, name )
+	if( storage == nil ) then
+		storage = EntityAddComponent( kid, "VariableStorageComponent",
+		{
+			name = name,
+			value_string = "",
+		})
+	end
+	ComponentSetValue2( storage, "value_string", font_packer({
+		path = path_to,
+		height = max_height,
+		dims = dims,
+	}))
 end
 
 --GUI frontend
@@ -1655,39 +1975,51 @@ function new_dragger( gui, pic_x, pic_y ) --you need to uid them manually
 	return pic_x, pic_y, is_going, clicked, r_clicked, hovered
 end
 
-function new_shadow_text( gui, pic_x, pic_y, pic_z, text, alpha )
-	new_text( gui, pic_x, pic_y, pic_z - 0.01, text, nil, alpha )
-	new_text( gui, pic_x, pic_y + 1, pic_z, text, { 0, 0, 0 }, alpha )
-end
-
 function new_anim_looped( core_path, delay, duration )
 	local num = math.floor( GameGetFrameNum()/tonumber( delay ))%tonumber( duration ) + 1
 	return core_path..num..".png"
 end
 
-function new_font( gui, uid, pic_x, pic_y, pic_z, font_path, txt, colours )
-	uid = uid + 1
-	txt = tostring( txt )
+function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_drift, colours )
+	if( type( text ) ~= "table" ) then text = { tostring( text )} end
+	interline_drift = interline_drift or -2
 	colours = colours or {}
+	uid = uid + 1
 
-	local drift = 0
-	local data = dofile( font_path.."data.lua" )
-	for c in string.gmatch( txt, "." ) do
-		if( c == " " ) then
-			drift = drift + data.space
-		else
-			local pic = font_path..( data[string.byte(c)] or c )..".png"
-			colourer( gui, colours )
-			new_image( gui, -uid, pic_x + drift, pic_y, pic_z, pic, 1, 1, colours[4])
-			drift = drift + get_pic_dim( pic ) + data.step
+	local total_drift = 0
+	local font_data = font_extractor( font_name ) or {}
+	if( font_data.path ~= nil ) then
+		for i,txt in ipairs( text ) do
+			local drift = 0
+			local raw_txt = get_metafont( txt )
+			for i,c in ipairs( raw_txt ) do
+				local char, dims = c, font_data.dims[ c ]
+				if( dims == nil ) then
+					char = "unknown.png"
+					dims = {3,0}
+				else
+					char = char..".xml"
+				end
+
+				colourer( gui, colours )
+				new_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, 1, 1, colours[4])
+
+				drift = drift + dims[1]
+			end
+			if( total_drift < drift ) then total_drift = drift end
+			pic_y = pic_y + font_data.height + interline_drift
 		end
+		uid = uid + 1
 	end
-
-	return uid, drift
+	return uid, total_drift
 end
 
-function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, txt, colours )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_small/", txt, colours )
+function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_shadow", text, nil, colours )
+end
+
+function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, 1, colours )
 end
 
 function new_interface( gui, uid, pos, pic_z, is_debugging )
@@ -1734,14 +2066,14 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			pickup_info.desc = { pickup_info.desc, false }
 		end
 		if( pickup_info.desc[1] ~= "" ) then
+			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
+			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 40 })
 			local w, h = get_text_dim( pickup_info.desc[1])
-			local pic_x, pic_y = unpack( xys.pickup_info or {( screen_w - w )/2, screen_h - 40 })
-			if( pickup_info.desc[2] == true ) then colourer( gui, {208,70,70}) end
-			new_shadow_text( gui, pic_x, pic_y, zs.in_world_ui, pickup_info.desc[1])
-			if( type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= "" ) then
+			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], clr )
+			if( is_elaborate ) then
 				w, h = get_text_dim( pickup_info.desc[2])
-				colourer( gui, {127,127,127})
-				new_shadow_text( gui, pic_x, pic_y + 12, zs.in_world_ui, pickup_info.desc[2])
+				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {207,207,207})
 			end
 		end
 	end
@@ -1750,8 +2082,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
 			local w, h = get_text_dim( pickup_info.txt )
-			colourer( gui, {200,200,200})
-			new_shadow_text( gui, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207})
 		end
 	end
 
@@ -1909,7 +2240,6 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			
 			local length = 0
 			if( text[1] ~= "" ) then
-				text[1] = string.gsub( text[1], "\n", "@" )
 				text[1] = liner( text[1], w*0.9, h - 2, 5.8 )
 				for i,line in ipairs( text[1]) do
 					local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
@@ -1950,7 +2280,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			if( type( extra_func[1] ) == "function" ) then
 				uid = extra_func[1]( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha, extra_func[2])
 			else
-				new_shadow_text( gui, pic_x + 3, pic_y + 1, z, text[1], inter_alpha )
+				uid = new_font_vanilla_shadow( gui, uid, pic_x + 3, pic_y + 1, z, text[1], {255,255,255,inter_alpha})
 			end
 			
 			anim_frame = anim_frame + 1
@@ -1994,6 +2324,80 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 	return unpack( out )
 end
 
+function new_vanilla_wtt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	return uid
+end
+
+function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	return uid
+end
+
+function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	if( in_world ) then
+		return uid
+	end
+	--do full metadata table dump
+	--switch to the top if won't fit
+	
+	uid = data.tip_func( gui, uid, nil, pic_z + 0.1, { "", pic_x, pic_y, 100, 50 }, nil, true ) --option to make the bg alpha 1
+	
+	return uid
+end
+
+function new_vanilla_ttt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	return new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, true )
+end
+
+function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
+	if( string_bullshit[ this_info.name or "" ] or string_bullshit[ this_info.desc or "" ] or string_bullshit[ this_info.pic or "" ]) then
+		return uid
+	end
+
+	this_info.done_desc = liner( this_info.desc, 500, 500, 5.8 )
+	this_info.tt_spacing = {
+		{ get_text_dim( this_info.name )},
+		{ get_text_dim( this_info.done_desc )},
+		{ get_pic_dim( this_info.pic )}
+	}
+	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
+	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
+	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
+	if( in_world ) then
+		pic_x, pic_y = unpack( data.xys.hp )
+		pic_x, pic_y = pic_x - 43, pic_y - 1
+	end
+
+	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, size_x + 5 + this_info.tt_spacing[3][1], size_y + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+		pic_x = pic_x + 2
+		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, this_info.name, do_magic and {121,201,153} or {255,255,178})
+		if( do_magic ) then
+			local storage_rune = get_storage( this_info.id, "runic_cypher" )
+			if( storage_rune == nil ) then
+				storage_rune = EntityAddComponent( this_info.id, "VariableStorageComponent",
+				{
+					name = "runic_cypher",
+					value_float = "0",
+				})
+			end
+			local runic_state = ComponentGetValue2( storage_rune, "value_float" )
+			if( runic_state ~= 1 ) then
+				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, "vanilla_rune", this_info.done_desc, nil, {121,201,153,1-runic_state})
+			end
+			if( runic_state >= 0 ) then
+				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, "vanilla_shadow", this_info.done_desc, nil, {255,255,255,runic_state})
+				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
+			end
+		else
+			uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc )
+		end
+		uid = new_image( gui, uid, pic_x + size_x, pic_y + ( size_y - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5 )
+		
+		return uid
+	end, this_info }, true, in_world )
+
+	return uid
+end
+
 function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, fancy_shadow )
 	angle = angle or 0
 	scale_up = scale_up or false
@@ -2005,10 +2409,15 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 	
 	local w, h = unpack( item_pic_data[ pic ].dims or {1,1})
 	local off_x, off_y = 0, 0
-	if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
-		local x, y = unpack( item_pic_data[ pic ].xy )
-		x, y = rotate_offset( x, y, angle )
-		off_x, off_y = off_x + x, off_y + y
+	if( item_pic_data[ pic ].xy[3] == nil ) then
+		if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
+			local x, y = unpack( item_pic_data[ pic ].xy )
+			x, y = rotate_offset( x, y, angle )
+			off_x, off_y = x, y
+		end
+	else
+		angle = 0
+		off_x, off_y = w/2, h/2
 	end
 	if( item_pic_data[ pic ].anim ) then
 		pic = new_anim_looped( unpack( item_pic_data[ pic ].anim ))
@@ -2045,6 +2454,10 @@ function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angl
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
+	if( info == nil or info.pic == "" ) then
+		return uid, 0, 0
+	end
+
 	local pic_off_x, pic_off_y = 0, 0
 	if( kind == 2 ) then
 		pic_off_x, pic_off_y = 0.5, 0.5
@@ -2089,11 +2502,11 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, info, kind )
 	if( info.txt ~= "" ) then
 		local t_x, t_h = get_text_dim( info.txt )
 		t_x = t_x - txt_off_x
-		new_shadow_text( gui, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, info.txt, is_hovered and 1 or 0.5 )
+		uid = new_font_vanilla_shadow( gui, uid, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, info.txt, {255,255,255,is_hovered and 1 or 0.5})
 		tip_x = tip_x - t_x
 	end
 	if(( info.count or 0 ) > 1 ) then
-		new_shadow_text( gui, pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..info.count, is_hovered and 1 or 0.5 )
+		uid = new_font_vanilla_shadow( gui, uid, pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..info.count, {255,255,255,is_hovered and 1 or 0.5})
 	end
 	if( kind == 4 ) then
 		pic_y = pic_y - 3
@@ -2150,6 +2563,10 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, is
 		on_slot = cat_callback( data, info, "on_slot" ),
 		on_tooltip = cat_callback( data, info, "on_tooltip" ),
 	}
+	if( cat_tbl.on_action ~= nil ) then
+		cat_tbl.on_rmb = cat_tbl.on_action( 1 )
+		cat_tbl.on_drag = cat_tbl.on_action( 2 )
+	end
 
 	if( info.id > 0 ) then
 		if( info.is_locked ) then
@@ -2172,38 +2589,37 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, is
 				do_default = false
 			end
 		end
-		if( do_default and data.active_item ~= info.id ) then
+		if( do_default and ( info.in_hand or 0 ) == 0 ) then
 			play_sound( data, slot_sfxes.select )
-			active_item_reset( data.inventory )
-			ComponentSetValue2( data.inventory, "mSavedActiveItemIndex", get_child_num( slot_data.inv_id, info.id ))
+			local inv_comp = active_item_reset( get_item_owner( info.id, true ))
+			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", get_child_num( slot_data.inv_id, info.id ))
 		end
 	end
 	
-	local no_action, dragger_hovered = cat_tbl.on_action == nil, false
+	local no_action, dragger_hovered = cat_tbl.on_drag == nil, false
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
-	if( is_active ) then
+	if(( is_full ~= true ) and is_active ) then
 		uid = new_image( gui, uid, pic_x, pic_y, zs[( not( data.is_opened ) or can_drag ) and "main_front" or "icons_front" ] + 0.0001, data.slot_pic.active )
 	end
 	if( data.dragger.item_id > 0 ) then
+		local no_hov_for_ya = true
 		if( check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
 			data.dragger.wont_drop = true
 			if( can_drag ) then
 				local dragged_data = from_tbl_with_id( data.item_list, data.dragger.item_id )
 				if( slot_swap_check( data, dragged_data, info, slot_data )) then
+					no_hov_for_ya = false
 					if( data.dragger.swap_now ) then
 						if( info.id > 0 ) then
 							table.insert( slot_anim, {
 								id = info.id,
-								x = pic_x + ( no_action and 10 or 0 ),
-								y = pic_y + ( no_action and 10 or 0 ),
+								x = pic_x,
+								y = pic_y - 10,
 								frame = data.frame_num,
 							})
 						end
 						play_sound( data, slot_sfxes[ info.id > 0 and "move_item" or "move_empty" ])
-
-						if( slot_swap( data, data.dragger.item_id, slot_data )) then
-							active_item_reset( data.inventory )
-						end
+						slot_swap( data, data.dragger.item_id, slot_data )
 						data.dragger.item_id = -1
 					end
 					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= info.id ) then
@@ -2212,6 +2628,9 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, is
 					end
 				end
 			end
+		end
+		if( no_hov_for_ya ) then
+			is_hovered = false
 		end
 	end
 	if((( info.id > 0 and is_hovered ) or dragger_hovered ) and not( slot_hover_sfx[2])) then
@@ -2230,7 +2649,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, is
 		end
 	elseif( data.is_opened ) then
 		if( is_full == true ) then
-			colourer( gui, { 150, 150, 150 })
+			colourer( gui, {150,150,150})
 			uid = new_image( gui, uid, slot_x - 0.5, slot_y - 0.5, zs.icons_front + 0.001, data.slot_pic.bg_alt, 21/20, 21/20, 0.75 )
 		else
 			uid = new_image( gui, uid, slot_x, slot_y, zs.icons_front + 0.001, data.slot_pic.locked )
@@ -2255,18 +2674,16 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, info, is
 				is_quick = is_quick,
 				can_drag = can_drag,
 				is_dragged = is_dragged,
-			}, cat_tbl.on_action, cat_tbl.on_tooltip, might_swap and 1.2 or 1 )
+			}, cat_tbl.on_rmb, cat_tbl.on_drag, cat_tbl.on_tooltip, might_swap and 1.2 or 1 )
 		end
 		if( not( suppress_action or false )) then
-			if( cat_tbl.on_action ~= nil ) then
-                if( is_dragged ) then
-                    if( data.drag_action ) then
-                        cat_tbl.on_action( info.id, data, info, 2 )
-                    end
-                elseif( r_clicked and data.is_opened and is_quick ) then
-                    cat_tbl.on_action( info.id, data, info, 1 )
-                end
-            end
+			if( is_dragged ) then
+				if( cat_tbl.on_drag ~= nil and data.drag_action ) then
+					cat_tbl.on_drag( info.id, data, info )
+				end
+			elseif( cat_tbl.on_rmb ~= nil and r_clicked and data.is_opened and is_quick ) then
+				cat_tbl.on_rmb( info.id, data, info )
+			end
 		end
 		if( not( suppress_charges or false )) then
 			slot_x, slot_y = slot_x + 2, slot_y + 2
@@ -2291,19 +2708,19 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_data, can_drag, is_f
 	local item = slot_data.idata or {}
 	if( not( slot_data.id )) then
 		slot_data.id = -1
-		item = { id = slot_data.id }
+		item = { id = slot_data.id, in_hand = 0 }
 	elseif( item.id == nil ) then
 		item = from_tbl_with_id( data.item_list, slot_data.id )
 	end
-
+	
 	local w, h, clicked, r_clicked, is_hovered = false, false, false
-	uid, data, w, h, clicked, r_clicked, is_hovered = data.slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, item.id == data.active_item, can_drag, is_full, is_quick )
+	uid, data, w, h, clicked, r_clicked, is_hovered = data.slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, item, item.in_hand > 0, can_drag, is_full, is_quick )
 	if( item.cat ~= nil ) then
 		uid, data = cat_callback( data, item, "on_inventory", {
 			gui, uid, item.id, data, item, pic_x, pic_y, zs, {
 				can_drag = can_drag,
 				is_dragged = data.dragger.item_id > 0 and data.dragger.item_id == item.id,
-				in_hand = item.id == data.active_item,
+				in_hand = item.in_hand > 0,
 				is_quick = is_quick,
 				is_full = is_full,
 			}
@@ -2385,10 +2802,9 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_data, is_tip, 
 						if( idata.is_permanent ) then
 							uid = new_image( gui, uid, slot_x + 1, slot_y + 12, zs.icons_front, "data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
 						end
-						data.spell_tip = { slot_x, slot_y + 20 }
 					end
 
-					if( counter%2 == 0 and counter > 2 ) then colourer( data.the_gui, { 185, 220, 223 }) end
+					if( counter%2 == 0 and slot_count > 2 ) then colourer( data.the_gui, {185,220,223}) end
 					uid, data, w, h = slot_setup( gui, uid, slot_x, slot_y, zs, data, {
 						inv_id = this_data.id,
 						id = slot,

@@ -34,7 +34,7 @@
         radius="64"
         fade_out_time="0.75"
     ></LightComponent>
-
+    
     <VariableStorageComponent
 		name="index_kind"
 		value_string="|universal|"

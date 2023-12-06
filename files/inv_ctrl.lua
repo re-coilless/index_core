@@ -4,6 +4,7 @@ ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
 dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
 item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
+gonna_drop = gonna_drop or false
 
 slot_going = slot_going or false --a check that makes sure only one slot is being dragged at a time
 slot_memo = slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
@@ -27,7 +28,7 @@ for tid,tip_tbl in pairs( tip_anim ) do
     end
 end
 
-local fake_gui = nil
+local fake_gui, font_gui = nil, nil
 local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 if( #ctrl_bodies > 0 ) then
@@ -120,6 +121,8 @@ if( #ctrl_bodies > 0 ) then
 
         fake_gui = GuiCreate()
         GuiStartFrame( fake_gui )
+        font_gui = GuiCreate()
+        GuiStartFrame( font_gui )
 
         local m_x, m_y = DEBUG_GetMouseWorld()
         local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
@@ -354,7 +357,7 @@ if( #ctrl_bodies > 0 ) then
                         local _, true_id = from_tbl_with_id( effect_tbl.misc, icon_info.pic, nil, "pic" )
 
                         icon_info.amount = -2
-                        if( #simple_effects > 0 and ( EntityGetParent( child ) or 0 ) == hooman ) then
+                        if( #simple_effects > 0 and EntityGetParent( child ) == hooman ) then
                             local effect = from_tbl_with_id( simple_effects, child ) or {}
                             if( #effect > 0 ) then
                                 icon_info.amount = ComponentGetValue2( effect[2], "frames" )
@@ -642,7 +645,7 @@ if( #ctrl_bodies > 0 ) then
             if( ctrl_func ~= nil ) then
                 ctrl_func( itm.id, data, itm )
             else
-                inventory_man( itm.id, data, itm, itm.id == data.active_item )
+                inventory_man( itm.id, data, itm, ( itm.in_hand or 0 ) > 0 )
             end
         end
         if( #nuke_em > 0 ) then
@@ -654,7 +657,7 @@ if( #ctrl_bodies > 0 ) then
         --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
         --test actions materialized
         --allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo)
-
+        
         data.gmod = global_modes[ data.global_mode ]
         data.gmod.gmods = global_modes
         data.gmod.name = GameTextGetTranslatedOrNot( data.gmod.name )
@@ -788,11 +791,13 @@ if( #ctrl_bodies > 0 ) then
         elseif( data.gmod.no_inv_toggle and not( data.is_opened )) then
             ComponentSetValue2( iui_comp, "mActive", true )
         end
-        if( dragger_action and data.dragger.item_id > 0 ) then
-            data.memo.not_wanna_drop = true
-        end
-        if( data.memo.not_wanna_drop ) then
-            data.dragger.wont_drop = true
+        if( not( gonna_drop )) then
+            if( not( dragger_action ) or data.gmod.allow_advanced_draggables ) then
+                data.dragger.wont_drop = true
+            elseif( dragger_action ) then
+                gonna_drop = true
+                GamePrint( "Release to drop..." )
+            end
         end
         if( slot_hover_sfx[2]) then
             slot_hover_sfx[2] = false
@@ -817,7 +822,7 @@ if( #ctrl_bodies > 0 ) then
                             end
                         end
                     end
-                    data.memo.not_wanna_drop = nil
+                    gonna_drop = false
                     slot_memo = nil
                     data.dragger = {}
                 end
@@ -839,6 +844,7 @@ end
 
 if( fake_gui ~= nil ) then
     GuiDestroy( fake_gui )
+    GuiDestroy( font_gui )
     if( #dead_guis > 0 ) then
         for i,gui in ipairs( dead_guis ) do
             GuiDestroy( gui )

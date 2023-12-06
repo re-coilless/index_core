@@ -1,7 +1,6 @@
 if( ModIsEnabled( "mnee" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 end
-
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
@@ -38,6 +37,11 @@ function OnModInit()
 	file = string.gsub( file, "print%(CellFactory_GetUIName%(from_material%) %.%. \" %-> \" %.%. CellFactory_GetUIName%(to_material%)%)", "dofile_once( \"mods/index_core/files/_lib.lua\" )\nGlobalsSetValue( \"fungal_memo\", GlobalsGetValue( \"fungal_memo\", \"\" )..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( from_material )))..\"->\"..capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( to_material )))..\"; \" )" )
 	ModTextFileSetContent( fungal_file, file )
 
+	local refresh_file = "data/scripts/items/spell_refresh.lua"
+	file = ModTextFileGetContent( refresh_file )
+	file = string.gsub( file, "GameRegenItemActionsInPlayer%( entity_who_picked %)", "GameRegenItemActionsInPlayer( entity_who_picked )\nfor i,child in ipairs( EntityGetAllChildren( entity_who_picked ) or {}) do GameRegenItemActionsInPlayer( child ) end" )
+	ModTextFileSetContent( refresh_file, file )
+	
 	local slotless_file = "data/entities/items/pickup/"
 	local slotless_scum = {
 		slotless_file.."cape",
@@ -98,9 +102,47 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers
+--DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick
 
 function OnWorldPreUpdate()
+	dofile_once( "mods/index_core/files/_lib.lua" )
+
+	if( not( custom_font_set or false )) then
+		custom_font_set = true
+		register_new_font( "vanilla_shadow", penman_r, penman_w,
+			"data/fonts/font_pixel",
+			"mods/index_core/files/fonts/vanilla_shadow/"
+		)
+		register_new_font( "vanilla_small", penman_r, penman_w,
+			"mods/index_core/files/fonts/vanilla_small/font_small_numbers",
+			"mods/index_core/files/fonts/vanilla_small/"
+		)
+		register_new_font( "vanilla_rune", penman_r, penman_w,
+			"data/fonts/font_pixel_runes",
+			"mods/index_core/files/fonts/vanilla_rune/"
+		)
+	end
+
+	if( not( matter_test_set or false )) then
+		matter_test_set = true
+		
+		local full_list = ""
+		local full_matters = {
+			CellFactory_GetAllLiquids(),
+			CellFactory_GetAllSands(),
+			CellFactory_GetAllGases(),
+			CellFactory_GetAllFires(),
+			CellFactory_GetAllSolids(),
+		}
+		for	i,list in ipairs( full_matters ) do
+			for e,mtr in ipairs( list ) do
+				full_list = full_list..mtr..(( i == #full_matters and e == #list ) and "" or "," )
+			end
+		end
+		local matter_test = "mods/index_core/files/misc/matter_test.xml"
+		penman_w( matter_test, string.gsub( penman_r( matter_test ), "_MATTERLISTHERE_", full_list ))
+	end
+
 	local hooman = EntityGetWithName( "DEBUG_NAME:player" ) or 0
 	if( hooman > 0 ) then
 		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
@@ -134,26 +176,6 @@ function OnWorldPreUpdate()
 				end
 			end
 		end
-	end
-
-	if( not( matter_test_set or false )) then
-		matter_test_set = true
-		
-		local full_list = ""
-		local full_matters = {
-			CellFactory_GetAllLiquids(),
-			CellFactory_GetAllSands(),
-			CellFactory_GetAllGases(),
-			CellFactory_GetAllFires(),
-			CellFactory_GetAllSolids(),
-		}
-		for	i,list in ipairs( full_matters ) do
-			for e,mtr in ipairs( list ) do
-				full_list = full_list..mtr..(( i == #full_matters and e == #list ) and "" or "," )
-			end
-		end
-		local matter_test = "mods/index_core/files/misc/matter_test.xml"
-		penman_w( matter_test, string.gsub( penman_r( matter_test ), "_MATTERLISTHERE_", full_list ))
 	end
 end
 
@@ -190,9 +212,9 @@ function OnPlayerSpawned( hooman )
 		ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 )
 	end
 	
-	
-	CreateItemActionEntity( "LIGHTNING", x, y )
+	-- CreateItemActionEntity( "LIGHTNING", x, y )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
+	--testing_bag insert in the chest (autoarrange in the grid when inside player root inventory; display contents on hover tooltip)
 end
 
 function OnPlayerDied( hooman )
