@@ -132,9 +132,9 @@ local ITEM_CATS = {
                 },
             }
             
-            data.inventories_init[ item_id ] = get_inv_data( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
+            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
             
-            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana, actions_per_round < 1) for bottom right
+            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana; show nothing if actions_per_round < 1) for bottom right + play sound if is empty and tries to fire (unless actions per round)
             
             return data, this_info
         end,
@@ -144,7 +144,7 @@ local ITEM_CATS = {
                 pic_x, pic_y = unpack( data.wand_inventory == nil and data.xys.full_inv or data.wand_inventory )
                 
                 local w,h = 0,0
-                uid, w, h = data.wand_func( gui, uid, pic_x + 2*b2n( john_bool.in_hand ), pic_y, zs, data, this_info, false, john_bool.in_hand )
+                uid, w, h = data.wand_func( gui, uid, pic_x + 2*b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
                 data.wand_inventory = { pic_x, pic_y + h }
             end
             
@@ -174,7 +174,7 @@ local ITEM_CATS = {
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
 
-        on_gui_world = function( gui, uid, item_id, data, this_info, zs, pic_x, pic_y, no_space, cant_buy )
+        on_gui_world = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy )
             return uid
         end,
         -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --should know the state (if is picked or not)
@@ -486,10 +486,6 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ) ~= nil
         end,
-        on_info_name = function( item_id, item_comp, default_name )
-            local name = get_item_name( item_id, item_comp )
-            return name == "" and default_name or name
-        end,
         
         on_tooltip = new_vanilla_ttt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
@@ -508,10 +504,6 @@ local ITEM_CATS = {
 
         on_check = function( item_id )
             return true
-        end,
-        on_info_name = function( item_id, item_comp, default_name )
-            local name = get_item_name( item_id, item_comp )
-            return name == "" and default_name or name
         end,
         
         on_tooltip = new_vanilla_itt,

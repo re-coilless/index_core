@@ -8,7 +8,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
     if( this_data ~= nil ) then
         if( data.is_opened ) then
             uid = new_image( gui, uid, 0, 0, zs.background, data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
-
+            
             if( not( data.gmod.can_see )) then
                 local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
@@ -543,7 +543,8 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         uid = new_font_vanilla_shadow( gui, uid, p_x, p_y, zs.main, txt, {255,255,255,alpha})
     end
     
-    if( not( data.is_opened and data.gmod.show_full ) and data.pointer_delta[3] < data.info_threshold ) then
+    data.memo.ui_info = data.memo.ui_info or { 0, 0 }
+    if( not( data.is_opened and data.gmod.show_full ) and ( data.memo.ui_info[1] ~= 0 or data.pointer_delta[3] < data.info_threshold )) then
         local info = ""
 
         local entities = EntityGetInRadius( data.pointer_world[1], data.pointer_world[2], data.info_radius ) or {}
@@ -563,9 +564,14 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( check_item_name( name )) then
                         kind = { 0, name }
                     elseif( ComponentGetValue2( item_comp, "is_pickable" )) then
+                        local name_func = function( item_id, item_comp, default_name )
+                            local name = get_item_name( item_id, item_comp )
+                            return name == "" and default_name or name
+                        end
                         for k,cat in ipairs( data.item_cats ) do
                             if( cat.on_check( entity_id )) then
-                                kind = { k, cat.on_info_name == nil and cat.name or cat.on_info_name( entity_id, item_comp, cat.name )}
+                                local func = cat.on_info_name == nil and name_func or cat.on_info_name
+                                kind = { k, func( entity_id, item_comp, cat.name )}
                                 break
                             end
                         end
@@ -591,17 +597,33 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
             end
         end
+        
+        local fading = 1
         if( check_item_name( info )) then
-            local inter_alpha = 1
+            data.memo.ui_info = { info, math.max( data.memo.ui_info[2], data.frame_num )}
+        elseif( data.memo.ui_info[1] ~= 0 ) then
+            info = data.memo.ui_info[1]
+
+            local delta = data.frame_num - data.memo.ui_info[2]
+            if( delta > 2*data.info_fading ) then
+                data.memo.ui_info = nil
+                info = ""
+            elseif( delta > data.info_fading ) then
+                fading = math.max( fading*math.sin(( 2*data.info_fading - delta )*math.pi/( 2*data.info_fading )), 0.01 )
+            end
+        end
+        if( info ~= "" ) then
+            local is_dragging = data.dragger.item_id > 0
             if( data.info_pointer ) then
                 pic_x, pic_y = unpack( data.pointer_ui )
-                pic_x, pic_y = pic_x + 8, pic_y + 3
-                inter_alpha = inter_alpha*0.3
+                pic_x, pic_y = pic_x + ( is_dragging and -2 or 6 ), pic_y + 3
+                fading = fading*0.5
             else
                 pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
                 pic_x, pic_y = pic_x + 3, pic_y + 5 + ( data.is_opened and 3 or 0 )
+                is_dragging = false
             end
-            do_info( gui, pic_x, pic_y, info, inter_alpha )
+            do_info( gui, pic_x, pic_y, info, fading, is_dragging )
         end
     end
 
@@ -614,11 +636,11 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             data.memo.mtr_prb = { data.pointer_matter, math.max( data.memo.mtr_prb[2], data.frame_num )}
         elseif( data.memo.mtr_prb[1] > 0 ) then
             local delta = data.frame_num - data.memo.mtr_prb[2]
-            if( delta > 2*data.info_mtr_fading ) then
+            if( delta > 2*data.info_fading ) then
                 data.memo.mtr_prb = nil
                 matter = 0
-            elseif( delta > data.info_mtr_fading ) then
-                fading = math.max( fading*math.sin(( 2*data.info_mtr_fading - delta )*math.pi/( 2*data.info_mtr_fading )), 0.01 )
+            elseif( delta > data.info_fading ) then
+                fading = math.max( fading*math.sin(( 2*data.info_fading - delta )*math.pi/( 2*data.info_fading )), 0.01 )
             end
         end
         if( matter > 0 or data.info_mtr_static ) then
@@ -810,20 +832,20 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
                                 if( this_data[3] == 0 or ent == this_data[3]) then
-                                    local item_info = {}
-                                    data, item_info = get_item_data( ent, data )
-                                    table.insert( item_data, item_info )
-                                    if( item_info ~= nil ) then
+                                    local this_info = {}
+                                    data, this_info = get_item_data( ent, data )
+                                    table.insert( item_data, this_info )
+                                    if( this_info ~= nil ) then
                                         if( item_data[5]) then
-                                            item_info = 1
+                                            this_info = 1
                                         else
-                                            item_info = item_info.cat + 1
+                                            this_info = this_info.cat + 1
                                         end
                                     else
-                                        item_info = 0
+                                        this_info = 0
                                     end
-                                    if( item_info > 0 ) then
-                                        table.insert( stuff_to_figure[item_info], item_data )
+                                    if( this_info > 0 ) then
+                                        table.insert( stuff_to_figure[this_info], item_data )
                                     end
                                 end
                             end
@@ -832,7 +854,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
 
-            local pickup_info = {
+            local pickup_data = {
                 id = 0,
                 desc = "",
             }
@@ -862,13 +884,13 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=0} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
                                 if( i > 1 ) then
-                                    pickup_info.id = item_data[1][1]
-                                    pickup_info.desc = GameTextGet( item_data[8] == "" and ( is_shop and "$itempickup_purchase" or "$itempickup_pick" ) or item_data[8], "[USE]", item_data[10].name..( item_data[10].fullness or "" ))
-                                    pickup_info.txt = "[GET]"
-                                    pickup_info.info = item_data[10]
-                                    pickup_info.do_sound = item_data[6]
+                                    pickup_data.id = item_data[1][1]
+                                    pickup_data.desc = GameTextGet( item_data[8] == "" and ( is_shop and "$itempickup_purchase" or "$itempickup_pick" ) or item_data[8], "[USE]", item_data[10].name..( item_data[10].fullness or "" ))
+                                    pickup_data.txt = "[GET]"
+                                    pickup_data.this_info = item_data[10]
+                                    pickup_data.do_sound = item_data[6]
                                     if( item_data[7]) then
-                                        pickup_info.desc = { pickup_info.desc, item_data[10].desc }
+                                        pickup_data.desc = { pickup_data.desc, item_data[10].desc }
                                     end
                                     
                                     button_time = false
@@ -886,9 +908,9 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         end
                         if( info_dump ) then
                             got_info = true
-                            pickup_info.id = item_data[1][1]
-                            pickup_info.name = item_data[10].name
-                            pickup_info.info = item_data[10]
+                            pickup_data.id = item_data[1][1]
+                            pickup_data.name = item_data[10].name
+                            pickup_data.this_info = item_data[10]
                         end
                     end
                     if( not( button_time )) then
@@ -897,49 +919,47 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             
-            if( pickup_info.txt == nil and ( no_space or cant_buy )) then
+            if( pickup_data.txt == nil and ( no_space or cant_buy )) then
                 if( #interactables > 0 ) then
-                    pickup_info.id = 0
+                    pickup_data.id = 0
                 else
-                    pickup_info.id = -pickup_info.id
-                    pickup_info.desc = { GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_info.name ), true }
+                    pickup_data.id = -pickup_data.id
+                    pickup_data.desc = { GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name ), true }
                 end
             end
-            if( pickup_info.id ~= 0 ) then
+            if( pickup_data.id ~= 0 ) then
                 if( data.is_opened and data.gmod.show_full ) then
-                    pickup_info.id = -1
-                    pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
+                    pickup_data.id = -1
+                    pickup_data.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_data.this_info.name ), true }
                 else
-                    local guiing = cat_callback( data, pickup_info.info, "on_gui_world" )
+                    local guiing = cat_callback( data, pickup_data.this_info, "on_gui_world" ) --this should be able to nuke the info_func
                     if( guiing ~= nil ) then
-                        local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
+                        local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = world2gui( i_x, i_y )
-                        uid = guiing( gui, uid, math.abs( pickup_info.id ), data, pickup_info.info, zs, pic_x, pic_y, no_space, cant_buy )
+                        uid = guiing( gui, uid, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy )
                     end
                 end
                 
-                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
-                uid = cat_callback( data, pickup_info.info, "on_tooltip", {
-                    gui, uid, pickup_info.id, data, pickup_info.info, pic_x, pic_y, zs.tips, true
+                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_data, zs, xys )
+                uid = cat_callback( data, pickup_data.this_info, "on_tooltip", {
+                    gui, uid, pickup_data.id, data, pickup_data.this_info, pic_x, pic_y, zs.tips, true
                 }, { uid })
-                if( pickup_info.id > 0 and data.Controls[3][2]) then
-                    local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
+                if( pickup_data.id > 0 and data.Controls[3][2]) then
+                    local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )
                     table.insert( slot_anim, {
-                        id = pickup_info.id,
+                        id = pickup_data.id,
                         x = anim_x,
                         y = anim_y,
                         frame = data.frame_num,
                     })
                     
-                    local orig_name = pickup_info.info.name
-                    if( pickup_info.info.fullness ~= nil ) then
-                        pickup_info.info.name = pickup_info.info.name..pickup_info.info.fullness
+                    local orig_name = pickup_data.this_info.name
+                    if( pickup_data.this_info.fullness ~= nil ) then
+                        pickup_data.this_info.name = pickup_data.this_info.name..pickup_data.this_info.fullness
                     end
-
-                    pick_up_item( data.player_id, data, pickup_info.info, pickup_info.do_sound )
-
-                    pickup_info.info.name = orig_name
+                    pick_up_item( data.player_id, data, pickup_data.this_info, pickup_data.do_sound )
+                    pickup_data.this_info.name = orig_name
                 end
             end
 
@@ -950,21 +970,21 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end)
 
                 local will_show = true
-                local this_info = interactables[1]
-                local storage_check = get_storage( this_info[1], "index_check" )
+                local button_data = interactables[1]
+                local storage_check = get_storage( button_data[1], "index_check" )
                 if( storage_check ~= nil ) then
-                    this_info, will_show, do_action = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, this_info )
+                    button_data, will_show, do_action = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, button_data )
                 end
                 if( will_show ) then
                     local message_func = info_func
-                    local storage_info = get_storage( this_info[1], "index_message" )
+                    local storage_info = get_storage( button_data[1], "index_message" )
                     if( storage_check ~= nil ) then
                         message_func = dofile_once( ComponentGetValue2( storage_info, "value_string" ))
                     end
 
                     uid = message_func( gui, uid, screen_h, screen_w, data, {
-                        id = this_info[1],
-                        desc = { capitalizer( this_info[3]), string.gsub( this_info[4], "$0", "[USE]" )},
+                        id = button_data[1],
+                        desc = { capitalizer( button_data[3]), string.gsub( button_data[4], "$0", "[USE]" )},
                         txt = "[USE]",
                     }, zs, xys )
                 end
@@ -993,16 +1013,16 @@ function new_generic_drop( this_item, data )
     local dude = EntityGetRootEntity( this_item )
     if( dude == data.player_id ) then
         play_sound( data, { "data/audio/Desktop/ui.bank", "ui/item_remove" })
-
+        
         local do_default = true
-        local this_data = from_tbl_with_id( data.item_list, this_item )
-        local inv_data = data.inventories[ this_data.inv_id ] or {}
-        local callback = cat_callback( data, this_data, "on_drop" )
+        local this_info = from_tbl_with_id( data.item_list, this_item )
+        local inv_data = data.inventories[ this_info.inv_id ] or {}
+        local callback = cat_callback( data, this_info, "on_drop" )
         if( callback ~= nil ) then
-            do_default = callback( this_item, data, this_data, false )
+            do_default = callback( this_item, data, this_info, false )
         end
         if( inv_data.update ~= nil ) then
-            if( inv_data.update( data, from_tbl_with_id( data.item_list, p, nil, nil, inv_data ), this_data, {})) then
+            if( inv_data.update( data, from_tbl_with_id( data.item_list, p, nil, nil, inv_data ), this_info, {})) then
                 local reset_id = get_item_owner( p, true )
                 if( reset_id > 0 ) then
                     active_item_reset( reset_id )
@@ -1011,10 +1031,10 @@ function new_generic_drop( this_item, data )
         end
         if( do_default ) then
             local x, y = unpack( data.player_xy )
-            drop_item( x, y, this_data, data, data.throw_force, not( data.no_action_on_drop ))
+            drop_item( x, y, this_info, data, data.throw_force, not( data.no_action_on_drop ))
         end
         if( callback ~= nil ) then
-            callback( this_item, data, this_data, true )
+            callback( this_item, data, this_info, true )
         end
     else
         play_sound( data, "error" )
@@ -1024,10 +1044,10 @@ end
 function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #data.inventories_extra > 0 ) then
         for i,extra_inv in ipairs( data.inventories_extra ) do
-            local this_data = data.inventories[ extra_inv ]
+            local inv_data = data.inventories[ extra_inv ]
             local x, y = EntityGetTransform( extra_inv )
             local pic_x, pic_y = world2gui( x, y )
-            uid, data = this_data.func( gui, uid, pic_x, pic_y, this_data, data, zs, xys, data.slot_func )
+            uid, data = inv_data.func( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, data.slot_func )
         end
     end
 
@@ -1035,12 +1055,12 @@ function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys )
 end
 
 function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
-    local this_data = data.gmod
-    if( this_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
+    local mode_data = data.gmod
+    if( mode_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
         local check = true
-        local w,h = get_text_dim( this_data.name )
+        local w,h = get_text_dim( mode_data.name )
         local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
-        if( not( this_data.show_full )) then
+        if( not( mode_data.show_full )) then
             pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
             pic_x = pic_x + 7 + w
             pic_y = pic_y + 13
@@ -1079,7 +1099,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 pic_y - 11,
                 w + 6,
                 10
-            }, { this_data.name.."@"..this_data.desc }, zs.tips, this_data.show_full )
+            }, { mode_data.name.."@"..mode_data.desc }, zs.tips, mode_data.show_full )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
 
@@ -1093,7 +1113,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
             end
             if( data.global_mode ~= new_mode ) then
-                local total_count = #this_data.gmods
+                local total_count = #mode_data.gmods
                 local go_ahead = true
                 while( go_ahead ) do
                     if( new_mode < 1 ) then
@@ -1101,7 +1121,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                     elseif( new_mode > total_count ) then
                         new_mode = 1
                     end
-                    go_ahead = this_data.gmods[ new_mode ].is_hidden or false
+                    go_ahead = mode_data.gmods[ new_mode ].is_hidden or false
                     if( go_ahead ) then
                         new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 )
                     end
@@ -1111,7 +1131,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
             end
 
-            new_text( gui, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, this_data.name, {255,255,255,alpha})
+            new_text( gui, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, {255,255,255,alpha})
             uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
             
             colourer( gui, arrow_left_c )

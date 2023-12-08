@@ -4,7 +4,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
         local this_data = data.item_list
         if( #this_data > 0 and data.is_opened and data.gmod.allow_external_inventories ) then
             local w, h, step = 0, 0, 1
-
+            
             local slot_data = data.slot_state[ inv_id ]
             local offset_x, offset_y = 9*#slot_data + step, 9*#slot_data[1] + step
             local core_x, core_y = pic_x - offset_x, pic_y - offset_y

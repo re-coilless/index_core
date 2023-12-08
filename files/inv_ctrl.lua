@@ -4,7 +4,7 @@ ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
 dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
 item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
-gonna_drop = gonna_drop or false
+gonna_drop = gonna_drop or false --trigger for "drop on failure to swap"
 
 slot_going = slot_going or false --a check that makes sure only one slot is being dragged at a time
 slot_memo = slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
@@ -80,7 +80,7 @@ if( #ctrl_bodies > 0 ) then
         info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
         info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
         info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
-        info_mtr_fading = ComponentGetValue2( get_storage( controller_id, "info_mtr_fading" ), "value_int" ),
+        info_fading = ComponentGetValue2( get_storage( controller_id, "info_fading" ), "value_int" ),
         info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
         effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
         epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" ),
@@ -475,7 +475,7 @@ if( #ctrl_bodies > 0 ) then
             icon_data = effect_tbl,
             perk_data = perk_tbl,
 
-            active_item = get_active_wand( hooman ),
+            active_item = get_active_item( hooman ),
             active_info = {},
             just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
             no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
@@ -522,7 +522,7 @@ if( #ctrl_bodies > 0 ) then
             info_pointer = global_settings.info_pointer,
             info_radius = global_settings.info_radius,
             info_threshold = global_settings.info_threshold,
-            info_mtr_fading = global_settings.info_mtr_fading,
+            info_fading = global_settings.info_fading,
             info_mtr_static = global_settings.info_mtr_static,
             effect_icon_spacing = global_settings.effect_icon_spacing,
             min_effect_time = epsilon,
@@ -591,12 +591,12 @@ if( #ctrl_bodies > 0 ) then
             }
         end
         
-        data.inventories[ data.inventories_player[1]] = get_inv_data( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end )
-        data.inventories[ data.inventories_player[2]] = get_inv_data( data.inventories_player[2], data.inv_count_full )
+        data.inventories[ data.inventories_player[1]] = get_inv_info( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end )
+        data.inventories[ data.inventories_player[2]] = get_inv_info( data.inventories_player[2], data.inv_count_full )
         local more_invs = EntityGetWithTag( "index_inventory" ) or {}
         if( #more_invs > 0 ) then
             for k,i in ipairs( more_invs ) do
-                data.inventories[i] = get_inv_data( i )
+                data.inventories[i] = get_inv_info( i )
                 table.insert( data.inventories_extra, i )
             end
         end
@@ -620,32 +620,32 @@ if( #ctrl_bodies > 0 ) then
         end
         
         data.slot_state = {}
-        for i,inv_data in pairs( data.inventories ) do
-            if( inv_data.kind[1] == "quick" ) then
-                data.slot_state[inv_data.id] = {
-                    quickest = table_init( inv_data.size[1], false ),
-                    quick = table_init( inv_data.size[2], false ),
+        for i,inv_info in pairs( data.inventories ) do
+            if( inv_info.kind[1] == "quick" ) then
+                data.slot_state[inv_info.id] = {
+                    quickest = table_init( inv_info.size[1], false ),
+                    quick = table_init( inv_info.size[2], false ),
                 }
             else
-                data.slot_state[inv_data.id] = table_init( inv_data.size[1], false )
-                for i,slot in ipairs( data.slot_state[inv_data.id]) do
-                    data.slot_state[inv_data.id][i] = table_init( inv_data.size[2], false )
+                data.slot_state[inv_info.id] = table_init( inv_info.size[1], false )
+                for i,slot in ipairs( data.slot_state[inv_info.id]) do
+                    data.slot_state[inv_info.id][i] = table_init( inv_info.size[2], false )
                 end
             end
         end
         
         local nuke_em = {}
-        for i,itm in ipairs( data.item_list ) do
-            data.item_list[i] = set_to_slot( itm, data )
-            if( itm.inv_slot == nil ) then
+        for i,this_info in ipairs( data.item_list ) do
+            data.item_list[i] = set_to_slot( this_info, data )
+            if( this_info.inv_slot == nil ) then
                 table.insert( nuke_em, i )
             end
 
-            local ctrl_func = cat_callback( data, itm, "ctrl_script" )
+            local ctrl_func = cat_callback( data, this_info, "ctrl_script" )
             if( ctrl_func ~= nil ) then
-                ctrl_func( itm.id, data, itm )
+                ctrl_func( this_info.id, data, this_info )
             else
-                inventory_man( itm.id, data, itm, ( itm.in_hand or 0 ) > 0 )
+                inventory_man( this_info.id, data, this_info, ( this_info.in_hand or 0 ) > 0 )
             end
         end
         if( #nuke_em > 0 ) then
@@ -794,10 +794,13 @@ if( #ctrl_bodies > 0 ) then
         if( not( gonna_drop )) then
             if( not( dragger_action ) or data.gmod.allow_advanced_draggables ) then
                 data.dragger.wont_drop = true
-            elseif( dragger_action ) then
+            elseif( dragger_action and slot_memo[ data.dragger.item_id ]) then
                 gonna_drop = true
-                GamePrint( "Release to drop..." )
             end
+        elseif( data.dragger.item_id == 0 ) then
+            gonna_drop = false
+        else
+            uid = new_font_vanilla_shadow( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
         end
         if( slot_hover_sfx[2]) then
             slot_hover_sfx[2] = false
@@ -805,7 +808,7 @@ if( #ctrl_bodies > 0 ) then
             slot_hover_sfx[1] = 0
         end
         
-        if( slot_going or ( not( slot_going ) and data.dragger.item_id ~= 0 )) then
+        if( slot_going or data.dragger.item_id ~= 0 ) then
             if( data.dragger.swap_soon ) then
                 ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
             else
@@ -834,7 +837,7 @@ if( #ctrl_bodies > 0 ) then
             slot_going = false
         end
     end
-
+    
     local storage_reset = get_storage( controller_id, "reset_settings" )
     if( ComponentGetValue2( storage_reset, "value_bool" )) then
         ComponentSetValue2( storage_reset, "value_bool", false )

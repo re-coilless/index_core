@@ -104,6 +104,17 @@ end
 
 --DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick
 
+--[[
+GuiAnimateBegin(gui) 
+GuiAnimateAlphaFadeIn(gui, id, 0, 0, true)
+GuiBeginAutoBox(gui)
+GuiBeginScrollContainer(gui, id, x, y, size_x, size_y, false, 0, 0)
+GuiEndAutoBoxNinePiece(gui)
+GuiAnimateEnd(gui)
+--your content here
+GuiEndScrollContainer(gui)
+]]
+
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 

@@ -203,7 +203,7 @@
 		value_float="3"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="info_mtr_fading"
+		name="info_fading"
 		value_int="20"
 	></VariableStorageComponent>
 	<VariableStorageComponent
