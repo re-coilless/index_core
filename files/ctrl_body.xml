@@ -172,6 +172,10 @@
 		value_int="75"
 	></VariableStorageComponent>
 	<VariableStorageComponent
+		name="spell_type_alpha"
+		value_float="0.75"
+	></VariableStorageComponent>
+	<VariableStorageComponent
 		name="no_wand_scaling"
 		value_bool="0"
 	></VariableStorageComponent>

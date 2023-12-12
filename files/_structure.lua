@@ -174,9 +174,7 @@ local ITEM_CATS = {
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
 
-        on_gui_world = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy )
-            return uid
-        end,
+        on_gui_world = new_vanilla_worldtip,
         -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --should know the state (if is picked or not)
         --     return uid
         -- end,
@@ -424,6 +422,8 @@ local ITEM_CATS = {
             }
             return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
+
+        on_gui_world = new_vanilla_worldtip,
     },
     {
         name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
@@ -445,6 +445,11 @@ local ITEM_CATS = {
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
 
+            this_info.tip_name = capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
+            this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
+            this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 200 )
+            this_info.desc = GameTextGetTranslatedOrNot( this_info.spell_info.description )
+            
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
                 parent_id = from_tbl_with_id( item_list_wip, parent_id, nil, nil, {})
@@ -479,6 +484,8 @@ local ITEM_CATS = {
 
             return uid
         end,
+
+        on_gui_world = new_vanilla_worldtip,
     },
     {
         name = "tablet",
@@ -498,6 +505,8 @@ local ITEM_CATS = {
 
             return uid, true
         end,
+
+        on_gui_world = new_vanilla_worldtip,
     },
     {
         name = GameTextGetTranslatedOrNot( "$mat_item_box2d" ),
@@ -517,6 +526,8 @@ local ITEM_CATS = {
 
             return uid
         end,
+
+        on_gui_world = new_vanilla_worldtip,
     },
 }
 

@@ -62,6 +62,16 @@ byte2id = {
 	[237109395]=8211,	[237109396]=8212,	[237109401]=8217,	[237109404]=8220,
 	[237109405]=8221,	[237109406]=8222,	[237109414]=8230,	[237117598]=8734,
 }
+type2frame = {
+	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", {90,35,35}}, --ACTION_TYPE_PROJECTILE
+	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", {141,63,24}}, --ACTION_TYPE_STATIC_PROJECTILE
+	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", {45,58,114}}, --ACTION_TYPE_MODIFIER
+	[3] = { "data/ui_gfx/inventory/item_bg_draw_many.png", {28,109,115}}, --ACTION_TYPE_DRAW_MANY
+	[4] = { "data/ui_gfx/inventory/item_bg_material.png", {53,111,68}}, --ACTION_TYPE_MATERIAL
+	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", {123,42,116}}, --ACTION_TYPE_UTILITY
+	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", {33,47,38}}, --ACTION_TYPE_PASSIVE
+	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
+}
 
 --core backend
 function b2n( a )
@@ -780,25 +790,34 @@ function get_action_data( data, spell_id )
 			end
 			draw_actions_old = draw_actions
 			draw_actions = function( draw_count )
-				c.draw_many = draw_count
+				c.draw_many = c.draw_many + draw_count
 			end
 			current_reload_time, dont_draw_actions, shot_effects = 0, true, {}
+			ACTION_DRAW_RELOAD_TIME_INCREASE = 1e99
 
 			ConfigGunShotEffects_Init( shot_effects )
 			local metadata = create_shot()
 			c = metadata.state
 			set_current_action( spell_info )
+			c.draw_many = -1
 			c.projs = {}
 			
 			spell_info.action()
+			if( math.abs( current_reload_time ) > 1e50 ) then
+				data.memo.spell_data[ spell_id ].is_chainsaw = true
+				current_reload_time = current_reload_time - ACTION_DRAW_RELOAD_TIME_INCREASE
+			end
 			metadata.state.reload_time, metadata.shot_effects = current_reload_time, magic_copy( shot_effects )
 
+			ACTION_DRAW_RELOAD_TIME_INCREASE = 0
 			c, current_reload_time, dont_draw_actions, shot_effects = nil, nil, nil, nil
 			add_projectile = add_projectile_old
 			add_projectile_trigger_timer = add_projectile_trigger_timer_old
 			add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
 			add_projectile_trigger_death = add_projectile_trigger_death_old
 			draw_actions = draw_actions_old
+
+			--projs|table: 0x0fccd700 - do the same as with pic registration
 			data.memo.spell_data[ spell_id ].meta = magic_copy( metadata )
 		end
 	end
@@ -1526,122 +1545,98 @@ function space_obliterator( txt )
 	return tostring( string.gsub( tostring( txt ), "%s+$", "" ))
 end
 
-function liner( text, length, height, length_k, clean_mode, forced_reverse )
-	local formated = {}
-	if( text ~= nil and text ~= "" ) then
-		text = string.gsub( text, "\n", "@" )
+function font_liner( text, length, height, font_data, default_return )
+	default_return = default_return or {"[NIL]"}
+	if(( text or "" ) == nil ) then return default_return end
+	font_data = font_data or font_extractor( "vanilla" ) or {}
+	if( font_data.path == nil ) then return default_return end
 
-		local length_counter = 0
-		if( height ~= nil ) then
-			length_k = length_k or 6
-			length = math.floor( length/length_k + 0.5 )
-			height = math.floor( height/9 )
-			local height_counter = 1
-			
-			local full_text = "@"..text.."@"
-			for line in string.gmatch( full_text, "([^@]+)" ) do
-				local rest = ""
-				local buffer = ""
-				local dont_touch = false
-				
-				length_counter = 0
-				text = ""
-				
-				local words = t2w( line )
-				for i,word in ipairs( words ) do
-					buffer = word
-					local w_length = string.len( buffer ) + 1
-					length_counter = length_counter + w_length
-					dont_touch = false
+	local space_l = font_data.dims[ string.byte( " " )][1]
+	length = length + space_l
+	height = height or font_data.height
+
+	local hid = length..( height < 0 and -1 or math.floor( height/font_data.height ))
+	liner_database = liner_database or {}
+	liner_database.reset_num = liner_database.reset_num or 0
+	if( liner_database.reset_num > 999 ) then
+		liner_database = {}
+		liner_database.reset_num = 0
+	end
+	liner_database[ font_data.path ] = liner_database[ font_data.path ] or {}
+	liner_database[ font_data.path ][ hid ] = liner_database[ font_data.path ][ hid ] or {}
+	if( liner_database[ font_data.path ][ hid ][ text ] ~= nil ) then
+		local formatted, dims = unpack( liner_database[ font_data.path ][ hid ][ text ])
+		return formatted, dims
+	end
+
+	local formatted,max_l,h = {},0,0
+	local full_text = "@"..string.gsub( string.gsub( text, "\n", "@" ), "\t", "\\_" ).."@"
+	for paragraph in string.gmatch( full_text, "([^@]+)" ) do
+		local line,l = "", 0
+		if( paragraph ~= "" ) then
+			for i,word in ipairs( t2w( paragraph )) do
+				local num, range, w = 0, {1,1}, " "
+				local counter, this_l, overlines = 0, space_l, {}
+				for c in string.gmatch( word, "." ) do
+					num = bit.lshift( num, 10 ) + string.byte( c )
+					counter = counter + 1
 					
-					if( length_counter > length ) then
-						if( w_length >= length ) then
-							rest = string.sub( buffer, length - ( length_counter - w_length - 1 ), w_length )
-							text = text..buffer.." "
-						else
-							length_counter = w_length
+					local id = byte2id[ num ]
+					if( id ) then
+						w = w..string.sub( word, range[1], range[2])
+						local new_l = this_l + font_data.dims[ id ][1]
+						if( new_l > length ) then
+							table.insert( overlines, counter )
+							new_l = new_l - this_l + space_l
 						end
-						table.insert( formated, tostring( string.gsub( string.sub( text, 1, length ), "@ ", "" )))
-						height_counter = height_counter + 1
-						text = ""
-						while( rest ~= "" ) do
-							w_length = string.len( rest ) + 1
-							length_counter = w_length
-							buffer = rest
-							if( length_counter > length ) then
-								rest = string.sub( rest, length + 1, w_length )
-								table.insert( formated, tostring( string.sub( buffer, 1, length )))
-								dont_touch = true
-								height_counter = height_counter + 1
-							else
-								rest = ""
-								length_counter = w_length
-							end
-							
-							if( height_counter > height ) then
-								break
-							end
-						end
+						this_l = new_l
+						
+						num, range[1] = 0, range[2] + 1
+						range[2] = range[1]
+					else
+						range[2] = range[2] + 1
 					end
-					
-					if( height_counter > height ) then
+				end
+				
+				local is_complicated = #overlines > 0
+				local new_l = is_complicated and ( length + 1 ) or ( l + this_l )
+				if( new_l > length and line ~= "" ) then
+					local new_h = h + font_data.height
+					if( height > 0 and new_h > height ) then break end
+					table.insert( formatted, { line, l })
+					line, new_l = "", new_l - l
+					h = new_h
+				end
+				for k,overpos in ipairs( overlines ) do
+					local new_h = h + font_data.height
+					if( height > 0 and new_h > height ) then
+						is_complicated = 1
 						break
 					end
-					
-					text = text..buffer.." "
-				end
-				
-				if( not( dont_touch )) then
-					table.insert( formated, tostring( string.sub( text, 1, length )))
-				end
-			end
-		else
-			local gui = GuiCreate()
-			GuiStartFrame( gui )
-			
-			local starter = math.floor( math.abs( length )/7 + 0.5 )
-			local total_length = string.len( text )
-			if( starter < total_length ) then
-				if(( length > 0 ) and forced_reverse == nil ) then
-					length = math.abs( length )
-					formated = string.sub( text, 1, starter )
-					for i = starter + 1,total_length do
-						formated = formated..string.sub( text, i, i )
-						length_counter = GuiGetTextDimensions( gui, formated, 1, 2 )
-						if( length_counter > length ) then
-							formated = string.sub( formated, 1, string.len( formated ) - 1 )
-							break
-						end
-					end
-				else
-					length = math.abs( length )
-					starter = total_length - starter
-					formated = string.sub( text, starter, total_length )
-					while starter > 0 do
-						starter = starter - 1
-						formated = string.sub( text, starter, starter )..formated
-						length_counter = GuiGetTextDimensions( gui, formated, 1, 2 )
-						if( length_counter > length ) then
-							formated = string.sub( formated, 2, string.len( formated ))
-							break
-						end
+					h = new_h
+					table.insert( formatted, {( k > 1 and " " or "" )..string.sub( w, ( overlines[k-1] or 0 ) + 1, overpos ), length })
+					if( k == #overlines ) then
+						w, new_l = " "..string.sub( w, overpos + 1, #w ), this_l
 					end
 				end
-			else
-				formated = text
+				if( is_complicated == 1 ) then break end
+				line, l = line..w, new_l
 			end
-			
-			GuiDestroy( gui )
 		end
-	else
-		if( clean_mode == nil ) then
-			table.insert( formated, "[NIL]" )
-		else
-			formated = ""
-		end
+		local new_h = h + font_data.height
+		if( height > 0 and new_h > height ) then break end
+		table.insert( formatted, { line, l })
+		h = new_h
+	end
+	for i,line in ipairs( formatted ) do
+		if( line[2] > max_l ) then max_l = line[2] end 
+		formatted[i] = string.gsub( string.gsub( line[1], "^ ", "" ), "\\_", "    " )
 	end
 	
-	return formated
+	local dims = { max_l - space_l, h }
+	liner_database[ font_data.path ][ hid ][ text ] = { formatted, dims }
+	liner_database.reset_num = liner_database.reset_num + 1
+	return formatted, dims
 end
 
 function check_dragger_buffer( data, id )
@@ -1868,7 +1863,7 @@ function register_item_pic( data, this_info, is_advanced )
 	return this_info.pic
 end
 
-function register_new_font( name, penman_r, penman_w, path_from, path_to, colours )
+function register_new_font( name, penman_r, penman_w, path_from, path_to, interline_drift, colours )
 	local default_char = string.gsub( penman_r( "mods/index_core/files/fonts/char.xml" ), "|filename|", path_from..".png" )
 	local dims, max_height = {}, 1
 
@@ -1916,7 +1911,7 @@ function register_new_font( name, penman_r, penman_w, path_from, path_to, colour
 	end
 	ComponentSetValue2( storage, "value_string", font_packer({
 		path = path_to,
-		height = max_height,
+		height = max_height + ( interline_drift or 0 ),
 		dims = dims,
 	}))
 end
@@ -2006,9 +2001,10 @@ function new_anim_looped( core_path, delay, duration )
 	return core_path..num..".png"
 end
 
+--gmatch string and execute custom code for the characters that match
 function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_drift, colours )
 	if( type( text ) ~= "table" ) then text = { tostring( text )} end
-	interline_drift = interline_drift or -2
+	interline_drift = interline_drift or 0
 	colours = colours or {}
 	uid = uid + 1
 
@@ -2045,7 +2041,7 @@ function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours )
 end
 
 function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, 1, colours )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, nil, colours )
 end
 
 function new_interface( gui, uid, pos, pic_z, is_debugging )
@@ -2266,7 +2262,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			
 			local length = 0
 			if( text[1] ~= "" ) then
-				text[1] = liner( text[1], w*0.9, h - 2, 5.8 )
+				text[1] = font_liner( text[1], w*0.9, h - 2 )
 				for i,line in ipairs( text[1]) do
 					local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
 					if( current_length > length ) then
@@ -2317,7 +2313,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 
 			is_fancy = is_fancy or false
 			local gui_core = "mods/index_core/files/pics/vanilla_tooltip_"
-			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, inter_alpha )
+			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, 1.1*inter_alpha )
 			local lines = {{0,-1,x_offset-1,1},{-1,0,1,y_offset-1},{1,y_offset,x_offset-1,1},{x_offset,1,1,y_offset-1}}
 			for i,line in ipairs( lines ) do
 				uid = new_image( gui, uid, pic_x + line[1], pic_y + line[2], z, gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), line[3], line[4], inter_alpha )
@@ -2350,8 +2346,17 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 	return unpack( out )
 end
 
+function new_vanilla_worldtip( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy, tip_func )
+	if( not( cant_buy )) then
+		pic_x, pic_y = unpack( data.xys.hp )
+		pic_x, pic_y = pic_x - 43, pic_y - 1
+		uid = tip_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips, true )
+	end
+	return uid
+end
+
 function new_vanilla_wtt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-	--allow adding a single custom displayed param to wands
+	--allow adding custom displayed params to wands
 
 	return uid
 end
@@ -2361,13 +2366,104 @@ function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 end
 
 function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-	if( in_world ) then
+	if( this_info.spell_info == nil or in_world ) then
 		return uid
 	end
-	--do full metadata table dump
+
+	--hold alt to display advanced tooltip (list every damage type, additional info, all the shit is in frames)
 	--switch to the top if won't fit
+	--spell pic is 0.9 alpha by default (with a shadow) and gets 0.2 alpha with time (like 60 frames) - just overlayed over the text
+	--data/ui_gfx/inventory
+	--item name must have "(charges)" in it
+	--hold alt to pin current tooltip in-place (allows hovering + works for wand ones too)
+	--on alt an entire side section pops up with all the misc stuff
+	--there should be max (251) and min (115) thickness, allow only odd numbers, the width is determined by the raw string length
+	--[[
+		this_info.pic
+		this_info.spell_info.name (all capital; yellow)         this_info.spell_info.price (grey)
+		this_info.spell_info.description
+		icon_action_type.png=this_info.spell_info.type (color it to the type by cutting pixel from the border pic itself)
+		icon_action_max_uses.png=100*this_info.charges/this_info.max_uses
+		icon_mana_drain.png=this_info.spell_info.mana
+		
+		local c = this_info.spell_info.meta.state
+		icon_fire_rate_wait.png=c.fire_rate_wait
+		icon_reload_time.png=c.reload_time                 this_info.spell_info.is_chainsaw
+		icon_gun_actions_per_round.png=c.draw_many (only if > 0)
+		icon_spread_degrees.png=c.spread_degrees
+		icon_bounces.png=c.bounces
+
+		c.damage_null_all (display nolla for the damage)
+		icon_damage_projectile.png=c.damage_projectile_add
+		icon_damage_curse.png=c.damage_curse_add
+		icon_damage_explosion.png=c.damage_explosion_add
+		icon_damage_slice.png=c.damage_slice_add
+		icon_damage_melee.png=c.damage_melee_add
+		icon_damage_ice.png=c.damage_ice_add
+		icon_damage_electricity.png=c.damage_electricity_add
+		icon_damage_drill.png=c.damage_drill_add
+		icon_damage_healing.png=c.damage_healing_add
+		c.damage_fire_add
+		c.damage_holy_add
+		c.damage_physics_add
+		c.damage_poison_add
+		c.damage_radioactive_add
+
+		icon_explosion_radius.png=c.explosion_radius
+		--c.explosion_damage_to_materials
+
+		icon_damage_critical_chance.png=c.damage_critical_chance
+		c.damage_critical_multiplier
+
+		icon_speed_multiplier.png=c.speed_multiplier
+		c.child_speed_multiplier
+
+		****************************
+
+		c.material
+		c.material_amount
+		c.trail_material
+		c.trail_material_amount
+
+		c.lifetime_add
+
+		c.ragdoll_fx
+
+		--c.game_effect_entities
+		--c.extra_entities
+
+		c.recoil
+		this_info.spell_info.meta.shot_effects.recoil_knockback
+		c.knockback_force
+
+		c.gravity
+		c.dampening
+		--c.light
+		--c.screenshake
+		--c.gore_particles
+		c.blood_count_multiplier
+		c.physics_impulse_coeff
+		--c.lightning_count
+	]]
 	
-	uid = data.tip_func( gui, uid, nil, pic_z + 0.1, { "", pic_x, pic_y, 100, 50 }, nil, true ) --option to make the bg alpha 1
+	--update mnee to have proper binding reporting
+	-- this_info.done_desc = font_liner( this_info.desc, 113, 999 )
+	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, 100, 100 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+		pic_x, pic_y = pic_x + 2, pic_y + 2
+		colourer( gui, type2frame[ this_info.spell_info.type ][2])
+		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, data.spell_type_alpha*inter_alpha )
+		uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
+		colourer( gui, {0,0,0})
+		uid = new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
+		uid = new_font_vanilla_shadow( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name, {255,255,178,inter_alpha})
+		
+		uid = new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 98, 1, 0.5*inter_alpha )
+		
+		--add custom stats to both columns (with a spacer)
+		-- uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + 11, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+
+		return uid
+	end, this_info }, true )
 	
 	return uid
 end
@@ -2381,7 +2477,7 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		return uid
 	end
 
-	this_info.done_desc = liner( this_info.desc, 500, 500, 5.8 )
+	this_info.done_desc = font_liner( this_info.desc, 300, -1 )
 	this_info.tt_spacing = {
 		{ get_text_dim( this_info.name )},
 		{ get_text_dim( this_info.done_desc )},
@@ -2390,14 +2486,10 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
-	if( in_world ) then
-		pic_x, pic_y = unpack( data.xys.hp )
-		pic_x, pic_y = pic_x - 43, pic_y - 1
-	end
 
 	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, size_x + 5 + this_info.tt_spacing[3][1], size_y + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
-		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, this_info.name, do_magic and {121,201,153} or {255,255,178})
+		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, this_info.name, do_magic and {121,201,153,inter_alpha} or {255,255,178,inter_alpha})
 		if( do_magic ) then
 			local storage_rune = get_storage( this_info.id, "runic_cypher" )
 			if( storage_rune == nil ) then
@@ -2409,16 +2501,16 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 			end
 			local runic_state = ComponentGetValue2( storage_rune, "value_float" )
 			if( runic_state ~= 1 ) then
-				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, "vanilla_rune", this_info.done_desc, nil, {121,201,153,1-runic_state})
+				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, "vanilla_rune", this_info.done_desc, nil, {121,201,153,inter_alpha*(1-runic_state)})
 			end
 			if( runic_state >= 0 ) then
-				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, "vanilla_shadow", this_info.done_desc, nil, {255,255,255,runic_state})
+				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, "vanilla_shadow", this_info.done_desc, nil, {255,255,255,inter_alpha*runic_state})
 				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
-			uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
 		end
-		uid = new_image( gui, uid, pic_x + size_x, pic_y + ( size_y - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5 )
+		uid = new_image( gui, uid, pic_x + size_x, pic_y + ( size_y - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5, inter_alpha )
 		
 		return uid
 	end, this_info }, true, in_world )
@@ -2468,17 +2560,7 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 end
 
 function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angle )
-	local type2frame = {
-		[0] = "data/ui_gfx/inventory/item_bg_projectile.png", --ACTION_TYPE_PROJECTILE
-		[1] = "data/ui_gfx/inventory/item_bg_static_projectile.png", --ACTION_TYPE_STATIC_PROJECTILE
-		[2] = "data/ui_gfx/inventory/item_bg_modifier.png", --ACTION_TYPE_MODIFIER
-		[3] = "data/ui_gfx/inventory/item_bg_draw_many.png", --ACTION_TYPE_DRAW_MANY
-		[4] = "data/ui_gfx/inventory/item_bg_material.png", --ACTION_TYPE_MATERIAL
-		[5] = "data/ui_gfx/inventory/item_bg_utility.png", --ACTION_TYPE_UTILITY
-		[6] = "data/ui_gfx/inventory/item_bg_passive.png", --ACTION_TYPE_PASSIVE
-		[7] = "data/ui_gfx/inventory/item_bg_other.png", --ACTION_TYPE_OTHER
-	}
-	return new_image( gui, uid, pic_x - 10, pic_y - 10, pic_z, type2frame[ spell_type ], nil, nil, alpha, nil, angle )
+	return new_image( gui, uid, pic_x - 10, pic_y - 10, pic_z, type2frame[ spell_type ][1], nil, nil, alpha, nil, angle )
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
@@ -2847,6 +2929,6 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 
 		return uid
 	end, this_info }, true, nil, nil, in_hand )
-	
+
 	return uid, step_x + 7, step_y + 7
 end

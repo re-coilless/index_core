@@ -936,14 +936,11 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = world2gui( i_x, i_y )
-                        uid = guiing( gui, uid, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy )
+                        uid = guiing( gui, uid, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
                     end
                 end
                 
                 uid = info_func( gui, uid, screen_h, screen_w, data, pickup_data, zs, xys )
-                uid = cat_callback( data, pickup_data.this_info, "on_tooltip", {
-                    gui, uid, pickup_data.id, data, pickup_data.this_info, pic_x, pic_y, zs.tips, true
-                }, { uid })
                 if( pickup_data.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )
