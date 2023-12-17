@@ -18,7 +18,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local function check_shortcut( id, is_quickest )
             if( id < 5 ) then
-                return get_input({ ( is_quickest and 29 or 33 ) + id, "Key" }, ( is_quickest and "za_quickest_" or "zb_quick_" )..id, false, true )
+                return get_input({( is_quickest and 29 or 33 ) + id, "Key" }, ( is_quickest and "za_quickest_" or "zb_quick_" )..id, false, true )
             end
         end
         local w, h, step = 0, 0, 1
@@ -712,6 +712,7 @@ function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #this_data > 0 and not( data.gmod.menu_capable )) then
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = 0, 0
+            if( this_one.amount < 2 ) then this_one.txt = "" end
             uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end

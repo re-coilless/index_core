@@ -102,7 +102,7 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick
+--DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights
 
 --[[
 GuiAnimateBegin(gui) 

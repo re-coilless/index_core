@@ -4,6 +4,7 @@ ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
 dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
 item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
+spell_proj_data = spell_proj_data or {} --various info on the particular projectile filepath of a spell
 gonna_drop = gonna_drop or false --trigger for "drop on failure to swap"
 
 slot_going = slot_going or false --a check that makes sure only one slot is being dragged at a time
@@ -182,7 +183,7 @@ if( #ctrl_bodies > 0 ) then
                     status_effects[i].real_id = id_num
                 end 
             end
-
+            
             local simple_effects = {}
             child_play( hooman, function( parent, child, i )
                 local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
@@ -455,6 +456,7 @@ if( #ctrl_bodies > 0 ) then
 
             shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
             drag_action = dragger_action,
+            tip_action = get_input( { 226--[["left_alt"]], "Key" }, "az_tip_action", true, true ),
 
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
             inventory = inv_comp,

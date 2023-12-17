@@ -447,8 +447,8 @@ local ITEM_CATS = {
 
             this_info.tip_name = capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
-            this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 200 )
-            this_info.desc = GameTextGetTranslatedOrNot( this_info.spell_info.description )
+            this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 221 )
+            this_info.desc = spell_desc_fix( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then

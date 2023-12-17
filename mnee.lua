@@ -7,10 +7,18 @@ bindings["index_core"] = {
 		},
 	},
 	ab_drag_action = {
-		name = "Dragging Action",
+		name = "Dropping/Special Action",
 		desc = "Fancy dragging stuff.",
 		keys = {
 			["mouse_right"] = 1,
+		},
+	},
+
+	az_tip_action = {
+		name = "Tip Action",
+		desc = "Displays additional info in the tooltip.",
+		keys = {
+			["left_alt"] = 1,
 		},
 	},
 

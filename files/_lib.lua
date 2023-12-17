@@ -764,7 +764,7 @@ end
 
 function get_action_data( data, spell_id )
 	data.memo.spell_data = data.memo.spell_data or {}
-	if( data.memo.spell_data[ spell_id ] == nil ) then
+	if( data.memo.spell_data[ spell_id ] == nil or data.memo.spell_data[ spell_id ].hold_up ) then
 		dofile_once( "data/scripts/gun/gun.lua" )
 		dofile_once( "data/scripts/gun/gun_enums.lua" )
 		dofile_once( "data/scripts/gun/gun_actions.lua" )
@@ -778,47 +778,206 @@ function get_action_data( data, spell_id )
 			end
 			add_projectile_trigger_timer_old = add_projectile_trigger_timer
 			add_projectile_trigger_timer = function( path, delay, draw_count )
+				c.draw_many = c.draw_many + draw_count
 				table.insert( c.projs, { 2, path, draw_count, delay })
 			end
 			add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
 			add_projectile_trigger_hit_world = function( path, draw_count )
+				c.draw_many = c.draw_many + draw_count
 				table.insert( c.projs, { 3, path, draw_count })
 			end
 			add_projectile_trigger_death_old = add_projectile_trigger_death
 			add_projectile_trigger_death = function( path, draw_count )
+				c.draw_many = c.draw_many + draw_count
 				table.insert( c.projs, { 4, path, draw_count })
 			end
 			draw_actions_old = draw_actions
 			draw_actions = function( draw_count )
 				c.draw_many = c.draw_many + draw_count
 			end
-			current_reload_time, dont_draw_actions, shot_effects = 0, true, {}
-			ACTION_DRAW_RELOAD_TIME_INCREASE = 1e99
+			dont_draw_actions, reflecting = true, true
+			current_reload_time, shot_effects = 0, {}
+			ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
 
 			ConfigGunShotEffects_Init( shot_effects )
 			local metadata = create_shot()
-			c = metadata.state
+			c, metadata.state_proj = metadata.state, {damage={},explosion={},crit={},lightning={}}
 			set_current_action( spell_info )
-			c.draw_many = -1
+			c.draw_many = 0
 			c.projs = {}
 			
 			spell_info.action()
-			if( math.abs( current_reload_time ) > 1e50 ) then
+			if( spell_info.tip_data ~= nil ) then spell_info.tip_data() end
+			if( math.abs( current_reload_time ) > 1e6 ) then
 				data.memo.spell_data[ spell_id ].is_chainsaw = true
-				current_reload_time = current_reload_time - ACTION_DRAW_RELOAD_TIME_INCREASE
+				current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE
 			end
 			metadata.state.reload_time, metadata.shot_effects = current_reload_time, magic_copy( shot_effects )
+			
+			local total_dmg_add, dmg_tbl = 0, {
+				"damage_projectile_add", "damage_curse_add", "damage_explosion_add", "damage_slice_add", "damage_poison_add",
+				"damage_melee_add", "damage_ice_add", "damage_electricity_add", "damage_drill_add", "damage_radioactive_add",
+				"damage_healing_add", "damage_fire_add", "damage_holy_add", "damage_physics_add",
+			}
+			for i,dmg in ipairs( dmg_tbl ) do
+				total_dmg_add = total_dmg_add + ( c[dmg] or 0 )
+			end
+			c.damage_total_add = total_dmg_add
+
+			local is_gonna = false
+			c.proj_count = #c.projs
+			if( c.proj_count > 0 and ModIsEnabled( "penman" )) then
+				dofile_once( "mods/penman/lib.lua" )
+				is_gonna = true
+
+				local path = c.projs[1][2]
+				spell_proj_data[ path ] = spell_proj_data[ path ] or {}
+				if( spell_proj_data[ path ].penman == nil ) then
+					spell_proj_data[ path ].penman = penman_read( path )
+					spell_proj_data[ path ].penman_frame = data.frame_num
+				elseif( type( spell_proj_data[ path ].penman ) == "number" ) then
+					if( spell_proj_data[ path ].penman_frame < data.frame_num ) then
+						is_gonna = false
+						local nxml = dofile_once( "mods/index_core/nxml.lua" )
+						local xml = nxml.parse( penman_restore( penman_return( spell_proj_data[ path ].penman )))
+
+						local xml_kid = xml:first_of( "ProjectileComponent" )
+						if( xml_kid == nil ) then
+							xml_kid = xml:first_of( "Base" )
+							if( xml_kid ~= nil ) then
+								xml_kid = xml_kid:first_of( "ProjectileComponent" )
+							end
+						end
+						if( xml_kid ) then
+							metadata.state_proj = {
+								damage = {
+									curse = 0,
+									drill = 0,
+									electricity = 0,
+									explosion = 0,
+									fire = 0,
+									healing = 0,
+									ice = 0,
+									melee = 0,
+									overeating = 0,
+									physics_hit = 0,
+									poison = 0,
+									projectile = xml_kid.attr.damage or 0,
+									radioactive = 0,
+									slice = 0,
+									holy = 0,
+								},
+								explosion = {},
+								crit = {},
+								lightning = {},
+								damage_scaled_by_speed = xml_kid.attr.damage_scaled_by_speed or false,
+								damage_every_x_frames = xml_kid.attr.damage_every_x_frames or -1,
+								
+								lifetime = xml_kid.attr.lifetime or -1,
+								-- xml_kid.attr.lifetime_randomness
+
+								speed = math.floor((( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + ( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
+
+								inf_bounces = xml_kid.attr.bounce_always or false,
+								bounces = xml_kid.attr.bounces_left or 0,
+								
+								on_collision_die = xml_kid.attr.on_collision_die ~= false,
+								on_death_duplicate = xml_kid.attr.on_death_duplicate_remaining or false,
+								on_death_explode = xml_kid.attr.on_death_explode or false,
+								on_lifetime_out_explode = xml_kid.attr.on_lifetime_out_explode or false,
+
+								collide_with_entities = xml_kid.attr.collide_with_entities ~= false,
+								penetrate_entities = xml_kid.attr.penetrate_entities or false,
+								dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
+								never_hit_player = xml_kid.attr.never_hit_player or false,
+								friendly_fire = xml_kid.attr.friendly_fire or false,
+								explosion_dont_damage_shooter = xml_kid.attr.explosion_dont_damage_shooter or false,
+
+								collide_with_world = xml_kid.attr.collide_with_world ~= false,
+								penetrate_world = xml_kid.attr.penetrate_world or false,
+								go_through_this_material = xml_kid.attr.go_through_this_material or "",
+								ground_penetration_coeff = xml_kid.attr.ground_penetration_coeff or 0,
+								ground_penetration_max_durability = xml_kid.attr.ground_penetration_max_durability_to_destroy or 0,
+							}
+
+							local dmg_kid = xml_kid:first_of( "damage_by_type" )
+							if( dmg_kid ) then
+								metadata.state_proj.damage["curse"] = dmg_kid.attr.curse or 0
+								metadata.state_proj.damage["drill"] = dmg_kid.attr.drill or 0
+								metadata.state_proj.damage["electricity"] = dmg_kid.attr.electricity or 0
+								metadata.state_proj.damage["explosion"] = dmg_kid.attr.explosion or 0
+								metadata.state_proj.damage["fire"] = dmg_kid.attr.fire or 0
+								metadata.state_proj.damage["healing"] = dmg_kid.attr.healing or 0
+								metadata.state_proj.damage["ice"] = dmg_kid.attr.ice or 0
+								metadata.state_proj.damage["melee"] = dmg_kid.attr.melee or 0
+								metadata.state_proj.damage["overeating"] = dmg_kid.attr.overeating or 0
+								metadata.state_proj.damage["physics_hit"] = dmg_kid.attr.physics_hit or 0
+								metadata.state_proj.damage["poison"] = dmg_kid.attr.poison or 0
+								metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + (dmg_kid.attr.projectile or 0)
+								metadata.state_proj.damage["radioactive"] = dmg_kid.attr.radioactive or 0
+								metadata.state_proj.damage["slice"] = dmg_kid.attr.slice or 0
+								metadata.state_proj.damage["holy"] = dmg_kid.attr.holy or 0
+							end
+							local exp_kid = xml_kid:first_of( "config_explosion" )
+							if( exp_kid ) then
+								metadata.state_proj.explosion = {
+									damage_mortals = exp_kid.attr.damage_mortals ~= false,
+									damage = exp_kid.attr.damage or 0,
+									is_digger = exp_kid.attr.is_digger or false,
+									explosion_radius = exp_kid.attr.explosion_radius or 0,
+									max_durability_to_destroy = exp_kid.attr.max_durability_to_destroy or 0,
+									ray_energy = exp_kid.attr.ray_energy or 0,
+								}
+							end
+							local crit_kid = xml_kid:first_of( "damage_critical" )
+							if( crit_kid ) then
+								metadata.state_proj.crit = {
+									chance = crit_kid.attr.chance or 0,
+									damage_multiplier = crit_kid.attr.damage_multiplier or 1,
+								}
+							end
+
+							local total_dmg = 0
+							for field,dmg in pairs( metadata.state_proj.damage ) do
+								total_dmg = total_dmg + dmg
+							end
+							metadata.state_proj.damage["total"] = total_dmg
+
+							xml_kid = xml:first_of( "LightningComponent" )
+							if( xml_kid == nil ) then
+								xml_kid = xml:first_of( "Base" )
+								if( xml_kid ~= nil ) then
+									xml_kid = xml_kid:first_of( "LightningComponent" )
+								end
+							end
+							if( xml_kid ) then
+								local lght_kid = xml_kid:first_of( "config_explosion" )
+								if( lght_kid ) then
+									metadata.state_proj.lightning = {
+										damage_mortals = lght_kid.attr.damage_mortals ~= false,
+										damage = lght_kid.attr.damage or 0,
+										is_digger = lght_kid.attr.is_digger or false,
+										explosion_radius = lght_kid.attr.explosion_radius or 0,
+										max_durability_to_destroy = lght_kid.attr.max_durability_to_destroy or 0,
+										ray_energy = lght_kid.attr.ray_energy or 0,
+									}
+								end
+							end
+						end
+					end
+				end
+			end
 
 			ACTION_DRAW_RELOAD_TIME_INCREASE = 0
-			c, current_reload_time, dont_draw_actions, shot_effects = nil, nil, nil, nil
+			c, dont_draw_actions, reflecting, current_reload_time, shot_effects = nil, nil, nil, nil, nil
 			add_projectile = add_projectile_old
 			add_projectile_trigger_timer = add_projectile_trigger_timer_old
 			add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
 			add_projectile_trigger_death = add_projectile_trigger_death_old
 			draw_actions = draw_actions_old
 
-			--projs|table: 0x0fccd700 - do the same as with pic registration
 			data.memo.spell_data[ spell_id ].meta = magic_copy( metadata )
+			data.memo.spell_data[ spell_id ].hold_up = is_gonna
 		end
 	end
 	return data, data.memo.spell_data[ spell_id ]
@@ -1488,32 +1647,27 @@ function world2gui( x, y, not_pos )
 	return x, y, shit_from_ass
 end
 
-function get_text_dim( text, char_table )
-	local w, h = 0, 0
-	if( type( text ) ~= "table" ) then
-		text = { text }
-	end
+function get_text_dim( text, font_data )
+	if( type( text ) ~= "table" ) then text = { text } end
+	font_data = font_data or font_extractor( "vanilla" ) or {}
+	if( font_data.path == nil ) then return 0,0 end
 	
+	local w, h = 0, 0
 	local total_w, total_h = 0, 0
 	for i,txt in ipairs( text ) do
-		if( txt == "" or txt == " " ) then
-			w,h = 0,11
-		else
-			if( char_table == nil ) then
-				local gui = GuiCreate()
-				GuiStartFrame( gui )
-				w, h = GuiGetTextDimensions( gui, txt, 1, 2 )
-				GuiDestroy( gui )
-			else
-				h = char_table.height or 0
-				for chr in string.gmatch( txt, "." ) do
-					w = w + char_table.dims[ string.byte( chr )][1]
-				end
+		local num = 0
+		for c in string.gmatch( txt, "." ) do
+			num = bit.lshift( num, 10 ) + string.byte( c )
+			
+			local id = byte2id[ num ]
+			if( id ) then
+				w = w + font_data.dims[ id ][1]
+				num = 0
 			end
 		end
-
+		
 		if( w > total_w ) then total_w = w end
-		total_h = total_h + h - 2
+		total_h = total_h + font_data.height
 	end
 	
 	return total_w, total_h
@@ -1673,18 +1827,32 @@ function hud_num_fix( a, b, zeros )
 	return a.."/"..b
 end
 
+function spell_desc_fix( text )
+	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
+	return text
+end
+
+function get_tip_width( text, min_width, max_width, k )
+	min_width, max_width, k = min_width or 121, max_width or 251, k or 1
+	if( string.find( text, "[\n@]" ) ~= nil ) then k = 2*k end
+
+	local l = math.min( k*#text, 500 )
+	local w = math.min( math.max( math.floor( 6.5*l^0.6 + 0.5 ), math.max( min_width, 121 )), max_width )
+	return 2*math.floor(( w + 1 )/2 + 0.5 ) - 1
+end
+
 function get_stain_perc( perc )
 	local some_cancer = 14/99
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
 end
 
-function get_effect_timer( secs, skip_num )
-	if( secs < 0 ) then
+function get_effect_timer( secs, no_units )
+	if(( secs or -1 ) < 0 ) then
 		return ""
 	else
 		local is_tiny = secs < 1
 		secs = string.format( "%."..b2n( is_tiny ).."f", secs )
-		if( not( skip_num or false )) then
+		if( not( no_units or false )) then
 			secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" )
 		end
 		return is_tiny and string.sub( secs, 2 ) or secs
@@ -1709,33 +1877,62 @@ function simple_anim( data, name, target, speed, min_delta )
 	return data.memo[name]
 end
 
-function get_short_num( num, negative_inf )
+function get_short_num( num, no_subzero, force_sign )
 	no_subzero = no_subzero or false
+	force_sign = force_sign or false
 
+	if( num < 0 and not( no_subzero )) then
+		return "∞"
+	elseif( no_subzero ~= 1 ) then
+		num = math.max( num, 0 )
+	end
+	local real_num = num
+	num = math.abs( num )
+	if( num < 999e12 ) then
+		if( num < 10 ) then
+			num = string.gsub( string.format( "%.3f", real_num ), "%.*0+$", "" )
+		else
+			local sstr = string.format( "%.0f", real_num )
+
+			local ender = { 12, "T" }
+			if( num < 10^4 ) then
+				ender = { 0, "" }
+			elseif( num < 10^6 ) then
+				ender = { 3, "K" }
+			elseif( num < 10^9 ) then
+				ender = { 6, "M" }
+			elseif( num < 10^12 ) then
+				ender = { 9, "B" }
+			end
+
+			num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
+		end
+	elseif( num < 9e99 ) then
+		num = tostring( string.format("%e", real_num ))
+		local _, pos = string.find( num, "+", 1, true )
+		num = string.sub( num, string.find( num, "^%-*%d" )).."e"..string.sub( 100 + tonumber( string.sub( num, pos+1, #num )), 2 )
+	else
+		return "∞"
+	end
+
+	if( force_sign ) then num = ( real_num > 0 and "+" or "" )..num end
+	return num
+end
+
+function get_tiny_num( num, no_subzero )
+	no_subzero = no_subzero or false
+	
 	if( num < 0 and not( no_subzero )) then
 		return "∞"
 	else
 		num = math.max( num, 0 )
 	end
-	if( num < 999e12 ) then
+	if( num < 100000 ) then
 		local sstr = string.format( "%.0f", num )
 		
-		local ender = { 12, "T" }
-		if( num < 10^4 ) then
-			ender = { 0, ""}
-		elseif( num < 10^6 ) then
-			ender = { 3, "K" }
-		elseif( num < 10^9 ) then
-			ender = { 6, "M" }
-		elseif( num < 10^12 ) then
-			ender = { 9, "B" }
-		end
-
+		local ender = { 3, "K" }
+		if( num < 10^3 ) then ender = { 0, "" } end
 		num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
-	elseif( num < 9e99 ) then
-		num = tostring( string.format("%e", num ))
-		local _, pos = string.find( num, "+", 1, true )
-		num = string.sub( num, 1, 1 ).."e"..string.sub( 100 + tonumber( string.sub( num, pos+1, #num )), 2 )
 	else
 		num = "∞"
 	end
@@ -2260,21 +2457,11 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			local p_off_y = is_up and -5 or 5
 			pic_x, pic_y = text[2] or ( pic_x + p_off_x ), text[3] or ( pic_y + p_off_y )
 			
-			local length = 0
-			if( text[1] ~= "" ) then
-				text[1] = font_liner( text[1], w*0.9, h - 2 )
-				for i,line in ipairs( text[1]) do
-					local current_length = GuiGetTextDimensions( gui, line, 1, 2 )
-					if( current_length > length ) then
-						length = current_length
-					end
-				end
-			end
+			local edge_spacing, dims = 3, {0,0}
+			if( text[1] ~= "" ) then text[1], dims = font_liner( text[1], w*0.9, h - 2 ) end
 			
-			local edge_spacing = 3
-			local x_offset, y_offset = text[4] or length, text[5] or 9*#text[1]
+			local x_offset, y_offset = text[4] or ( dims[1] + ( is_right and edge_spacing or 1 )), text[5] or dims[2]
 			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
-			
 			if( is_right or is_up ) then
 				if( is_right ) then
 					pic_x = pic_x - x_offset - 1
@@ -2313,7 +2500,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 
 			is_fancy = is_fancy or false
 			local gui_core = "mods/index_core/files/pics/vanilla_tooltip_"
-			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, 1.1*inter_alpha )
+			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, 1.15*inter_alpha )
 			local lines = {{0,-1,x_offset-1,1},{-1,0,1,y_offset-1},{1,y_offset,x_offset-1,1},{x_offset,1,1,y_offset-1}}
 			for i,line in ipairs( lines ) do
 				uid = new_image( gui, uid, pic_x + line[1], pic_y + line[2], z, gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), line[3], line[4], inter_alpha )
@@ -2357,7 +2544,7 @@ end
 
 function new_vanilla_wtt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
 	--allow adding custom displayed params to wands
-
+	
 	return uid
 end
 
@@ -2369,31 +2556,13 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	if( this_info.spell_info == nil or in_world ) then
 		return uid
 	end
-
+	
 	--hold alt to display advanced tooltip (list every damage type, additional info, all the shit is in frames)
-	--switch to the top if won't fit
-	--spell pic is 0.9 alpha by default (with a shadow) and gets 0.2 alpha with time (like 60 frames) - just overlayed over the text
-	--data/ui_gfx/inventory
-	--item name must have "(charges)" in it
 	--hold alt to pin current tooltip in-place (allows hovering + works for wand ones too)
 	--on alt an entire side section pops up with all the misc stuff
-	--there should be max (251) and min (115) thickness, allow only odd numbers, the width is determined by the raw string length
-	--[[
-		this_info.pic
-		this_info.spell_info.name (all capital; yellow)         this_info.spell_info.price (grey)
-		this_info.spell_info.description
-		icon_action_type.png=this_info.spell_info.type (color it to the type by cutting pixel from the border pic itself)
-		icon_action_max_uses.png=100*this_info.charges/this_info.max_uses
-		icon_mana_drain.png=this_info.spell_info.mana
-		
-		local c = this_info.spell_info.meta.state
-		icon_fire_rate_wait.png=c.fire_rate_wait
-		icon_reload_time.png=c.reload_time                 this_info.spell_info.is_chainsaw
-		icon_gun_actions_per_round.png=c.draw_many (only if > 0)
-		icon_spread_degrees.png=c.spread_degrees
-		icon_bounces.png=c.bounces
 
-		c.damage_null_all (display nolla for the damage)
+	--[[
+		c.damage_total_add
 		icon_damage_projectile.png=c.damage_projectile_add
 		icon_damage_curse.png=c.damage_curse_add
 		icon_damage_explosion.png=c.damage_explosion_add
@@ -2409,46 +2578,79 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		c.damage_poison_add
 		c.damage_radioactive_add
 
-		icon_explosion_radius.png=c.explosion_radius
 		--c.explosion_damage_to_materials
-
-		icon_damage_critical_chance.png=c.damage_critical_chance
 		c.damage_critical_multiplier
-
-		icon_speed_multiplier.png=c.speed_multiplier
-		c.child_speed_multiplier
-
-		****************************
-
-		c.material
-		c.material_amount
-		c.trail_material
-		c.trail_material_amount
-
+		
 		c.lifetime_add
 
-		c.ragdoll_fx
+		c_proj.damage.total
+		c_proj.damage.curse
+		c_proj.damage.drill
+		c_proj.damage.electricity
+		c_proj.damage.explosion
+		c_proj.damage.fire
+		c_proj.damage.healing
+		c_proj.damage.ice
+		c_proj.damage.melee
+		c_proj.damage.overeating
+		c_proj.damage.physics_hit
+		c_proj.damage.poison
+		c_proj.damage.projectile
+		c_proj.damage.radioactive
+		c_proj.damage.slice
+		c_proj.damage.holy
 
-		--c.game_effect_entities
-		--c.extra_entities
+		c_proj.damage_scaled_by_speed
+		c_proj.damage_every_x_frames
+			
+		c_proj.lifetime
+		
+		c_proj.on_collision_die
+		c_proj.on_death_duplicate
+		c_proj.on_death_explode
+		c_proj.on_lifetime_out_explode
 
-		c.recoil
-		this_info.spell_info.meta.shot_effects.recoil_knockback
-		c.knockback_force
+		c_proj.collide_with_entities
+		c_proj.penetrate_entities
+		c_proj.dont_collide_with_tag
+		c_proj.never_hit_player
+		c_proj.friendly_fire
+		c_proj.explosion_dont_damage_shooter
 
-		c.gravity
-		c.dampening
-		--c.light
-		--c.screenshake
-		--c.gore_particles
-		c.blood_count_multiplier
-		c.physics_impulse_coeff
-		--c.lightning_count
+		c_proj.collide_with_world
+		c_proj.penetrate_world
+		c_proj.go_through_this_material
+		c_proj.ground_penetration_coeff
+		c_proj.ground_penetration_max_durability
+		
+		c_proj.explosion.damage_mortals
+		c_proj.explosion.damage
+		c_proj.explosion.is_digger
+		c_proj.explosion.explosion_radius
+		c_proj.explosion.max_durability_to_destroy
+		c_proj.explosion.ray_energy
+		
+		c_proj.crit.chance
+		c_proj.crit.damage_multiplier
+		
+		c_proj.lightning.damage_mortals
+		c_proj.lightning.damage
+		c_proj.lightning.is_digger
+		c_proj.lightning.explosion_radius
+		c_proj.lightning.max_durability_to_destroy
+		c_proj.lightning.ray_energy
 	]]
 	
-	--update mnee to have proper binding reporting
-	-- this_info.done_desc = font_liner( this_info.desc, 113, 999 )
-	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, 100, 100 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+	this_info.tt_spacing = {
+		{ get_text_dim( this_info.tip_name )},
+		{},
+	}
+	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges > 0 and 32 or 0 )
+	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1]), -1 )
+	this_info.tt_spacing[3] = { math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 ), this_info.tt_spacing[2][2] + 59 }
+	--height based on stats count
+
+	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
 		colourer( gui, type2frame[ this_info.spell_info.type ][2])
 		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, data.spell_type_alpha*inter_alpha )
@@ -2457,10 +2659,150 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		uid = new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
 		uid = new_font_vanilla_shadow( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name, {255,255,178,inter_alpha})
 		
-		uid = new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 98, 1, 0.5*inter_alpha )
-		
-		--add custom stats to both columns (with a spacer)
-		-- uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + 11, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+		--inventory_actiontype
+		-- inventory_actiontype_projectile
+		-- inventory_actiontype_staticprojectile
+		-- inventory_actiontype_modifier
+		-- inventory_actiontype_drawmany
+		-- inventory_actiontype_material
+		-- inventory_actiontype_other
+		-- inventory_actiontype_utility
+		-- inventory_actiontype_passive
+
+		-- inventory_usesremaining
+
+		if( this_info.charges > 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
+			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_max_uses.png", nil, nil, inter_alpha )
+			local charges = get_tiny_num( this_info.charges )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13 - get_text_dim( charges ), pic_y - 1, pic_z, charges, {170,170,170,inter_alpha})
+		end
+
+		uid = new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
+		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + 10, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+		pic_y = pic_y + 12 + this_info.tt_spacing[2][2]
+		uid = new_image( gui, uid, pic_x - 2, pic_y, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
+		uid = new_image( gui, uid, pic_x - 3 + math.floor( this_info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, 43, 0.5*inter_alpha )
+
+		local function get_generic_stat( v, v_add, dft, allow_inf )
+			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
+			local is_dft = v == dft
+			return get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
+		end
+		local c, c_proj = this_info.spell_info.meta.state, this_info.spell_info.meta.state_proj
+		local no_draw = ( c.draw_many or 0 ) == 0
+		local stats_tbl = {
+			{
+				{
+					pic = no_draw and "data/ui_gfx/inventory/icon_gun_charge.png" or "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
+					name = no_draw and "Projectile Count" or "Draw Extra",
+					
+					value = function() return get_generic_stat( no_draw and c.proj_count or c.draw_many, nil, 0 ) end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_mana_drain.png",
+					name = "$inventory_manadrain",
+					
+					value = function() return get_generic_stat( this_info.spell_info.mana, nil, 0 ) end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
+					name = "$inventory_mod_castdelay",
+
+					value = function()
+						local v, is_dft = get_generic_stat( nil, ( c.fire_rate_wait or 0 )/60, 0, false, true )
+						return v.."s", is_dft
+					end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_reload_time.png",
+					name = "$inventory_mod_rechargetime",
+
+					value = function() --this_info.spell_info.is_chainsaw
+						local v, is_dft = get_generic_stat( nil, ( c.reload_time or 0 )/60, 0, false, true )
+						return v.."s", is_dft
+					end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
+					name = "$inventory_mod_spread",
+					
+					value = function() return get_generic_stat( c.spread_degrees, nil, 0 ) end,
+					tip = 0,
+				},
+			},
+			{
+				{
+					pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
+					name = "$inventory_mod_damage",
+
+					--c.damage_null_all (display nolla for the damage)
+					value = function() return get_generic_stat( 25*( c_proj.damage.total or 0 ), 25*( c.damage_total_add or 0 ), 0 ) end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png", off_y = 1,
+					name = "$inventory_mod_critchance",
+
+					value = function()
+						local v, is_dft = get_generic_stat( c_proj.crit.chance, c.damage_critical_chance, 0, false, true )
+						return v.."%", is_dft
+					end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_speed_multiplier.png", off_y = 1,
+					name = "$inventory_mod_speed",
+
+					value = function()
+						local v, v_add = c_proj.speed, c.speed_multiplier
+						v, v_add, allow_inf = v or 0, v_add or 1
+						local is_dft = v == 0
+						return ( is_dft and "x" or "" )..get_short_num( is_dft and v_add or ( v*v_add )), is_dft and ( v_add == 1 )
+					end,
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_bounces.png", off_y = -1,
+					name = "$inventory_mod_bounces",
+					
+					value = function() return get_generic_stat( c_proj.bounces, c.bounces, 0 ) end, --c_proj.inf_bounces
+					tip = 0,
+				},
+				{
+					pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
+					name = "$inventory_mod_explosion_radius",
+
+					value = function() return get_generic_stat( c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius, c.explosion_radius, 0 ) end,
+					tip = 0,
+				},
+			},
+		}
+		for k,column in ipairs( stats_tbl ) do
+			local stat_x, stat_y = pic_x + ( k > 1 and math.floor( this_info.tt_spacing[3][1]/2 ) or 0 ), pic_y + 3
+			for i,stat in ipairs( column ) do
+				--add custom stats to both columns (with a spacer)
+
+				local v, is_default = stat.value()
+				local alpha = ( is_default and 0.5 or 1 )*inter_alpha
+				uid = new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, nil, nil, alpha )
+				uid = new_font_vanilla_shadow( gui, uid, stat_x + 9, stat_y - 1, pic_z, v, {170,170,170,alpha})
+				-- stat.desc or ""
+
+				stat_y = stat_y + 8
+			end
+		end
+
+		pic_y = pic_y - this_info.tt_spacing[2][2] + this_info.tt_spacing[3][2] - 13
+		uid = new_font_vanilla_shadow( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", {170,170,170,inter_alpha})
+		if( this_info.spell_info.price > 0 ) then
+			local price = get_short_num( this_info.spell_info.price )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - get_text_dim( price ), pic_y, pic_z, price, {255,255,178,inter_alpha})
+			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", {255,255,255,inter_alpha})
+		end
 
 		return uid
 	end, this_info }, true )
@@ -2476,13 +2818,13 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	if( string_bullshit[ this_info.name or "" ] or string_bullshit[ this_info.desc or "" ] or string_bullshit[ this_info.pic or "" ]) then
 		return uid
 	end
-
-	this_info.done_desc = font_liner( this_info.desc, 300, -1 )
+	
 	this_info.tt_spacing = {
 		{ get_text_dim( this_info.name )},
-		{ get_text_dim( this_info.done_desc )},
+		{},
 		{ get_pic_dim( this_info.pic )}
 	}
+	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
@@ -2605,11 +2947,9 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 		txt_off_x, txt_off_y = 1, 2
 	end
 
-	icon_info.txt = space_obliterator( icon_info.txt )
-	icon_info.desc = space_obliterator( icon_info.desc )
-
 	local tip_x, tip_y = pic_x - 3, pic_y
 	if( icon_info.txt ~= "" ) then
+		icon_info.txt = space_obliterator( icon_info.txt )
 		local t_x, t_h = get_text_dim( icon_info.txt )
 		t_x = t_x - txt_off_x
 		uid = new_font_vanilla_shadow( gui, uid, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt, {255,255,255,is_hovered and 1 or 0.5})
@@ -2622,6 +2962,7 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 		pic_y = pic_y - 3
 	end
 	if( icon_info.desc ~= "" and is_hovered and tip_anim["generic"][1] > 0 ) then
+		icon_info.desc = space_obliterator( icon_info.desc )
 		local anim = math.sin( math.min( tip_anim["generic"][3], 10 )*math.pi/20 )
 		local t_x, t_h = get_text_dim( icon_info.desc )
 		new_text( gui, pic_x - t_x + w, pic_y + h + 2, pic_z, icon_info.desc, icon_info.is_danger and {224,96,96} or nil, anim )
@@ -2884,7 +3225,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 				uid = new_image( gui, uid, pic_x, pic_y + 11, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
 				colourer( gui, {0,0,0})
 				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 10.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.5 )
-				new_text( gui, pic_x + 9, pic_y + 10, zs.main_far_back + 0.01, this_info.wand_info.main[2], {207,207,207}, inter_alpha )
+				new_text( gui, pic_x + 9, pic_y + 10, zs.main_far_back + 0.01, this_info.wand_info.main[2], {170,170,170}, inter_alpha )
 				new_text( gui, pic_x + 9.5, pic_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.main[2], {0,0,0}, inter_alpha*0.5 )
 			end
 		end
