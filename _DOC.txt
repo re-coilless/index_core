@@ -1,6 +1,10 @@
+make a translator function that will allow multiple translation keys to exist (allow mixed strings too)
 Check if the spells inside wands not in hand are xy synched correctly
 the spells hovering is kinda sus (check pointer being near edges)
-add setting to ignore line of sight for potions and work as radius instead (hard set pointer pos to a radius when is too far)
+hotkey to cycle through modes
+have "items nearby" mode that goes at the center bottom of the management mode (10 in a row, scales vertically based on the item count; works only for free lying; hide if there's nothing nearby); works through pickup menu; don't allow to swap
+
+add cutting to the status effect pics
 
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_type - all the inventory kinds this item can be inserted into

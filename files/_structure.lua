@@ -99,40 +99,37 @@ local ITEM_CATS = {
         on_data = function( item_id, data, this_info, item_list_wip )
             this_info.wand_info = {
                 main = {
-                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
+                    shuffle_deck_when_empty = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
+                    actions_per_round = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
+                    deck_capacity = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
+                    spread_degrees = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
+                    mana_max = ComponentGetValue2( this_info.AbilityC, "mana_max" ),
+                    mana_charge_speed = ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
+                    mana = ComponentGetValue2( this_info.AbilityC, "mana" ),
 
-                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-
-                    ComponentGetValue2( this_info.AbilityC, "mana_max" ),
-                    ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
-                    ComponentGetValue2( this_info.AbilityC, "mana" ),
-                    ComponentGetValue2( this_info.AbilityC, "never_reload" ),
-                    math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
-                    math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
+                    never_reload = ComponentGetValue2( this_info.AbilityC, "never_reload" ),
+                    reload_time = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
+                    delay_time = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
+                    reload_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
+                    delay_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
                 },
                 misc = {
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
+                    speed_multiplier = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
+                    lifetime_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
+                    bounces = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
 
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+                    crit_chance = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
+                    crit_mult = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
 
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
-                    ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
-
-                    -- _G[ComponentGetValue2( this_info.AbilityC, "slot_consumption_function" )] or function() return -1 end, --gun.lua for this
+                    damage_electricity_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
+                    damage_explosion_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
+                    damage_fire_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
+                    damage_melee_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
+                    damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
                 },
             }
             
-            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.main[1], 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
+            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.main.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
             
             --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana; show nothing if actions_per_round < 1) for bottom right + play sound if is empty and tries to fire (unless actions per round)
             
@@ -152,11 +149,15 @@ local ITEM_CATS = {
         end,
         on_tooltip = new_vanilla_wtt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            --do the tooltip (hov_func is the one)
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
-            return uid
+
+            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+                uid = hov_func( gui, uid, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+            end
+
+            return uid, this_info
         end,
         
         on_pickup = function( item_id, data, this_info, is_post )
@@ -239,10 +240,6 @@ local ITEM_CATS = {
             local content_tbl = mtrs[2]
             
             local w, h = get_pic_dim( data.slot_pic.bg )
-            if( content_total == 0 ) then
-                uid = new_image( gui, uid, pic_x + 2, pic_y + 2, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
-            end
-            
             if( not( john_bool.is_full )) then
                 pic_x, pic_y = pic_x + w/2, pic_y + h/2
                 w, h = w - 4, h - 4
@@ -270,8 +267,13 @@ local ITEM_CATS = {
         end,
         on_tooltip = new_vanilla_ptt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+                uid = hov_func( gui, uid, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+            end
+
             local cap_max = this_info.matter_info[1]
             local content_total = this_info.matter_info[2][1]
+            if( content_total == 0 ) then this_info.charges = 0 end
 
             local nuke_it, target_angle = true, 0
             if( john_bool.is_dragged ) then
@@ -313,16 +315,16 @@ local ITEM_CATS = {
             colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
             uid = new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
             
-            return uid, true, true
+            return uid, this_info, content_total ~= 0, true
         end,
 
         on_action = function( type )
             local func_tbl = {
                 [1] = function( item_id, data, this_info )
-                    if( this_info.matter_info[3] ) then
+                    if( this_info.matter_info[3]) then
                         if( this_info.matter_info[2][1] > 0 ) then
                             play_sound( data, { "data/audio/Desktop/misc.bank", "misc/potion_drink" })
-                            chugger_3000( data.player_id, this_info.id, this_info.matter_info[1], this_info.matter_info[2][2], data.shift_action and 1 or 0.1 )
+                            chugger_3000( data.player_id, this_info.id, this_info.matter_info[2][1], this_info.matter_info[2][2], data.shift_action and 1 or 0.1 )
                         else
                             play_sound( data, { "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" })
                         end
@@ -444,11 +446,11 @@ local ITEM_CATS = {
             data, this_info.spell_info = get_action_data( data, spell_id )
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
-
+            
             this_info.tip_name = capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
             this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 221 )
-            this_info.desc = spell_desc_fix( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
+            this_info.desc = item_desc_fix( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
@@ -482,7 +484,7 @@ local ITEM_CATS = {
                 uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
-            return uid
+            return uid, this_info
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -503,7 +505,7 @@ local ITEM_CATS = {
                 uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
-            return uid, true
+            return uid, this_info, true
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -524,7 +526,7 @@ local ITEM_CATS = {
                 uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
-            return uid
+            return uid, this_info
         end,
 
         on_gui_world = new_vanilla_worldtip,

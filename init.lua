@@ -104,23 +104,12 @@ end
 
 --DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights
 
---[[
-GuiAnimateBegin(gui) 
-GuiAnimateAlphaFadeIn(gui, id, 0, 0, true)
-GuiBeginAutoBox(gui)
-GuiBeginScrollContainer(gui, id, x, y, size_x, size_y, false, 0, 0)
-GuiEndAutoBoxNinePiece(gui)
-GuiAnimateEnd(gui)
---your content here
-GuiEndScrollContainer(gui)
-]]
-
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 	
 	if( not( custom_font_set or false )) then
 		custom_font_set = true
-		register_new_font( "vanilla", penman_r, penman_w,
+		register_new_font( "default", penman_r, penman_w,
 			"data/fonts/font_pixel_noshadow",
 			"mods/index_core/files/fonts/vanilla/", -2 )
 		register_new_font( "vanilla_shadow", penman_r, penman_w,
@@ -226,6 +215,7 @@ function OnPlayerSpawned( hooman )
 	-- CreateItemActionEntity( "LIGHTNING", x, y )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 	--testing_bag insert in the chest (autoarrange in the grid when inside player root inventory; display contents on hover tooltip)
+	--all spells wand
 end
 
 function OnPlayerDied( hooman )

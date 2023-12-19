@@ -329,8 +329,8 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local value = {0,0}
         if( this_data.wand_info ~= nil ) then
-            local mana_max = this_data.wand_info.main[6]
-            local mana = this_data.wand_info.main[8]
+            local mana_max = this_data.wand_info.main.mana_max
+            local mana = this_data.wand_info.main.mana
 
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( data.memo.mana_shake[data.active_item] == nil ) then
@@ -391,8 +391,8 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.reload_max = data.memo.reload_max or {}
     
     local this_data = data.active_info
-    if( this_data.wand_info ~= nil and not( this_data.wand_info.main[9]) and not( data.gmod.menu_capable )) then
-        local reloading = this_data.wand_info.main[10]
+    if( this_data.wand_info ~= nil and not( this_data.wand_info.main.never_reload ) and not( data.gmod.menu_capable )) then
+        local reloading = this_data.wand_info.main.reload_frame
         data.memo.reload_max[data.active_item] = ( data.memo.reload_max[data.active_item] or -1 ) < reloading and reloading or data.memo.reload_max[data.active_item]
         if( data.memo.reload_max[data.active_item] > data.reload_threshold ) then
             if( data.memo.reload_max[data.active_item] ~= reloading ) then
@@ -420,7 +420,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if( this_data.wand_info == nil or ( this_data.wand_info.main[10] or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.main.reload_frame or 0 ) == 0 ) then
         data.memo.reload_max[data.active_item] = nil
     end
 
@@ -431,10 +431,10 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.reload )
     data.memo.delay_shake = data.memo.delay_shake or {}
     data.memo.delay_max = data.memo.delay_max or {}
-
+    
     local this_data = data.active_info
     if( this_data.wand_info ~= nil and not( data.gmod.menu_capable )) then
-        local cast_delay = this_data.wand_info.main[11]
+        local cast_delay = this_data.wand_info.main.delay_frame
         data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < cast_delay and cast_delay or data.memo.delay_max[data.active_item]
         if( data.memo.delay_max[data.active_item] > data.delay_threshold ) then
             if( data.memo.delay_max[data.active_item] ~= cast_delay ) then
@@ -462,7 +462,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if( this_data.wand_info == nil or ( this_data.wand_info.main[11] or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.main.delay_frame or 0 ) == 0 ) then
         data.memo.delay_max[data.active_item] = nil
     end
 
