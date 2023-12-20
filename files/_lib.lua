@@ -801,7 +801,7 @@ function clean_my_gun()
 
 	gun = {}
 	ConfigGun_Init( gun )
-	current_reload_time = gun.reload_time
+	current_reload_time = 0
 
 	dont_draw_actions = false
 	force_stop_draws = false
@@ -887,170 +887,173 @@ function get_action_data( data, spell_id )
 					spell_proj_data[ path ].penman_frame = data.frame_num
 				elseif( type( spell_proj_data[ path ].penman ) == "number" ) then
 					if( spell_proj_data[ path ].penman_frame < data.frame_num ) then
-						is_gonna = false
-						local nxml = dofile_once( "mods/index_core/nxml.lua" )
-						local xml = nxml.parse( penman_restore( penman_return( spell_proj_data[ path ].penman )))
+						local file = penman_return( spell_proj_data[ path ].penman ) or ""
+						if( file ~= "" ) then
+							is_gonna = false
 
-						local xml_kid = xml:first_of( "ProjectileComponent" )
-						if( xml_kid == nil ) then
-							xml_kid = xml:first_of( "Base" )
-							if( xml_kid ~= nil ) then
-								xml_kid = xml_kid:first_of( "ProjectileComponent" )
-							end
-						end
-						if( xml_kid ) then
-							metadata.state_proj = {
-								damage = {
-									curse = 0,
-									drill = 0,
-									electricity = 0,
-									explosion = 0,
-									fire = 0,
-									healing = 0,
-									ice = 0,
-									melee = 0,
-									overeating = 0,
-									physics_hit = 0,
-									poison = 0,
-									projectile = tonumber( xml_kid.attr.damage or 0 ),
-									radioactive = 0,
-									slice = 0,
-									holy = 0,
-								},
-								explosion = {},
-								crit = {},
-								lightning = {},
-								laser = {},
-								damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
-								damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
-								
-								lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
-
-								speed = math.floor(( tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
-
-								inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
-								bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
-								
-								on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
-								on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
-								on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
-								on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
-
-								collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
-								penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
-								dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
-								never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
-								friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
-								explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
-
-								collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
-								penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
-								go_through_this_material = xml_kid.attr.go_through_this_material or "",
-								ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
-								ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
-							}
-
-							local dmg_kid = xml_kid:first_of( "damage_by_type" )
-							if( dmg_kid ) then
-								metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
-								metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
-								metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
-								metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
-								metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
-								metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
-								metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
-								metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
-								metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
-								metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
-								metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
-								metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + tonumber( dmg_kid.attr.projectile or 0 )
-								metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
-								metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
-								metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
-							end
-							local exp_kid = xml_kid:first_of( "config_explosion" )
-							if( exp_kid ) then
-								metadata.state_proj.explosion = {
-									damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
-									damage = tonumber( exp_kid.attr.damage or 0 ),
-									is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
-									explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
-									max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
-									ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
-								}
-							end
-							local crit_kid = xml_kid:first_of( "damage_critical" )
-							if( crit_kid ) then
-								metadata.state_proj.crit = {
-									chance = tonumber( crit_kid.attr.chance or 0 ),
-									damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
-								}
-							end
-
-							xml_kid = xml:first_of( "LightningComponent" )
+							local nxml = dofile_once( "mods/index_core/nxml.lua" )
+							local xml = nxml.parse( penman_restore( file ))
+							local xml_kid = xml:first_of( "ProjectileComponent" )
 							if( xml_kid == nil ) then
 								xml_kid = xml:first_of( "Base" )
 								if( xml_kid ~= nil ) then
-									xml_kid = xml_kid:first_of( "LightningComponent" )
+									xml_kid = xml_kid:first_of( "ProjectileComponent" )
 								end
 							end
 							if( xml_kid ) then
-								local lght_kid = xml_kid:first_of( "config_explosion" )
-								if( lght_kid ) then
-									metadata.state_proj.lightning = {
-										damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
-										damage = tonumber( lght_kid.attr.damage or 0 ),
-										is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
-										explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
-										max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
-										ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
-									}
-								end
-							end
+								metadata.state_proj = {
+									damage = {
+										curse = 0,
+										drill = 0,
+										electricity = 0,
+										explosion = 0,
+										fire = 0,
+										healing = 0,
+										ice = 0,
+										melee = 0,
+										overeating = 0,
+										physics_hit = 0,
+										poison = 0,
+										projectile = tonumber( xml_kid.attr.damage or 0 ),
+										radioactive = 0,
+										slice = 0,
+										holy = 0,
+									},
+									explosion = {},
+									crit = {},
+									lightning = {},
+									laser = {},
+									damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
+									damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
+									
+									lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
 
-							xml_kid = xml:first_of( "LaserEmitterComponent" )
-							if( xml_kid == nil ) then
-								xml_kid = xml:first_of( "Base" )
-								if( xml_kid ~= nil ) then
-									xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
+									speed = math.floor(( tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
+
+									inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
+									bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
+									
+									on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
+									on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
+									on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
+									on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
+
+									collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
+									penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
+									dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
+									never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
+									friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
+									explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
+
+									collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
+									penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
+									go_through_this_material = xml_kid.attr.go_through_this_material or "",
+									ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
+									ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
+								}
+
+								local dmg_kid = xml_kid:first_of( "damage_by_type" )
+								if( dmg_kid ) then
+									metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
+									metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
+									metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
+									metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
+									metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
+									metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
+									metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
+									metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
+									metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
+									metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
+									metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
+									metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + tonumber( dmg_kid.attr.projectile or 0 )
+									metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
+									metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
+									metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
 								end
-							end
-							if( xml_kid ) then
-								local laser_kid = xml_kid:first_of( "laser" )
-								if( laser_kid ) then
-									metadata.state_proj.laser = {
-										max_length = tonumber( laser_kid.attr.max_length or 0 ),
-										beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
-										damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
-										damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
-										max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
+								local exp_kid = xml_kid:first_of( "config_explosion" )
+								if( exp_kid ) then
+									metadata.state_proj.explosion = {
+										damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
+										damage = tonumber( exp_kid.attr.damage or 0 ),
+										is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
+										explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
+										max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
+										ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
 									}
 								end
+								local crit_kid = xml_kid:first_of( "damage_critical" )
+								if( crit_kid ) then
+									metadata.state_proj.crit = {
+										chance = tonumber( crit_kid.attr.chance or 0 ),
+										damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
+									}
+								end
+
+								xml_kid = xml:first_of( "LightningComponent" )
+								if( xml_kid == nil ) then
+									xml_kid = xml:first_of( "Base" )
+									if( xml_kid ~= nil ) then
+										xml_kid = xml_kid:first_of( "LightningComponent" )
+									end
+								end
+								if( xml_kid ) then
+									local lght_kid = xml_kid:first_of( "config_explosion" )
+									if( lght_kid ) then
+										metadata.state_proj.lightning = {
+											damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
+											damage = tonumber( lght_kid.attr.damage or 0 ),
+											is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
+											explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
+											max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
+											ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
+										}
+									end
+								end
+
+								xml_kid = xml:first_of( "LaserEmitterComponent" )
+								if( xml_kid == nil ) then
+									xml_kid = xml:first_of( "Base" )
+									if( xml_kid ~= nil ) then
+										xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
+									end
+								end
+								if( xml_kid ) then
+									local laser_kid = xml_kid:first_of( "laser" )
+									if( laser_kid ) then
+										metadata.state_proj.laser = {
+											max_length = tonumber( laser_kid.attr.max_length or 0 ),
+											beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
+											damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
+											damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
+											max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
+										}
+									end
+								end
+								
+								local total_dmg = 0
+								for field,dmg in pairs( metadata.state_proj.damage ) do
+									total_dmg = total_dmg + dmg
+								end
+								if( metadata.state_proj.explosion.damage_mortals ) then
+									total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
+								end
+								if( metadata.state_proj.lightning.damage_mortals ) then
+									total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
+								end
+								metadata.state_proj.damage["total"] = total_dmg
 							end
-							
-							local total_dmg = 0
-							for field,dmg in pairs( metadata.state_proj.damage ) do
-								total_dmg = total_dmg + dmg
-							end
-							if( metadata.state_proj.explosion.damage_mortals ) then
-								total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
-							end
-							if( metadata.state_proj.lightning.damage_mortals ) then
-								total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
-							end
-							metadata.state_proj.damage["total"] = total_dmg
 						end
 					end
 				end
 			end
 
-			ACTION_DRAW_RELOAD_TIME_INCREASE = 0
-			c, dont_draw_actions, reflecting, current_reload_time, shot_effects = nil, nil, nil, nil, nil
+			ACTION_DRAW_RELOAD_TIME_INCREASE, c = 0, nil
 			add_projectile = add_projectile_old
 			add_projectile_trigger_timer = add_projectile_trigger_timer_old
 			add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
 			add_projectile_trigger_death = add_projectile_trigger_death_old
 			draw_actions = draw_actions_old
+			clean_my_gun()
 
 			data.memo.spell_data[ spell_id ].meta = magic_copy( metadata )
 			data.memo.spell_data[ spell_id ].hold_up = is_gonna
@@ -2242,6 +2245,14 @@ function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interac
 	return uid
 end
 
+function new_shaded_image( gui, uid, pic_x, pic_y, pic_z, pic, dims, s_x, s_y, alpha, interactive, angle )
+	s_x, s_y, alpha = s_x or 1, s_y or 1, alpha or 1
+	new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
+	colourer( gui, {0,0,0})
+	local scale_x, scale_y = 1/( s_x*dims[1] ) + 1, 1/( s_y*dims[2] ) + 1
+	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, 0.05*alpha, false, angle )
+end
+
 function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
 	GuiZSetForNextWidget( gui, pic_z )
 	uid = uid + 1
@@ -2292,12 +2303,13 @@ function new_anim_looped( core_path, delay, duration )
 end
 
 --gmatch string and execute custom code for the characters that match
-function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_drift, colours )
+function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_drift, colours, do_shadow )
 	if( type( text ) ~= "table" ) then text = { tostring( text )} end
 	interline_drift = interline_drift or 0
 	colours = colours or {}
+	do_shadow = do_shadow or false
 	uid = uid + 1
-
+	
 	local total_drift = 0
 	local font_data = font_extractor( font_name ) or {}
 	if( font_data.path ~= nil ) then
@@ -2314,7 +2326,7 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_dri
 				end
 
 				colourer( gui, colours )
-				new_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, 1, 1, colours[4])
+				new_shaded_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, dims, 1, 1, colours[4])
 
 				drift = drift + dims[1]
 			end
@@ -2326,12 +2338,12 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_dri
 	return uid, total_drift
 end
 
-function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_shadow", text, nil, colours )
+function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours, do_shadow )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_shadow", text, nil, colours, do_shadow )
 end
 
-function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, nil, colours )
+function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours, do_shadow )
+	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, nil, colours, do_shadow )
 end
 
 function new_interface( gui, uid, pos, pic_z, is_debugging )
@@ -2912,7 +2924,7 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 					pic = "data/ui_gfx/inventory/icon_reload_time.png",
 					name = "$inventory_mod_rechargetime",
 
-					v = ( this_info.spell_info.is_chainsaw or false ) and "chainsaw" or c.reload_time,
+					v = ( this_info.spell_info.is_chainsaw or false ) and "Chainsaw" or c.reload_time,
 					value = function( v )
 						local v, is_dft = get_generic_stat( nil, ( v or 0 )/60, 0, false, true )
 						return v.."s", is_dft
@@ -3117,12 +3129,15 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 	end
 
     local w, h = get_pic_dim( icon_info.pic )
-	uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, nil, nil, kind == 2 and math.min( 0.15*( 3 + 5*icon_info.amount ), 1 ) or 1, true )
+	if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
+	uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, nil, nil, 1, true )
 	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
 
 	if( kind == 2 and icon_info.amount > 0 ) then
-		GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 )
-		uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z + 0.003, icon_info.pic, nil, nil, 0.5 )
+		local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
+		uid = new_cutout( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( gui, uid, v )
+			return new_image( gui, uid, 0, -step, v[1], v[2])
+		end, { pic_z - 0.002, icon_info.pic })
 		
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
@@ -3387,35 +3402,38 @@ end
 function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand )
 	local step_x, step_y = 0, 0
 	local scale = data.no_wand_scaling and 1 or 1.5
+	local extra_step = ( this_info.wand_info.main.shuffle_deck_when_empty or this_info.wand_info.main.actions_per_round > 1 ) and 3 or 0
 	this_info.w_spacing = {
-		( this_info.wand_info.main.shuffle_deck_when_empty or this_info.wand_info.main.actions_per_round > 1 ) and 10 or 1,
-		0,
-		19*this_info.wand_info.main.deck_capacity + 4,
+		extra_step - 1, 0,
+		19*this_info.wand_info.main.deck_capacity + 4, 0,
 	}
 	if( item_pic_data[ this_info.pic ]) then
 		local drift = this_info.w_spacing[1]
+		this_info.w_spacing[2] = drift
 		if( item_pic_data[ this_info.pic ].xy ) then
 			drift = drift + scale*item_pic_data[ this_info.pic ].xy[1]
 		end
 		if( item_pic_data[ this_info.pic ].xml_xy ) then
 			drift = drift - scale*item_pic_data[ this_info.pic ].xml_xy[1]
 		end
-
 		this_info.w_spacing[1] = drift
-		this_info.w_spacing[2] = drift
+
 		if( item_pic_data[ this_info.pic ].dims ) then
-			local min_val = 25
-			this_info.w_spacing[2] = this_info.w_spacing[2] + scale*item_pic_data[ this_info.pic ].dims[1]
+			this_info.w_spacing[2] = this_info.w_spacing[2] + scale*item_pic_data[ this_info.pic ].dims[1] + 1
+			local min_val = math.ceil( math.max( this_info.w_spacing[1] + this_info.w_spacing[2] - extra_step, 25 )/19 )*19
 			if( this_info.w_spacing[2] < min_val ) then
 				this_info.w_spacing[1] = drift + ( min_val - this_info.w_spacing[2])/2
 				this_info.w_spacing[2] = min_val
 			end
 		end
 
-		--check spacings and move down if ass (there should be 3 pixels till the top)
+		drift = scale*item_pic_data[ this_info.pic ].dims[2] - 18
+		if( drift > 0 ) then
+			this_info.w_spacing[4] = drift
+		end
 	end
 
-	step_x, step_y = this_info.w_spacing[2] + this_info.w_spacing[3], 19
+	step_x, step_y = this_info.w_spacing[2] + this_info.w_spacing[3], 19 + this_info.w_spacing[4]
 	uid = data.tip_func( gui, uid, this_info.id, zs.main_far_back + 0.1, { "", pic_x, pic_y, step_x, step_y }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_info )
 		local is_shuffle, is_multi = this_info.wand_info.main.shuffle_deck_when_empty, this_info.wand_info.main.actions_per_round > 1
 		if( is_shuffle or is_multi ) then
@@ -3425,28 +3443,30 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha*0.75 )
 			end
 			if( is_multi ) then
-				uid = new_image( gui, uid, pic_x, pic_y + 11, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
+				local multi_y = pic_y + this_info.w_spacing[4]
+				uid = new_image( gui, uid, pic_x, multi_y + 11, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
 				colourer( gui, {0,0,0})
-				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 10.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
-				new_text( gui, pic_x + 9, pic_y + 10, zs.main_far_back + 0.01, this_info.wand_info.main.actions_per_round, {170,170,170}, inter_alpha )
-				new_text( gui, pic_x + 9.5, pic_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.main.actions_per_round, {0,0,0}, inter_alpha*0.5 )
+				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
+				new_text( gui, pic_x + 9, multi_y + 10, zs.main_far_back + 0.01, this_info.wand_info.main.actions_per_round, {170,170,170}, inter_alpha )
+				new_text( gui, pic_x + 9.5, multi_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.main.actions_per_round, {0,0,0}, inter_alpha*0.5 )
 			end
 		end
 
 		local drift, section_off = this_info.w_spacing[1], this_info.w_spacing[2]
-		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9, zs.main_far_back + 0.05, this_info.pic, inter_alpha, 0, scale, true )
+		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, zs.main_far_back + 0.05, this_info.pic, inter_alpha, 0, scale, true )
 		pic_x = pic_x + section_off
-		uid = new_image( gui, uid, pic_x, pic_y - 1, zs.main_far_back + 0.01, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, 20, 0.5*inter_alpha )
+		uid = new_image( gui, uid, pic_x, pic_y - 1, zs.main_far_back + 0.01, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
 		--setup interface, write shit to data.wand_tip
 		--show wand tooltip right over the separator
 		
 		local slot_count = this_info.wand_info.main.deck_capacity
 		if( slot_count > 26 ) then
 			--arrows (small bouncing of slot row post scroll based on the direction scrolled)
+			--use temp cutouts for transition
 		end
 
 		local counter = 1
-		local slot_x, slot_y = pic_x + 2, pic_y - 1
+		local slot_x, slot_y = pic_x + 2, pic_y - 1 + this_info.w_spacing[4]
 		local slot_data = data.slot_state[ this_info.id ]
 		for i,col in ipairs( slot_data ) do
 			for e,slot in ipairs( col ) do
@@ -3468,7 +3488,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 				slot_x, slot_y = slot_x, slot_y + h
 				counter = counter + 1
 			end
-			slot_x, slot_y = slot_x + w, pic_y - 1
+			slot_x, slot_y = slot_x + w, pic_y - 1 + this_info.w_spacing[4]
 		end
 
 		return uid

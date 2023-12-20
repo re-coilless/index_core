@@ -13,12 +13,26 @@ bindings["index_core"] = {
 			["mouse_right"] = 1,
 		},
 	},
-
 	az_tip_action = {
 		name = "Tip Action",
 		desc = "Displays additional info in the tooltip.",
 		keys = {
 			["left_alt"] = 1,
+		},
+	},
+
+	ba_invmode_next = {
+		name = "Next Inv Mode",
+		desc = "Inventory mod switch hotkey.",
+		keys = {
+			["keypad_+"] = 1,
+		},
+	},
+	bb_invmode_previous = {
+		name = "Previous Inv Mode",
+		desc = "Inventory mod switch hotkey.",
+		keys = {
+			["keypad_-"] = 1,
 		},
 	},
 

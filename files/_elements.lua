@@ -241,8 +241,8 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
             local max_hp_text = get_short_num( max_hp )
             local hp_text = get_short_num( hp )
-            uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png" )
-            uid = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { 255, 255, 255, 0.9 })
+            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", {8,8})
+            uid = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { 255, 255, 255, 0.9 }, true )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {length,4,length*hp/max_hp}, pic )
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
@@ -267,7 +267,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
-            uid = new_font_vanilla_small( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { 255, 255, 255, 0.9 })
+            uid = new_font_vanilla_small( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { 255, 255, 255, 0.9 }, true )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
@@ -297,7 +297,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         local shake_frame = data.frame_num - ( data.memo.flight_shake or data.frame_num )
-        uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png" )
+        uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", {8,8})
         uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
@@ -356,7 +356,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         if( value[1] >= 0 and value[2] > 0 ) then
             local ratio = math.min( value[1]/value[2], 1 )
-            uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, potion_data[1] or "data/ui_gfx/hud/mana.png" )
+            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, potion_data[1] or "data/ui_gfx/hud/mana.png", {8,8})
             if( potion_data[3] ~= nil ) then
                 uid = new_image( gui, uid, pic_x - 40, pic_y + 1, zs.main + 0.001, potion_data[2], math.min( 40*ratio + 0.5, 40 ), 2 )
                 colourer( gui, potion_data[3])
@@ -402,7 +402,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.reload_shake[data.active_item] or data.frame_num )
-            uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png" )
+            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", {8,8})
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
@@ -444,7 +444,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.delay_shake[data.active_item] or data.frame_num )
-            uid = new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/fire_rate_wait.png" )
+            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/fire_rate_wait.png", {8,8})
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
@@ -484,8 +484,8 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
 
         local v = get_short_num( god_i_love_money_holy_fuck )
         local final_length = 0
-        uid = new_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png" )
-        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, v, { 255, 255, 255, 0.9 })
+        uid = new_shaded_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", {8,8})
+        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, v, { 255, 255, 255, 0.9 }, true )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
@@ -507,10 +507,10 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
     
     if( data.orbs > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 1
-
+        
         local final_length = 0
-        uid = new_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png" )
-        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { 255, 255, 255, 0.9 })
+        uid = new_shaded_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", {8,8})
+        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { 255, 255, 255, 0.9 }, true )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
@@ -1078,9 +1078,10 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
             if( is_hovered ) then
                 arrow_left_c = arrow_hl_c
                 arrow_left_a = 1
-                if( clicked ) then
-                    new_mode = new_mode - 1
-                end
+            end
+            if( clicked or get_input({ 86--[["keypad_-"]], "Key" }, "bb_invmode_previous", false, true )) then
+                new_mode = new_mode - 1
+                arrow_left_a = 1
             end
             uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - 10, pic_y - 11, 15, 10 }, zs.tips )
             gonna_reset = gonna_reset or r_clicked
@@ -1088,9 +1089,10 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
             if( is_hovered ) then
                 arrow_right_c = arrow_hl_c
                 arrow_right_a = 1
-                if( clicked ) then
-                    new_mode = new_mode + 1
-                end
+            end
+            if( clicked or get_input({ 87--[["keypad_+"]], "Key" }, "ba_invmode_next", false, true )) then
+                new_mode = new_mode + 1
+                arrow_right_a = 1
             end
             uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, nil, {
                 pic_x - ( 6 + w ),
