@@ -567,9 +567,10 @@ function get_hooman_child( hooman, tag, ignore_id )
 	return nil
 end
 
-function child_play( entity_id, action )
+function child_play( entity_id, action, sorter )
 	local children = EntityGetAllChildren( entity_id ) or {}
 	if( #children > 0 ) then
+		if( sorter ~= nil ) then table.sort( children, sorter ) end
 		for i,child in ipairs( children ) do
 			local value = action( entity_id, child, i ) or false
 			if( value ) then
@@ -666,8 +667,8 @@ function play_sound( data, sfx, x, y )
 	GamePlaySound( sound[1], sound[2], x, y )
 end
 
-function active_item_reset( inv_id )
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( inv_id or 0, "Inventory2Component" )
+function active_item_reset( hooman )
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman or 0, "Inventory2Component" )
 	if( inv_comp ~= nil ) then
 		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
 		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
@@ -1119,7 +1120,7 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
-function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func )
+function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func, sort_func )
 	local storage_kind = get_storage( inv_id, "index_kind" )
 	if( storage_kind ~= nil ) then
 		kind = D_extractor( ComponentGetValue2( storage_kind, "value_string" ))
@@ -1144,6 +1145,10 @@ function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_f
 	if( storage_update ~= nil ) then
 		update_func = dofile_once( ComponentGetValue2( storage_update, "value_string" ))
 	end
+	local storage_sort = get_storage( inv_id, "index_sort" )
+	if( storage_sort ~= nil ) then
+		sort_func = dofile_once( ComponentGetValue2( storage_sort, "value_string" ))
+	end
 	
 	local inv_ts = {
 		inventory_full = { "full" },
@@ -1157,6 +1162,7 @@ function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_f
 		func = gui_func,
 		check = check_func,
 		update = update_func,
+		sort = sort_func,
 	}
 end
 
@@ -1258,7 +1264,7 @@ function set_to_slot( this_info, data, is_player )
 	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
 	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
 	if( not( is_hidden )) then
-		if( slot_num[1] == -5 ) then
+		if( slot_num[2] == -5 ) then
 			if( this_info.is_hidden ) then
 				slot_num = {-1,-1}
 			else
@@ -1295,16 +1301,16 @@ function set_to_slot( this_info, data, is_player )
 									end
 								end
 							end
-							if( slot_num[1] ~= -5 ) then
+							if( slot_num[2] ~= -5 ) then
 								break
 							end
 						end
 					end
-					if( slot_num[1] ~= -5 ) then
+					if( slot_num[2] ~= -5 ) then
 						break
 					end
 				end
-				if( slot_num[1] == -5 ) then
+				if( slot_num[2] == -5 ) then
 					return this_info
 				end
 			end
@@ -1430,7 +1436,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 	
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	if( item_comp == nil ) then
-		return data
+		return data, {}
 	end
 	
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
@@ -1485,6 +1491,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			-- "on_info_name",
 			"on_data",
 			"on_processed",
+			"on_processed_forced",
 			"ctrl_script",
 
 			"on_inv_check",
@@ -1528,7 +1535,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 	end
 	this_info.name, this_info.raw_name = get_item_name( item_id, item_comp, abil_comp )
 	if( this_info.cat == nil ) then
-		return
+		return data, {}
 	elseif(( this_info.name or "" ) == "" ) then
 		this_info.name = data.item_cats[ this_info.cat ].name
 	end
@@ -1538,7 +1545,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 	dofile_once( "data/scripts/gun/gun_enums.lua" )
 	dofile_once( "data/scripts/gun/gun_actions.lua" )
 	data, this_info = cat_callback( data, this_info, "on_data", {
-		item_id, data, this_info, item_list
+		item_id, data, this_info, item_list or {}
 	}, { data, this_info })
 	
 	local wand_id = ( this_info.in_wand or false ) and this_info.in_wand or item_id
@@ -1559,18 +1566,19 @@ function get_items( hooman, data )
 			child_play( inv_info.id, function( parent, child, j )
 				local new_info = nil
 				data, new_info = get_item_data( child, data, inv_info, item_tbl )
-				if( new_info ~= nil ) then
+				if( new_info.id ~= nil ) then
 					if( not( EntityHasTag( new_info.id, "index_processed" ))) then
 						cat_callback( data, new_info, "on_processed", { new_info.id, data, new_info })
 						
 						ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 						EntityAddTag( new_info.id, "index_processed" )
 					end
+					cat_callback( data, new_info, "on_processed_forced", { new_info.id, data, new_info })
 
 					new_info.pic = register_item_pic( data, new_info, new_info.advanced_pic )
 					table.insert( item_tbl, new_info )
 				end
-			end)
+			end, inv_info.sort )
 		end
 	end
 
@@ -1753,10 +1761,16 @@ function get_text_dim( text, font_data )
 end
 
 function get_pic_dim( path )
-	local gui = GuiCreate()
-	GuiStartFrame( gui )
-	local w, h = GuiGetImageDimensions( gui, path, 1 )
-	GuiDestroy( gui )
+	local w,h = 0,0
+
+	if( item_pic_data == nil or item_pic_data[ path ] == nil or item_pic_data[ path ].dims == nil ) then
+		local gui = GuiCreate()
+		GuiStartFrame( gui )
+		w,h = GuiGetImageDimensions( gui, path, 1 )
+		GuiDestroy( gui )
+	else
+		w,h = unpack( item_pic_data[ path ].dims )
+	end
 	
 	return w, h
 end
@@ -1907,6 +1921,8 @@ function hud_num_fix( a, b, zeros )
 end
 
 function item_desc_fix( text )
+	if( string_bullshit[ text or "" ]) then return "" end
+	
 	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
 	return text
 end
@@ -1944,6 +1960,19 @@ function get_matter_colour( matter )
 	local color = uint2color( GameGetPotionColorUint( color_probe ))
 	EntityKill( color_probe )
 	return color
+end
+
+--thanks to Nathan for The Math
+function sine_anim( framecount, target_scale, delay, delay_scale, frame ) --y=c\sin x-\ln\left(e^{b\sin x+a}+f\right)+d [0.4;3.6;-0.2;3.2;2]
+    framecount, delay, frame = 2*framecount, delay > 0 and ( delay + 1 ) or 0, frame or GameGetFrameNum()
+    local i = frame%( framecount + delay )
+    if( delay > 0 and i > framecount ) then
+        delay_scale = 1 + ( target_scale < 1 and 1 or -1 )*( delay_scale or 0.05 )
+        frame = framecount > delay and frame%framecount or math.max(( frame - framecount ), 0 )%( 2*delay )
+        return sine_anim( delay/2, delay_scale, 0, nil, frame )
+    else
+        return 1 - ( 1 - target_scale )*math.abs( math.sin( i*math.pi/framecount ))
+    end
 end
 
 function simple_anim( data, name, target, speed, min_delta )
@@ -2624,7 +2653,7 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 	if( type( zs ) ~= "table" ) then
 		zs = {zs}
 	end
-	local clicked, r_clicked, is_hovered = false
+	local clicked, r_clicked, is_hovered = false, false, false
 	uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, pos, zs[1], is_debugging )
 	if( zs[2] ~= nil and is_hovered ) then
 		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
@@ -2638,61 +2667,310 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 	return unpack( out )
 end
 
-function new_vanilla_worldtip( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy, tip_func )
+function new_vanilla_worldtip( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy, tip_func )
 	if( not( cant_buy )) then
 		pic_x, pic_y = unpack( data.xys.hp )
 		pic_x, pic_y = pic_x - 43, pic_y - 1
-		uid = tip_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips, true )
+		uid = tip_func( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, zs.tips, true )
 	end
 	return uid
 end
 
-function new_vanilla_wtt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-	--allow adding custom displayed params to wands
+function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, is_advanced )
+	is_advanced = is_advanced or false
+	if( this_info.wand_info == nil ) then
+		return uid
+	end
 	
 	--[[
-		this_info.wand_info = {
-			main = {
-				shuffle_deck_when_empty = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-				actions_per_round = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
-				deck_capacity = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
-				spread_degrees = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
-				mana_max = ComponentGetValue2( this_info.AbilityC, "mana_max" ),
-				mana_charge_speed = ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
-				mana = ComponentGetValue2( this_info.AbilityC, "mana" ),
+		this_info.wand_info.speed_multiplier
+		this_info.wand_info.lifetime_add
+		this_info.wand_info.bounces
 
-				never_reload = ComponentGetValue2( this_info.AbilityC, "never_reload" ),
-				reload_time = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
-				delay_time = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-				reload_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
-				delay_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
+		this_info.wand_info.crit_chance
+		this_info.wand_info.crit_mult
+		
+		this_info.wand_info.damage_electricity_add
+		this_info.wand_info.damage_explosion_add
+		this_info.wand_info.damage_fire_add
+		this_info.wand_info.damage_melee_add
+		this_info.wand_info.damage_projectile_add
+	]]
+	
+	--slot (has no alt mode but will stay open if alt is held)
+	--inventory (stats have tooltips, advanced stats replace the desc)
+	
+	local scale = data.no_wand_scaling and 1 or 2
+	local spell_list, got_spells = {permas={},normies={}}, false
+	if( not( is_advanced )) then
+		local spells = EntityGetAllChildren( item_id ) or {}
+		if( #spells > 0 ) then
+			for i,spell in ipairs( spells ) do
+				local kid_info = from_tbl_with_id( data.item_list, spell, nil, nil, {})
+				if( kid_info.id == nil ) then
+					_,kid_info = get_item_data( spell, data, data.this_info, data.item_list )
+				end
+				if( kid_info.id ~= nil ) then
+					got_spells = true
+					table.insert( spell_list[ kid_info.is_permanent and "permas" or "normies" ], kid_info )
+				end
+			end
+
+			for field,tbl in pairs( spell_list ) do
+				table.sort( spell_list[ field ], function( a, b )
+					local inv_slot = {0,0}
+					for k = 1,2 do
+						local item_comp = k == 1 and a.ItemC or b.ItemC
+						if( item_comp ~= nil ) then inv_slot[k] = ComponentGetValue2( item_comp, "inventory_slot" ) end
+					end
+					return inv_slot[1] < inv_slot[2]
+				end)
+			end
+		end
+	end
+
+	this_info.tt_spacing = {
+		{ get_text_dim( this_info.name )},
+		{ 71, 57, 0 },
+		{ 0, 0 },
+		{},
+		{ 0, 0 },
+		{},
+	}
+	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ) + 3
+	if( is_advanced and not( string_bullshit[ this_info.desc ] or false )) then
+		this_info.done_desc, this_info.tt_spacing[3] = font_liner( this_info.desc, math.floor( get_tip_width( this_info.desc )*0.5 ), -1 )
+		this_info.tt_spacing[3] = { this_info.tt_spacing[3][1] + 4, this_info.tt_spacing[3][2] - 1 }
+		if( this_info.tt_spacing[2][2] < this_info.tt_spacing[3][2]) then
+			this_info.tt_spacing[2][3] = ( this_info.tt_spacing[3][2] - this_info.tt_spacing[2][2])/2
+			this_info.tt_spacing[2][2] = this_info.tt_spacing[3][2]
+		end
+	end
+	this_info.tt_spacing[6][1] = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1] + this_info.tt_spacing[3][1])
+	this_info.tt_spacing[6][1] = math.ceil( this_info.tt_spacing[6][1]/9 )*9 + 3
+	this_info.tt_spacing[2][1] = this_info.tt_spacing[6][1] - this_info.tt_spacing[3][1]
+	if( item_pic_data[ this_info.pic ]) then
+		local dims = { scale*item_pic_data[ this_info.pic ].dims[1], scale*item_pic_data[ this_info.pic ].dims[2]}
+		local drift = { -scale*item_pic_data[ this_info.pic ].xy[2], dims[1]/2 + scale*item_pic_data[ this_info.pic ].xml_xy[1]}
+		if( this_info.tt_spacing[2][2] < dims[1]) then
+			this_info.tt_spacing[2][3] = this_info.tt_spacing[2][3] + ( dims[1] - this_info.tt_spacing[2][2])/2
+			this_info.tt_spacing[2][2] = dims[1]
+		end
+		this_info.tt_spacing[4] = { this_info.tt_spacing[2][1] + drift[1] - 15, this_info.tt_spacing[2][2]/2 + drift[2]}
+		local total_size = this_info.tt_spacing[4][1] + dims[2] + scale*item_pic_data[ this_info.pic ].xml_xy[2]
+		if( total_size > this_info.tt_spacing[2][1] - 1 ) then
+			this_info.tt_spacing[4][1] = this_info.tt_spacing[4][1] - ( total_size - this_info.tt_spacing[2][1] + 1 )
+		end
+	else
+		register_item_pic( data, this_info, this_info.advanced_pic )
+	end
+	if( got_spells ) then
+		local p_size, n_size = 0, 0
+		if( #spell_list.permas > 0 ) then
+			p_size = 9*math.ceil( 9*( #spell_list.permas + 1 )/( this_info.tt_spacing[2][1] + 1 ))
+		end
+		if( #spell_list.permas > 0 and #spell_list.normies > 0 ) then p_size = p_size + 1 end
+		if( #spell_list.normies > 0 ) then
+			n_size = 9*math.ceil( 9*( #spell_list.normies )/( this_info.tt_spacing[2][1] + 1 ))
+		end
+		this_info.tt_spacing[5] = { p_size, n_size }
+	end
+	this_info.tt_spacing[6][2] = math.max( this_info.tt_spacing[3][2], this_info.tt_spacing[2][2] + ( got_spells and ( this_info.tt_spacing[5][1] + this_info.tt_spacing[5][2] + 4 ) or 0 )) + 14
+
+	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[6][1] + 2, this_info.tt_spacing[6][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+		pic_x = pic_x + 2
+		if( this_info.wand_info.shuffle_deck_when_empty ) then
+			uid = new_image( gui, uid, pic_x - 1, pic_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
+			colourer( gui, {0,0,0})
+			uid = new_image( gui, uid, pic_x - 1, pic_y + 2, pic_z + 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
+		end
+		uid = new_font_vanilla_shadow( gui, uid, pic_x + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ), pic_y, pic_z, this_info.name, {255,255,178,inter_alpha})
+		
+		local orig_y = pic_y
+		pic_y = pic_y + 13
+		uid = new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[6][1], 1, 0.5*inter_alpha )
+		if( this_info.done_desc ) then
+			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[2][1] - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, this_info.tt_spacing[6][2] - 10, 0.5*inter_alpha )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+		end
+
+		local function get_generic_stat( v, v_add, dft, allow_inf )
+			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
+			local is_dft = v == dft
+			return get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
+		end
+		local stats_tbl = {
+			{
+				pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
+				name = "$inventory_actionspercast",
+				bigger_better = true,
+
+				v = function( w_info ) return w_info.actions_per_round or 0 end,
+				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
+				tip = 0,
 			},
-			misc = {
-				speed_multiplier = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
-				lifetime_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
-				bounces = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
+			{
+				pic = "data/ui_gfx/inventory/icon_gun_capacity.png",
+				name = "$inventory_capacity",
+				bigger_better = true,
 
-				crit_chance = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-				crit_mult = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+				v = function( w_info ) return w_info.deck_capacity or 0 end,
+				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
+				tip = 0,
+			},
+			{
+				pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
+				name = "$inventory_spread",
+				extra_step = 2,
 
-				damage_electricity_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-				damage_explosion_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-				damage_fire_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
-				damage_melee_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
-				damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
+				v = function( w_info ) return w_info.spread_degrees or 0 end,
+				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
+				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, color )
+					local shift = 0
+					uid, shift = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, txt, color )
+					colourer( gui, color )
+					uid = new_image( gui, uid, pic_x + shift, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
+					return uid
+				end,
+				tip = 0,
+			},
+			{
+				pic = "data/ui_gfx/inventory/icon_mana_max.png",
+				name = "$inventory_manamax",
+				bigger_better = true,
+				
+				v = function( w_info ) return w_info.mana_max or 0 end,
+				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
+				tip = 0,
+			},
+			{
+				pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
+				name = "$inventory_manachargespeed",
+				bigger_better = true,
+				
+				v = function( w_info ) return w_info.mana_charge_speed or 0 end,
+				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
+				tip = 0,
+			},
+			{
+				pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
+				name = "$inventory_castdelay",
+
+				v = function( w_info ) return w_info.delay_time or 0 end,
+				value = function( v )
+					local v, is_dft = get_generic_stat(( v or 0 )/60, nil, 0, false, true )
+					return v.."s", is_dft
+				end,
+				tip = 0,
+			},
+			{
+				pic = "data/ui_gfx/inventory/icon_gun_reload_time.png",
+				name = "$inventory_rechargetime",
+				extra_step = 2,
+
+				v = function( w_info )
+					if( w_info.never_reload ) then
+						return "Ø", true
+					else
+						return w_info.reload_time or 0
+					end
+				end,
+				value = function( v )
+					local v, is_dft = get_generic_stat(( v or 0 )/60, nil, 0, false, true )
+					return v.."s", is_dft
+				end,
+				tip = 0,
 			},
 		}
-	]]
+		local stat_x, stat_y = pic_x, pic_y + this_info.tt_spacing[2][3] --allow adding custom displayed params to wands (with a spacer)
+		for i,stat in ipairs( stats_tbl ) do
+			local v, is_special = stat.v( this_info.wand_info )
+			local done_v, is_default = v, false
+			if( type( v ) ~= "string" ) then done_v, is_default = stat.value( v ) end
+
+			local alpha = ( is_default and 0.5 or 1 )*inter_alpha
+			uid = new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, nil, nil, alpha )
+
+			local clr = {170,170,170,alpha}
+			if( data.active_item ~= item_id and data.active_info.wand_info ~= nil ) then
+				local is_better = nil
+				local old_v, old_is_special = stat.v( data.active_info.wand_info )
+				if( is_special ~= nil or old_is_special ~= nil ) then
+					is_better = is_special or not( old_is_special )
+				elseif( type( old_v ) ~= "string" ) then
+					if( old_v > v ) then
+						is_better = true
+					elseif( old_v < v ) then
+						is_better = false
+					end
+
+					if( is_better ~= nil and stat.bigger_better ) then
+						is_better = not( is_better )
+					end
+				end
+				if( is_better ~= nil ) then
+					clr = is_better and {70,208,70,inter_alpha} or {208,70,70,inter_alpha}
+				end
+			end
+
+			stat.custom_func = stat.custom_func or new_font_vanilla_shadow
+			uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, done_v, clr )
+			-- stat.desc or ""
+			
+			stat_y = stat_y + 8 + ( stat.extra_step or 0 )
+		end
+
+		if( #this_info.tt_spacing[4] > 0 ) then
+			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[4][1], pic_y + this_info.tt_spacing[4][2], pic_z + 0.001, this_info.pic, scale, scale, inter_alpha, false, -math.rad( 90 ))
+		end
+
+		pic_y = pic_y + this_info.tt_spacing[2][2] + 5
+		if( got_spells ) then
+			uid = new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[2][1], 1, 0.5*inter_alpha )
+
+			local spell_x = pic_x
+			for i = 0,1 do
+				local tbl, counter = spell_list[ i == 0 and "permas" or "normies" ], 0
+				if( i == 0 and #tbl > 0 ) then
+					uid = new_image( gui, uid, spell_x, pic_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_permanent_actions.png", nil, nil, inter_alpha )
+					counter = counter + 1
+				end
+				for k,spell in ipairs( tbl ) do
+					uid = new_image( gui, uid, spell_x + 9*counter, pic_y, pic_z, spell.pic, 0.5, 0.5, inter_alpha )
+					if( counter%2 == i ) then colourer( gui, {185,220,223}) end
+					uid = new_image( gui, uid, spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001, data.slot_pic.bg_alt, 0.5, 0.5, inter_alpha, true )
+					local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+					if( is_hovered ) then
+						uid = cat_callback( data, spell, "on_tooltip", {
+							gui, uid, "wtt_spell", spell.id, data, spell, spell_x + 9*counter - 2, pic_y + 10, pic_z - 1
+						}, { uid })
+					end
+					
+					counter = counter + 1
+					if( 9*( counter + 1 ) > this_info.tt_spacing[2][1]) then
+						pic_y, counter = pic_y + 9, 0
+					end
+				end
+				if( #tbl > 0 ) then pic_y = pic_y + 10 end
+			end
+		end
+
+		if( is_advanced ) then
+			-- uid = new_font_vanilla_shadow( gui, uid, pic_x - 3, orig_y + this_info.tt_spacing[6][2] + 3, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", {170,170,170,inter_alpha})
+		end
+
+		return uid
+	end, this_info }, true, in_world )
 
 	return uid
 end
 
-function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
 	if( this_info.matter_info == nil ) then
 		return uid
 	end
 	
-	local total_cap = this_info.matter_info[2][1]
+	local total_cap, scale = this_info.matter_info[2][1], 1.5
 	local new_desc, extra_desc = this_info.desc, ""
 	if( this_info.matter_info[3] and total_cap > 0 ) then
 		new_desc = new_desc.."@"..GameTextGet( "$item_description_potion_usage", "[RMB]" )
@@ -2710,20 +2988,22 @@ function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		{},
 		{ get_pic_dim( this_info.pic )},
 		{ 0, 0 },
+		{},
 	}
 	this_info.done_desc, this_info.tt_spacing[2] = font_liner( new_desc, get_tip_width( new_desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
 	if( extra_desc ~= "" ) then extra_desc, this_info.tt_spacing[4] = font_liner( extra_desc, 999, -1 ) end
-	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
+	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = scale*this_info.tt_spacing[3][1], scale*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1], this_info.tt_spacing[4][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + this_info.tt_spacing[4][2] + ( extra_desc ~= "" and 11 or 5 ), this_info.tt_spacing[3][2] + 3 )
+	this_info.tt_spacing[5] = { size_x, size_y }
 
-	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, size_x + 5 + this_info.tt_spacing[3][1], size_y + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[5][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[5][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
 		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, this_info.name, do_magic and {121,201,153,inter_alpha} or {255,255,178,inter_alpha})
 		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
 		uid = new_font_vanilla_shadow( gui, uid, pic_x + 1, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 9, pic_z, extra_desc, {255,255,255,inter_alpha})
 		
-		local icon_x, icon_y = pic_x + size_x, pic_y + ( size_y - this_info.tt_spacing[3][2])/2
+		local icon_x, icon_y = pic_x + this_info.tt_spacing[5][1], pic_y + ( this_info.tt_spacing[5][2] - this_info.tt_spacing[3][2])/2
 		if( total_cap > 0 ) then
 			local _,line_dims = font_liner( "\t", 999 )
 			local line_w, line_h = line_dims[1] - 3, line_dims[2]
@@ -2732,19 +3012,20 @@ function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 				local perc = math.max( line_w*m[2]/total_cap, 1 )
 				colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
 				uid = new_image( gui, uid, t_x, t_y, pic_z + tonumber( "0.0001"..i ), data.pixel, -perc, line_h, inter_alpha )
-				if( perc < line_w ) then
+				if( line_w - perc > 0.25 ) then
 					uid = new_image( gui, uid, t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), data.pixel, -0.5, line_h, 0.75*inter_alpha )
 				end
 			end
 			uid = new_vanilla_plate( gui, uid, pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
 			
-			local step = this_info.tt_spacing[3][2]*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 )
-			uid = new_cutout( gui, uid, icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2], function( gui, uid, v )
+			local cut = scale*this_info.potion_cutout
+			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
+			uid = new_cutout( gui, uid, icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] - cut, function( gui, uid, v )
 				colourer( gui, get_matter_colour( v[6]))
 				return new_image( gui, uid, 0, -step, v[1], v[2], v[3], v[4], v[5])
-			end, { pic_z - 1, this_info.pic, 1.5, 1.5, 0.8*inter_alpha, CellFactory_GetName( this_info.matter_info[2][2][1][1])})
+			end, { pic_z - 1, this_info.pic, scale, scale, 0.8*inter_alpha, CellFactory_GetName( this_info.matter_info[2][2][1][1])})
 		end
-		uid = new_image( gui, uid, icon_x, icon_y, pic_z, this_info.pic, 1.5, 1.5, inter_alpha )
+		uid = new_image( gui, uid, icon_x, icon_y, pic_z, this_info.pic, scale, scale, inter_alpha )
 
 		return uid
 	end, this_info }, true, in_world )
@@ -2752,8 +3033,8 @@ function new_vanilla_ptt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	return uid
 end
 
-function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-	if( this_info.spell_info == nil or in_world ) then
+function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	if( this_info.spell_info == nil ) then
 		return uid
 	end
 	
@@ -2846,12 +3127,14 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		{ get_text_dim( this_info.tip_name )},
 		{},
 	}
-	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges > 0 and 33 or 0 )
+	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges >= 0 and 33 or 0 )
 	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1]), -1 )
-	this_info.tt_spacing[3] = { math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 ), this_info.tt_spacing[2][2] + 59 }
+	local size_x = math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 )
+	local size_y = this_info.tt_spacing[2][2] + 60
+	this_info.tt_spacing[3] = { size_x, size_y }
 	--height based on stats count
 
-	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
 		colourer( gui, type2frame[ this_info.spell_info.type ][2])
 		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, data.spell_type_alpha*inter_alpha )
@@ -2872,15 +3155,15 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 
 		-- inventory_usesremaining
 
-		if( this_info.charges > 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
+		if( this_info.charges >= 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
 			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_max_uses.png", nil, nil, inter_alpha )
 			local charges = get_tiny_num( this_info.charges )
 			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - get_text_dim( charges ), pic_y - 1, pic_z, charges, {170,170,170,inter_alpha})
 		end
 
 		uid = new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
-		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + 10, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
-		pic_y = pic_y + 12 + this_info.tt_spacing[2][2]
+		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + 11, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+		pic_y = pic_y + 13 + this_info.tt_spacing[2][2]
 		uid = new_image( gui, uid, pic_x - 2, pic_y, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
 		uid = new_image( gui, uid, pic_x - 3 + math.floor( this_info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, 43, 0.5*inter_alpha )
 
@@ -2937,6 +3220,13 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 					
 					v = c.spread_degrees,
 					value = function( v ) return get_generic_stat( nil, v, 0 ) end,
+					custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, color )
+						local shift = 0
+						uid, shift = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, txt, color )
+						colourer( gui, color )
+						uid = new_image( gui, uid, pic_x + shift, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
+						return uid
+					end,
 					tip = 0,
 				},
 			},
@@ -3000,7 +3290,8 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 				if( type( v or 0 ) ~= "string" ) then v, is_default = stat.value( v ) end
 				local alpha = ( is_default and 0.5 or 1 )*inter_alpha
 				uid = new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, nil, nil, alpha )
-				uid = new_font_vanilla_shadow( gui, uid, stat_x + 9, stat_y - 1, pic_z, v, {170,170,170,alpha})
+				stat.custom_func = stat.custom_func or new_font_vanilla_shadow
+				uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, v, {170,170,170,alpha})
 				-- stat.desc or ""
 
 				stat_y = stat_y + 8
@@ -3008,7 +3299,9 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		end
 
 		pic_y = pic_y - this_info.tt_spacing[2][2] + this_info.tt_spacing[3][2] - 13
-		uid = new_font_vanilla_shadow( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", {170,170,170,inter_alpha})
+		if( not( in_world )) then
+			-- uid = new_font_vanilla_shadow( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", {170,170,170,inter_alpha})
+		end
 		if( this_info.spell_info.price > 0 ) then
 			local price = get_short_num( this_info.spell_info.price )
 			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - get_text_dim( price ), pic_y, pic_z, price, {255,255,178,inter_alpha})
@@ -3016,7 +3309,7 @@ function new_vanilla_stt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		end
 
 		return uid
-	end, this_info }, true )
+	end, this_info }, true, in_world )
 	
 	return uid
 end
@@ -3025,7 +3318,7 @@ function new_vanilla_ttt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	return new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, true )
 end
 
-function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
+function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
 	if( string_bullshit[ this_info.name or "" ] or string_bullshit[ this_info.desc or "" ] or string_bullshit[ this_info.pic or "" ]) then
 		return uid
 	end
@@ -3033,14 +3326,16 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 	this_info.tt_spacing = {
 		{ get_text_dim( this_info.name )},
 		{},
-		{ get_pic_dim( this_info.pic )}
+		{ get_pic_dim( this_info.pic )},
+		{},
 	}
 	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
+	this_info.tt_spacing[4] = { size_x, size_y }
 
-	uid = data.tip_func( gui, uid, nil, pic_z, { "", pic_x, pic_y, size_x + 5 + this_info.tt_spacing[3][1], size_y + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[4][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[4][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
 		uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, this_info.name, do_magic and {121,201,153,inter_alpha} or {255,255,178,inter_alpha})
 		if( do_magic ) then
@@ -3063,7 +3358,7 @@ function new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_
 		else
 			uid = new_font_vanilla_shadow( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
 		end
-		uid = new_image( gui, uid, pic_x + size_x, pic_y + ( size_y - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5, inter_alpha )
+		uid = new_image( gui, uid, pic_x + this_info.tt_spacing[4][1], pic_y + ( this_info.tt_spacing[4][2] - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5, inter_alpha )
 		
 		return uid
 	end, this_info }, true, in_world )
@@ -3129,15 +3424,15 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 	end
 
     local w, h = get_pic_dim( icon_info.pic )
-	if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
+	-- if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
 	uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, nil, nil, 1, true )
 	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
 
 	if( kind == 2 and icon_info.amount > 0 ) then
-		local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
-		uid = new_cutout( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( gui, uid, v )
-			return new_image( gui, uid, 0, -step, v[1], v[2])
-		end, { pic_z - 0.002, icon_info.pic })
+		-- local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
+		-- uid = new_cutout( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( gui, uid, v )
+		-- 	return new_image( gui, uid, 0, -step, v[1], v[2])
+		-- end, { pic_z - 0.002, icon_info.pic })
 		
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
@@ -3402,10 +3697,10 @@ end
 function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand )
 	local step_x, step_y = 0, 0
 	local scale = data.no_wand_scaling and 1 or 1.5
-	local extra_step = ( this_info.wand_info.main.shuffle_deck_when_empty or this_info.wand_info.main.actions_per_round > 1 ) and 3 or 0
+	local extra_step = ( this_info.wand_info.shuffle_deck_when_empty or this_info.wand_info.actions_per_round > 1 ) and 3 or 0
 	this_info.w_spacing = {
 		extra_step - 1, 0,
-		19*this_info.wand_info.main.deck_capacity + 4, 0,
+		19*this_info.wand_info.deck_capacity + 4, 0,
 	}
 	if( item_pic_data[ this_info.pic ]) then
 		local drift = this_info.w_spacing[1]
@@ -3435,7 +3730,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 
 	step_x, step_y = this_info.w_spacing[2] + this_info.w_spacing[3], 19 + this_info.w_spacing[4]
 	uid = data.tip_func( gui, uid, this_info.id, zs.main_far_back + 0.1, { "", pic_x, pic_y, step_x, step_y }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_info )
-		local is_shuffle, is_multi = this_info.wand_info.main.shuffle_deck_when_empty, this_info.wand_info.main.actions_per_round > 1
+		local is_shuffle, is_multi = this_info.wand_info.shuffle_deck_when_empty, this_info.wand_info.actions_per_round > 1
 		if( is_shuffle or is_multi ) then
 			if( is_shuffle ) then
 				uid = new_image( gui, uid, pic_x, pic_y, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
@@ -3447,19 +3742,24 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 				uid = new_image( gui, uid, pic_x, multi_y + 11, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
 				colourer( gui, {0,0,0})
 				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
-				new_text( gui, pic_x + 9, multi_y + 10, zs.main_far_back + 0.01, this_info.wand_info.main.actions_per_round, {170,170,170}, inter_alpha )
-				new_text( gui, pic_x + 9.5, multi_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.main.actions_per_round, {0,0,0}, inter_alpha*0.5 )
+				new_text( gui, pic_x + 9, multi_y + 10, zs.main_far_back + 0.01, this_info.wand_info.actions_per_round, {170,170,170}, inter_alpha )
+				new_text( gui, pic_x + 9.5, multi_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.actions_per_round, {0,0,0}, inter_alpha*0.5 )
 			end
 		end
 
 		local drift, section_off = this_info.w_spacing[1], this_info.w_spacing[2]
 		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, zs.main_far_back + 0.05, this_info.pic, inter_alpha, 0, scale, true )
+		local clicked, r_clicked, is_hovered = false, false, false
+		uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, { pic_x, pic_y, section_off, 18 + this_info.w_spacing[4]}, zs.main_far_back + 0.001 )
 		pic_x = pic_x + section_off
+		if( is_hovered ) then
+			uid = cat_callback( data, this_info, "on_tooltip", {
+				gui, uid, nil, this_info.id, data, this_info, pic_x + 1, pic_y - 2, zs.tips, false, true
+			}, { uid })
+		end
 		uid = new_image( gui, uid, pic_x, pic_y - 1, zs.main_far_back + 0.01, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
-		--setup interface, write shit to data.wand_tip
-		--show wand tooltip right over the separator
 		
-		local slot_count = this_info.wand_info.main.deck_capacity
+		local slot_count = this_info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
 			--arrows (small bouncing of slot row post scroll based on the direction scrolled)
 			--use temp cutouts for transition

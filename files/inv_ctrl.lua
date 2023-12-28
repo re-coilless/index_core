@@ -209,7 +209,7 @@ if( #ctrl_bodies > 0 ) then
                         ing_perc = math.floor( 100*raw_count/ComponentGetValue2( ing_comp, "ingestion_capacity" ) + 0.5 )
                     end
                 end
-
+                
                 local ing_frame = ComponentGetValue2( status_comp, "ingestion_effects" )
                 local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
                 local ing_more = ComponentGetValue2( status_comp, "ingestion_effect_causes_many" )

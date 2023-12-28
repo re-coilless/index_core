@@ -1,12 +1,12 @@
 make a translator function that will allow multiple translation keys to exist (allow mixed strings too)
-Check if the spells inside wands not in hand are xy synched correctly
-the spells hovering is kinda sus (check pointer being near edges)
-check to see if stuff like stones has "on_drop" script attached to em
 rewrite the draggers to be based upon lmb click rather than pic clicking
 wand slot scrolling
 
-wand tips
-have "items nearby" mode that goes at the center bottom of the management mode (10 in a row, scales vertically based on the item count; works only for free lying; hide if there's nothing nearby); works through pickup menu; don't allow to swap
+pickup inv
+add default "dont_spawn" spell tag
+the spells hovering is kinda sus (check pointer being near edges)
+check to see if stuff like stones has "on_drop" script attached to em
+check if the spells inside wands not in hand are xy synched correctly
 
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_type - all the inventory kinds this item can be inserted into

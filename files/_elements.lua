@@ -329,8 +329,8 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         
         local value = {0,0}
         if( this_data.wand_info ~= nil ) then
-            local mana_max = this_data.wand_info.main.mana_max
-            local mana = this_data.wand_info.main.mana
+            local mana_max = this_data.wand_info.mana_max
+            local mana = this_data.wand_info.mana
 
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( data.memo.mana_shake[data.active_item] == nil ) then
@@ -391,8 +391,8 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
     data.memo.reload_max = data.memo.reload_max or {}
     
     local this_data = data.active_info
-    if( this_data.wand_info ~= nil and not( this_data.wand_info.main.never_reload ) and not( data.gmod.menu_capable )) then
-        local reloading = this_data.wand_info.main.reload_frame
+    if( this_data.wand_info ~= nil and not( this_data.wand_info.never_reload ) and not( data.gmod.menu_capable )) then
+        local reloading = this_data.wand_info.reload_frame
         data.memo.reload_max[data.active_item] = ( data.memo.reload_max[data.active_item] or -1 ) < reloading and reloading or data.memo.reload_max[data.active_item]
         if( data.memo.reload_max[data.active_item] > data.reload_threshold ) then
             if( data.memo.reload_max[data.active_item] ~= reloading ) then
@@ -420,7 +420,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if( this_data.wand_info == nil or ( this_data.wand_info.main.reload_frame or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.reload_frame or 0 ) == 0 ) then
         data.memo.reload_max[data.active_item] = nil
     end
 
@@ -434,7 +434,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     
     local this_data = data.active_info
     if( this_data.wand_info ~= nil and not( data.gmod.menu_capable )) then
-        local cast_delay = this_data.wand_info.main.delay_frame
+        local cast_delay = this_data.wand_info.delay_frame
         data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < cast_delay and cast_delay or data.memo.delay_max[data.active_item]
         if( data.memo.delay_max[data.active_item] > data.delay_threshold ) then
             if( data.memo.delay_max[data.active_item] ~= cast_delay ) then
@@ -462,7 +462,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_y = pic_y + 8
         end
     end
-    if( this_data.wand_info == nil or ( this_data.wand_info.main.delay_frame or 0 ) == 0 ) then
+    if( this_data.wand_info == nil or ( this_data.wand_info.delay_frame or 0 ) == 0 ) then
         data.memo.delay_max[data.active_item] = nil
     end
 
@@ -833,10 +833,11 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
                                 if( this_data[3] == 0 or ent == this_data[3]) then
-                                    local this_info = {}
+                                    local this_info = nil
                                     data, this_info = get_item_data( ent, data )
-                                    table.insert( item_data, this_info )
-                                    if( this_info ~= nil ) then
+                                    if( this_info.id ~= nil ) then
+                                        table.insert( item_data, this_info )
+
                                         if( item_data[5]) then
                                             this_info = 1
                                         else
@@ -854,6 +855,10 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     end
                 end
             end
+
+            --save datatbls to the list
+            --order based on id
+            --10 in a row, scales vertically based on the item count; works only for free lying; don't allow to swap
 
             local pickup_data = {
                 id = 0,
@@ -937,7 +942,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = world2gui( i_x, i_y )
-                        uid = guiing( gui, uid, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
+                        uid = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
                     end
                 end
                 

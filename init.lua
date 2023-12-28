@@ -216,6 +216,7 @@ function OnPlayerSpawned( hooman )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 	--testing_bag insert in the chest (autoarrange in the grid when inside player root inventory; display contents on hover tooltip)
 	--all spells wand
+	--custom spell where you can write the code directly into
 end
 
 function OnPlayerDied( hooman )

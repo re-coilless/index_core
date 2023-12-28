@@ -98,42 +98,88 @@ local ITEM_CATS = {
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
             this_info.wand_info = {
-                main = {
-                    shuffle_deck_when_empty = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-                    actions_per_round = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
-                    deck_capacity = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
-                    spread_degrees = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
-                    mana_max = ComponentGetValue2( this_info.AbilityC, "mana_max" ),
-                    mana_charge_speed = ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
-                    mana = ComponentGetValue2( this_info.AbilityC, "mana" ),
+                shuffle_deck_when_empty = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
+                actions_per_round = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
+                deck_capacity = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
+                spread_degrees = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
+                mana_max = ComponentGetValue2( this_info.AbilityC, "mana_max" ),
+                mana_charge_speed = ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
+                mana = ComponentGetValue2( this_info.AbilityC, "mana" ),
 
-                    never_reload = ComponentGetValue2( this_info.AbilityC, "never_reload" ),
-                    reload_time = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
-                    delay_time = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-                    reload_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
-                    delay_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
-                },
-                misc = {
-                    speed_multiplier = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
-                    lifetime_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
-                    bounces = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
+                never_reload = ComponentGetValue2( this_info.AbilityC, "never_reload" ),
+                reload_time = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
+                delay_time = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
+                reload_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - data.frame_num, 0 ),
+                delay_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - data.frame_num, 0 ),
 
-                    crit_chance = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-                    crit_mult = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+                speed_multiplier = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
+                lifetime_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
+                bounces = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
 
-                    damage_electricity_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-                    damage_explosion_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-                    damage_fire_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
-                    damage_melee_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
-                    damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
-                },
+                crit_chance = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
+                crit_mult = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+
+                damage_electricity_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
+                damage_explosion_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
+                damage_fire_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
+                damage_melee_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
+                damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.main.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end )
+            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
+                local is_perma, inv_slot = {false,false}, {0,0}
+                for k = 1,2 do
+                    local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
+                    if( item_comp ~= nil ) then
+                        is_perma[k] = ComponentGetValue2( item_comp, "permanently_attached" )
+                        inv_slot[k] = math.max( ComponentGetValue2( item_comp, "inventory_slot" ), 0 )
+                    end
+                end
+                return ( is_perma[1] and not( is_perma[2])) or ( not( is_perma[2]) and inv_slot[1] < inv_slot[2])
+            end)
             
             --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana; show nothing if actions_per_round < 1) for bottom right + play sound if is empty and tries to fire (unless actions per round)
             
             return data, this_info
+        end,
+        on_processed_forced = function( item_id, data, this_info )
+            local children = EntityGetAllChildren( item_id ) or {}
+            if( #children > 0 ) then
+                table.sort( children, function( a, b )
+                    local inv_slot = {0,0}
+                    for k = 1,2 do
+                        local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
+                        if( item_comp ~= nil ) then
+                            inv_slot[k] = math.max( ComponentGetValue2( item_comp, "inventory_slot" ), 0 )
+                        end
+                    end
+                    return inv_slot[1] < inv_slot[2]
+                end)
+                
+                local got_normal, it_is_time = false, false
+                for i,child in ipairs( children ) do
+                    local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
+                    if( item_comp ~= nil ) then
+                        if( got_normal ) then
+                            if( ComponentGetValue2( item_comp, "permanently_attached" )) then
+                                it_is_time = true
+                                break
+                            end
+                        else
+                            got_normal = not( ComponentGetValue2( item_comp, "permanently_attached" ))
+                        end
+                    end
+                end
+
+                if( it_is_time ) then
+                    for i,child in ipairs( children ) do
+                        local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
+                        if( item_comp ~= nil ) then
+                            ComponentSetValue2( item_comp, "inventory_slot", ComponentGetValue2( item_comp, "inventory_slot" ), -5 )
+                        end
+                    end
+                end
+            end
         end,
 
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
@@ -154,7 +200,7 @@ local ITEM_CATS = {
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
 
             if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                uid = hov_func( gui, uid, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
 
             return uid, this_info
@@ -229,6 +275,12 @@ local ITEM_CATS = {
 
             this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
+            
+            this_info.potion_cutout = 3 - ( this_info.matter_info[1] < this_info.matter_info[2][1] and 1 or 0 )
+            local storage_cutout = get_storage( item_id, "potion_cutout" )
+            if( storage_cutout ~= nil ) then
+                this_info.potion_cutout = ComponentGetValue2( storage_cutout, "value_int" )
+            end
 
             return data, this_info
         end,
@@ -268,7 +320,7 @@ local ITEM_CATS = {
         on_tooltip = new_vanilla_ptt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                uid = hov_func( gui, uid, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
 
             local cap_max = this_info.matter_info[1]
@@ -472,7 +524,7 @@ local ITEM_CATS = {
             local angle, is_considered = 0, john_bool.is_dragged or john_bool.is_hov
             if( john_bool.can_drag ) then
                 local spd = data.spell_anim_frames
-                angle = -math.rad( 10 )*( is_considered and 1.5 or math.sin(( data.frame_num%spd )*math.pi/spd ))
+                angle = -math.rad( 10 )*( is_considered and 1.5 or math.sin(( data.frame_num%spd )*math.pi/spd + 0.2 ))
             end
             local pic_z = slot_z( data, this_info.id, zs.icons )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
@@ -481,7 +533,7 @@ local ITEM_CATS = {
             
             if( john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
             return uid, this_info
@@ -498,11 +550,11 @@ local ITEM_CATS = {
         
         on_tooltip = new_vanilla_ttt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale, false )
-
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+            
             if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
             return uid, this_info, true
@@ -523,9 +575,9 @@ local ITEM_CATS = {
 
             if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
-
+            
             return uid, this_info
         end,
 
