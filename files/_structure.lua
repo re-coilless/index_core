@@ -138,8 +138,6 @@ local ITEM_CATS = {
                 return ( is_perma[1] and not( is_perma[2])) or ( not( is_perma[2]) and inv_slot[1] < inv_slot[2])
             end)
             
-            --charges to upper left (force 0 by making it a string) + marker if the wand can't fire (is empty, not enough mana; show nothing if actions_per_round < 1) for bottom right + play sound if is empty and tries to fire (unless actions per round)
-            
             return data, this_info
         end,
         on_processed_forced = function( item_id, data, this_info )
@@ -185,8 +183,6 @@ local ITEM_CATS = {
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             if( data.gmod.allow_wand_editing and john_bool.is_quick and data.is_opened ) then
                 pic_x, pic_y = unpack( data.wand_inventory == nil and data.xys.full_inv or data.wand_inventory )
-                
-                local w,h = 0,0
                 uid, w, h = data.wand_func( gui, uid, pic_x + 2*b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
                 data.wand_inventory = { pic_x, pic_y + h }
             end
@@ -198,9 +194,38 @@ local ITEM_CATS = {
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
-
+            
             if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+            end
+            
+            if( this_info.wand_info.actions_per_round > 0 and this_info.charges < 0 ) then
+                this_info.charges = 0
+
+                local slot_data, was_there = data.slot_state[ item_id ], false
+                for i,col in ipairs( slot_data ) do
+                    for e,slot in ipairs( col ) do
+                        if( slot ) then
+                            local slot_info = from_tbl_with_id( data.item_list, slot, nil, nil, {})
+                            if( slot_info.is_spell ) then
+                                if( slot_info.charges > 0 ) then
+                                    this_info.charges = slot_info.charges
+                                    break
+                                elseif( this_info.charges == 0 and slot_info.charges < 0 ) then
+                                    if( slot_info.spell_info.type ~= 2 and slot_info.spell_info.type ~= 3 ) then
+                                        this_info.charges = -1
+                                    end
+                                end
+                                if( not( was_there )) then was_there = slot_info.charges == 0 end
+                            end
+                        end
+                    end
+                    if( this_info.charges > 0 ) then break end
+                end
+
+                if( this_info.charges == 0 and was_there ) then
+                    this_info.charges = 0.1
+                end
             end
 
             return uid, this_info
@@ -276,7 +301,7 @@ local ITEM_CATS = {
             this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
             
-            this_info.potion_cutout = 3 - ( this_info.matter_info[1] < this_info.matter_info[2][1] and 1 or 0 )
+            this_info.potion_cutout = 3 - b2n( this_info.matter_info[1] < this_info.matter_info[2][1])
             local storage_cutout = get_storage( item_id, "potion_cutout" )
             if( storage_cutout ~= nil ) then
                 this_info.potion_cutout = ComponentGetValue2( storage_cutout, "value_int" )

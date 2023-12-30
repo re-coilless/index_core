@@ -856,20 +856,17 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
 
-            --save datatbls to the list
-            --order based on id
-            --10 in a row, scales vertically based on the item count; works only for free lying; don't allow to swap
-
             local pickup_data = {
                 id = 0,
                 desc = "",
             }
             local button_time, no_space, cant_buy, got_info = true, false, false, false
             for i,tbl in ipairs( stuff_to_figure ) do
-                table.sort( tbl, function( a, b )
-                    return a[9] < b[9]
-                end)
                 if( #tbl > 0 ) then
+                    table.sort( tbl, function( a, b )
+                        return a[9] < b[9]
+                    end)
+
                     for k,item_data in ipairs( tbl ) do
                         local cost_check, is_shop = true, false
                         local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
@@ -925,6 +922,41 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             
+            --[[
+            if( data.is_opened and data.gmod.show_fullest ) then
+                --create inv with -1 id
+                
+                for i,tbl in ipairs( stuff_to_figure ) do
+                    if( i > 1 and #tbl > 0 ) then
+                        table.sort( tbl, function( a, b )
+                            return a[1][1] > b[1][1]
+                        end)
+
+                        for k,item_data in ipairs( tbl ) do
+                            local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
+                            if( cost_comp == nil ) then
+                                local this_info = item_data[10]
+                                uid, data, w, h = slot_setup( gui, uid, screen_w/2, screen_h - 50, zs, data, {
+                                    inv_id = 0,
+                                    id = this_info.id,
+                                    inv_slot = {0,0},
+                                    idata = this_info,
+                                }, true, true, false )
+
+                                --cleanup the thing once again, make sure the shit inherently supports virtual invs
+                                --update the documentation
+
+                                --slot_pic gotta autoinit the pic
+                                --10 in a row, scales vertically based on the item count; don't allow to swap
+                            end
+                        end
+                    end
+                end
+                
+                --destroy inv with -1 id
+            end
+            ]]
+
             if( pickup_data.txt == nil and ( no_space or cant_buy )) then
                 if( #interactables > 0 ) then
                     pickup_data.id = 0

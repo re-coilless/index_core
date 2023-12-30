@@ -246,7 +246,7 @@ end
 function from_tbl_with_id( tbl, id, subtract, custom_key, default )
 	local stuff = default or 0
 	local tbl_id = nil
-
+	
 	local key = custom_key or "id"
 	if( type( id ) == "table" ) then
 		stuff = {}
@@ -722,6 +722,31 @@ function is_wand_useless( wand_id )
 		end
 	end
 	return true
+end
+
+function get_tinker_state( hooman, x, y )
+	for n = 1,2 do
+		local v = GameGetGameEffectCount( hooman, n == 1 and "EDIT_WANDS_EVERYWHERE" or "NO_WAND_EDITING" ) > 0
+		v = v and n or child_play( hooman, function( parent, child )
+			if( GameGetGameEffectCount( child, n == 1 and "EDIT_WANDS_EVERYWHERE" or "NO_WAND_EDITING" ) > 0 ) then
+				return n
+			end
+		end)
+		if( v ) then return v == 1 end
+	end
+	
+	local workshops = EntityGetWithTag( "workshop" ) or {}
+	if( #workshops > 0 ) then
+		for i,workshop in ipairs( workshops ) do
+			local w_x, w_y = EntityGetTransform( workshop )
+			local box_comp = EntityGetFirstComponent( workshop, "HitboxComponent" )
+			if( box_comp ~= nil and check_bounds({x,y}, {w_x,w_y}, box_comp )) then
+				return true
+			end
+		end
+	end
+
+	return false
 end
 
 function get_phys_mass( entity_id )
@@ -1234,9 +1259,8 @@ function inventory_boy( item_id, data, this_info, in_hand )
 	end
 
 	if( not( is_free )) then
-		if( in_hand ) then
-			--set pos and such to the arm pos
-		else
+		if( not( in_hand ) or get_active_item( get_item_owner( item_id )) ~= item_id ) then
+			if( in_hand ) then hooman = EntityGetParent( item_id ) end
 			local x, y = EntityGetTransform( hooman )
 			EntitySetTransform( item_id, x, y )
 			EntityApplyTransform( item_id, x, y )
@@ -1477,11 +1501,17 @@ function get_item_data( item_id, data, inventory_data, item_list )
 		end
 
 		this_info.desc = item_desc_fix( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
-		this_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
 		-- this_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
 		this_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+		
+		this_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
 		this_info.is_permanent = ComponentGetValue2( item_comp, "permanently_attached" )
-		this_info.is_locked = this_info.is_permanent or EntityHasTag( item_id, "index_locked" )
+		this_info.is_locked = this_info.is_permanent
+		if( EntityHasTag( item_id, "index_unlocked" )) then
+			this_info.is_locked = false
+		elseif( EntityHasTag( item_id, "index_locked" )) then
+			this_info.is_locked = true
+		end
 
 		local storage_charges = get_storage( item_id, "current_charges" )
 		this_info.charges = storage_charges == nil and ComponentGetValue2( item_comp, "uses_remaining" ) or ComponentGetValue2( storage_charges, "value_int" )
@@ -2778,6 +2808,10 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	this_info.tt_spacing[6][2] = math.max( this_info.tt_spacing[3][2], this_info.tt_spacing[2][2] + ( got_spells and ( this_info.tt_spacing[5][1] + this_info.tt_spacing[5][2] + 4 ) or 0 )) + 14
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[6][1] + 2, this_info.tt_spacing[6][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
+		if( not( is_advanced ) and this_info.is_frozen ) then
+			uid = new_shaded_image( gui, uid, pic_x - 4, pic_y - 5, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
+		end
+
 		pic_x = pic_x + 2
 		if( this_info.wand_info.shuffle_deck_when_empty ) then
 			uid = new_image( gui, uid, pic_x - 1, pic_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
@@ -3041,7 +3075,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	--the pinned tip check should be within the tip code itself
 	--hold alt to display advanced tooltip (list every damage type, additional info, all the shit is in frames)
 	--hold alt to pin current tooltip in-place (allows hovering + works for wand ones too)
-	--on alt an entire side section pops up with all the misc stuff
+	--on alt add stuff to both columns with a spacer
 
 	--[[
 		c.damage_total_add
@@ -3132,7 +3166,6 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	local size_x = math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 )
 	local size_y = this_info.tt_spacing[2][2] + 60
 	this_info.tt_spacing[3] = { size_x, size_y }
-	--height based on stats count
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
@@ -3314,8 +3347,8 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	return uid
 end
 
-function new_vanilla_ttt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
-	return new_vanilla_itt( gui, uid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, true )
+function new_vanilla_ttt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world )
+	return new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, true )
 end
 
 function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
@@ -3372,10 +3405,9 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 	item_pic_data[ pic ] = item_pic_data[ pic ] or {
 		xy = { 0, 0 },
 		xml_xy = { 0, 0 },
-		dims = { get_pic_dim( pic )},
 	}
 	
-	local w, h = unpack( item_pic_data[ pic ].dims or {1,1})
+	local w, h = unpack( item_pic_data[ pic ].dims or {get_pic_dim( pic )})
 	local off_x, off_y = 0, 0
 	if( item_pic_data[ pic ].xy[3] == nil ) then
 		if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
@@ -3528,13 +3560,8 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 		cat_tbl.on_drag = cat_tbl.on_action( 2 )
 	end
 
-	if( this_info.id > 0 ) then
-		if( this_info.is_locked ) then
-			can_drag = false
-		end
-		if( data.dragger.item_id == this_info.id ) then
-			colourer( data.the_gui, {150,150,150})
-		end
+	if( this_info.id > 0 and data.dragger.item_id == this_info.id ) then
+		colourer( data.the_gui, {150,150,150})
 	end
 	local pic_bg, clicked, r_clicked, is_hovered = ( is_full == true ) and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
 	local w, h = get_pic_dim( pic_bg )
@@ -3648,18 +3675,18 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 		if( not( suppress_charges or false )) then
 			slot_x, slot_y = slot_x + 2, slot_y + 2
 			if( this_info.charges > -1 ) then
+				local shift = ( is_full == true ) and 1 or 0
 				if( this_info.charges == 0 ) then
 					if( this_info.is_consumable ) then
 						EntityKill( this_info.id )
 					else
-						local shift = ( is_full == true ) and 2 or 0
-						local cross_x, cross_y = slot_x - shift, slot_y - shift
+						local cross_x, cross_y = slot_x - 2*shift, slot_y - 2*shift
 						uid = new_image( gui, uid, cross_x, cross_y, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
 						colourer( gui, {0,0,0})
 						uid = new_image( gui, uid, cross_x + 0.5, cross_y + 0.5, zs.icons_front + 0.001, "mods/index_core/files/pics/vanilla_no_cards.xml", nil, nil, 0.75 )
 					end
 				else
-					uid = new_font_vanilla_small( gui, uid, slot_x, slot_y, zs.icons_front, this_info.charges )
+					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front, math.floor( this_info.charges ), nil, true )
 				end
 			end
 		end
@@ -3675,6 +3702,18 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_data, can_drag, is_f
 		this_info = { id = slot_data.id, in_hand = 0 }
 	elseif( this_info.id == nil ) then
 		this_info = from_tbl_with_id( data.item_list, slot_data.id )
+	end
+	if( slot_data.id > 0 ) then
+		if( EntityHasTag( this_info.id, "index_unlocked" )) then
+			can_drag = true
+		elseif( this_info.is_locked ) then
+			can_drag = false
+		end
+	elseif( EntityHasTag( data.dragger.item_id, "index_unlocked" )) then
+		local inv_info = from_tbl_with_id( data.item_list, slot_data.inv_id, nil, nil, {})
+		if( inv_info.id == nil or not( inv_info.is_frozen )) then
+			can_drag = true
+		end
 	end
 	
 	local w, h, clicked, r_clicked, is_hovered = false, false, false
@@ -3694,7 +3733,7 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_data, can_drag, is_f
 	return uid, data, w, h
 end
 
-function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand )
+function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand, can_tinker )
 	local step_x, step_y = 0, 0
 	local scale = data.no_wand_scaling and 1 or 1.5
 	local extra_step = ( this_info.wand_info.shuffle_deck_when_empty or this_info.wand_info.actions_per_round > 1 ) and 3 or 0
@@ -3729,40 +3768,50 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 	end
 
 	step_x, step_y = this_info.w_spacing[2] + this_info.w_spacing[3], 19 + this_info.w_spacing[4]
-	uid = data.tip_func( gui, uid, this_info.id, zs.main_far_back + 0.1, { "", pic_x, pic_y, step_x, step_y }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_info )
+	uid = data.tip_func( gui, uid, this_info.id, zs.main_far_back, { "", pic_x, pic_y, step_x, step_y }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_info )
 		local is_shuffle, is_multi = this_info.wand_info.shuffle_deck_when_empty, this_info.wand_info.actions_per_round > 1
 		if( is_shuffle or is_multi ) then
 			if( is_shuffle ) then
-				uid = new_image( gui, uid, pic_x, pic_y, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
+				uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
 				colourer( gui, {0,0,0})
-				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha*0.75 )
+				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha*0.75 )
 			end
 			if( is_multi ) then
 				local multi_y = pic_y + this_info.w_spacing[4]
-				uid = new_image( gui, uid, pic_x, multi_y + 11, zs.main_far_back + 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
+				uid = new_image( gui, uid, pic_x, multi_y + 11, pic_z, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
 				colourer( gui, {0,0,0})
-				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, zs.main_far_back + 0.011, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
-				new_text( gui, pic_x + 9, multi_y + 10, zs.main_far_back + 0.01, this_info.wand_info.actions_per_round, {170,170,170}, inter_alpha )
-				new_text( gui, pic_x + 9.5, multi_y + 9.5, zs.main_far_back + 0.011, this_info.wand_info.actions_per_round, {0,0,0}, inter_alpha*0.5 )
+				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
+				new_text( gui, pic_x + 9, multi_y + 10, pic_z, this_info.wand_info.actions_per_round, {170,170,170}, inter_alpha )
+				new_text( gui, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001, this_info.wand_info.actions_per_round, {0,0,0}, inter_alpha*0.5 )
 			end
 		end
 
 		local drift, section_off = this_info.w_spacing[1], this_info.w_spacing[2]
-		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, zs.main_far_back + 0.05, this_info.pic, inter_alpha, 0, scale, true )
+		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, pic_z + 0.005, this_info.pic, inter_alpha, 0, scale, true )
 		local clicked, r_clicked, is_hovered = false, false, false
-		uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, { pic_x, pic_y, section_off, 18 + this_info.w_spacing[4]}, zs.main_far_back + 0.001 )
+		uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, { pic_x, pic_y, section_off, 18 + this_info.w_spacing[4]}, pic_z - 0.001 )
 		pic_x = pic_x + section_off
 		if( is_hovered ) then
 			uid = cat_callback( data, this_info, "on_tooltip", {
 				gui, uid, nil, this_info.id, data, this_info, pic_x + 1, pic_y - 2, zs.tips, false, true
 			}, { uid })
 		end
-		uid = new_image( gui, uid, pic_x, pic_y - 1, zs.main_far_back + 0.01, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
+		if( this_info.is_frozen ) then
+			uid = new_shaded_image( gui, uid, pic_x - 6, pic_y + step_y - 6, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
+		end
+		uid = new_image( gui, uid, pic_x, pic_y - 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
 		
 		local slot_count = this_info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
 			--arrows (small bouncing of slot row post scroll based on the direction scrolled)
 			--use temp cutouts for transition
+		end
+
+		if( can_tinker == nil ) then
+			can_tinker = not( this_info.is_frozen )
+			if( can_tinker ) then
+				can_tinker = data.can_tinker or EntityHasTag( this_info.id, "index_unlocked" )
+			end
 		end
 
 		local counter = 1
@@ -3777,14 +3826,14 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand 
 						uid = new_image( gui, uid, slot_x + 1, slot_y + 12, zs.icons_front, "data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
 					end
 				end
-
+				
 				if( counter%2 == 0 and slot_count > 2 ) then colourer( data.the_gui, {185,220,223}) end
 				uid, data, w, h = slot_setup( gui, uid, slot_x, slot_y, zs, data, {
 					inv_id = this_info.id,
 					id = slot,
 					inv_slot = {i,e},
 					idata = idata,
-				}, true, true, false )
+				}, can_tinker, true, false )
 				slot_x, slot_y = slot_x, slot_y + h
 				counter = counter + 1
 			end

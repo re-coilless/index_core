@@ -107,6 +107,10 @@ end
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 	
+	if( HasFlagPersistent( "one_shall_not_spawn" )) then
+		RemoveFlagPersistent( "one_shall_not_spawn" )
+	end
+
 	if( not( custom_font_set or false )) then
 		custom_font_set = true
 		register_new_font( "default", penman_r, penman_w,
@@ -214,9 +218,9 @@ function OnPlayerSpawned( hooman )
 	
 	-- CreateItemActionEntity( "LIGHTNING", x, y )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
-	--testing_bag insert in the chest (autoarrange in the grid when inside player root inventory; display contents on hover tooltip)
+	--testing_bag insert in the chest (autoarrange in the grid to match full inv width when inside player root inventory; display contents on hover tooltip)
 	--all spells wand
-	--custom spell where you can write the code directly into
+	--custom spell you can seamlessly write the code into
 end
 
 function OnPlayerDied( hooman )

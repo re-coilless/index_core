@@ -453,6 +453,7 @@ if( #ctrl_bodies > 0 ) then
             main_id = controller_id,
             player_id = hooman,
             player_xy = {0,0},
+            can_tinker = false,
 
             shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
             drag_action = dragger_action,
@@ -541,6 +542,7 @@ if( #ctrl_bodies > 0 ) then
         }
 
         data.player_xy = { hooman_x, hooman_y + data.player_core_off }
+        data.can_tinker = get_tinker_state( data.player_id, data.player_xy[1], data.player_xy[2])
         if( ctrl_comp ~= nil ) then
             data.Controls = {
                 ctrl_comp,
@@ -657,10 +659,6 @@ if( #ctrl_bodies > 0 ) then
                 table.remove( data.item_list, nuke_em[i])
             end
         end
-
-        --test optimization on old laptop and on new laptop when unplugged (make sure the framedrop is not agpu bottleneck)
-        --test actions materialized
-        --allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo)
         
         data.gmod = global_modes[ data.global_mode ]
         data.gmod.gmods = global_modes
