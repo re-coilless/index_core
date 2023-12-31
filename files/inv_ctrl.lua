@@ -36,7 +36,7 @@ if( #ctrl_bodies > 0 ) then
     local controller_id = ctrl_bodies[1]
     global_settings = global_settings or {
         main_dump = dofile_once( "mods/index_core/files/_structure.lua" ),
-
+        
         slot_pic = {
             bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
             bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
@@ -454,6 +454,7 @@ if( #ctrl_bodies > 0 ) then
             player_id = hooman,
             player_xy = {0,0},
             can_tinker = false,
+            sampo = 0,
 
             shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
             drag_action = dragger_action,

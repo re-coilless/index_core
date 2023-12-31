@@ -1,6 +1,5 @@
-test optimization on old laptop (make sure the framedrop is not a gpu bottleneck)
-
 rewrite the draggers to be based upon lmb click rather than pic clicking + the spells hovering is kinda sus (check pointer being near edges)
+try once again to get the mouse pos with screenshake
 wand slot scrolling
 allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo; make one local and one global)
 make a translator function that will allow multiple translation keys to exist (allow mixed strings too)

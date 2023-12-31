@@ -608,7 +608,13 @@ local ITEM_CATS = {
             return true
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
-            if( EntityHasTag( item_id, "this_is_sampo" )) then this_info.inv_type = 0 end
+            if( EntityHasTag( item_id, "this_is_sampo" )) then
+                this_info.inv_type = 0
+
+                if( EntityGetRootEntity( item_id ) == data.player_id ) then
+                    data.sampo = item_id
+                end
+            end
             return data, this_info
         end,
         
@@ -622,6 +628,20 @@ local ITEM_CATS = {
             end
             
             return uid, this_info
+        end,
+
+        on_pickup = function( item_id, data, this_info, is_post )
+            local func_tbl = {
+                function( item_id, data, this_info )
+                    if( EntityGetFirstComponentIncludingDisabled( item_id, "OrbComponent" ) ~= nil ) then
+                        vanilla_pick_up( data.player_id, item_id )
+                    else
+                        return 0
+                    end
+                end,
+                function() end,
+            }
+            return func_tbl[ is_post and 2 or 1 ]( item_id, data, this_info )
         end,
 
         on_gui_world = new_vanilla_worldtip,

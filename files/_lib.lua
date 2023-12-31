@@ -620,13 +620,13 @@ function lua_callback( entity_id, func_names, input )
 				local count = ComponentGetValue2( comp, "mTimesExecuted" )
 				if( max_count < 1 or count < max_count ) then
 					got_some = true
-					ComponentSetValue2( comp, "mLastExecutionFrame", frame_num )
-					ComponentSetValue2( comp, "mTimesExecuted", count + 1 )
 					
 					GetUpdatedComponentID = function() return comp end
 					dofile( path )
 					_G[ func_names[2]]( unpack( input ))
 
+					ComponentSetValue2( comp, "mLastExecutionFrame", frame_num )
+					ComponentSetValue2( comp, "mTimesExecuted", count + 1 )
 					if( ComponentGetValue2( comp, "remove_after_executed" )) then
 						EntityRemoveComponent( entity_id, comp )
 					end
@@ -1639,22 +1639,32 @@ function get_items( hooman, data )
 	return data
 end
 
+function vanilla_pick_up( hooman, item_id )
+	local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
+	if( pick_comp ~= nil ) then
+		EntitySetComponentIsEnabled( hooman, pick_comp, true )
+		GamePickUpInventoryItem( hooman, item_id, true )
+		EntitySetComponentIsEnabled( hooman, pick_comp, true )
+	end
+end
+
 function pick_up_item( hooman, data, this_info, do_the_sound, is_silent )
 	local entity_id = this_info.id
 	local gonna_pause, is_shopping = 0, this_info.cost ~= nil
-	if( not( is_silent or false )) then
-		this_info.name = this_info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_info.ItemC, "item_name" ))
-		GamePrint( GameTextGet( "$log_pickedup", this_info.name ))
-		if( do_the_sound or is_shopping ) then
-			play_sound( data, { "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
-		end
-	end
 
 	local callback = cat_callback( data, this_info, "on_pickup" )
 	if( callback ~= nil ) then
 		gonna_pause = callback( entity_id, data, this_info, false )
 	end
 	if( gonna_pause == 0 ) then
+		if( not( is_silent or false )) then
+			this_info.name = this_info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_info.ItemC, "item_name" ))
+			GamePrint( GameTextGet( "$log_pickedup", this_info.name ))
+			if( do_the_sound or is_shopping ) then
+				play_sound( data, { "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
+			end
+		end
+
 		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
 		EntityAddChild( data.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
 
@@ -2752,19 +2762,21 @@ function new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_d
 end
 
 function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
+	pickup_info.color = pickup_info.color or {}
+
 	if(( pickup_info.desc or "" ) ~= "" ) then
 		if( type( pickup_info.desc ) ~= "table" ) then
 			pickup_info.desc = { pickup_info.desc, false }
 		end
 		if( pickup_info.desc[1] ~= "" ) then
 			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
-			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 40 })
+			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 44 })
 			local w, h = get_text_dim( pickup_info.desc[1])
 			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], clr )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], pickup_info.color[1] or clr, true )
 			if( is_elaborate ) then
 				w, h = get_text_dim( pickup_info.desc[2])
-				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {207,207,207})
+				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], pickup_info.color[2] or {207,207,207}, true )
 			end
 		end
 	end
@@ -2773,7 +2785,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
 			local w, h = get_text_dim( pickup_info.txt )
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207})
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207}, true )
 		end
 	end
 

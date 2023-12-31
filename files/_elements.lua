@@ -776,10 +776,60 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
         local x, y = unpack( data.player_xy )
         y = y - data.player_core_off
         
-        --sampo ending thing (add data.sampo; ending_sampo_spot_mountain + ending_sampo_spot_underground; radius is 10)
-        --script_source_file data/entities/animals/boss_centipede/ending/sampo_start_ending_sequence.lua
-        --hint_endingmcguffin_use
-        --hint_endingmcguffin_enter_newgameplus
+        if( data.sampo > 0 ) then
+            local msg, clr = GameTextGet( "$hint_endingmcguffin_use", "[USE]" ), nil
+
+            local sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_underground" ) or 0
+            if( sampo_spot == 0 ) then
+                sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_mountain" ) or 0
+                if( sampo_spot > 0 ) then
+                    local ng_num = tonumber( SessionNumbersGetValue( "NEW_GAME_PLUS_COUNT" ))
+                    local check_num, going_ng = ng_num + 5, false
+                    if( data.orbs < 33 ) then
+                        local seven_eleven = data.orbs > ORB_COUNT_IN_WORLD and check_num >= ORB_COUNT_IN_WORLD and data.orbs >= check_num
+                        local eleven_seven = data.orbs >= check_num and data.orbs < ORB_COUNT_IN_WORLD
+                        if( seven_eleven or eleven_seven ) then
+                            going_ng = true
+
+                            msg = "+"
+                            if( ng_num > 4 ) then
+                                msg = msg.."("..( ng_num + 1 )..")"
+                            else
+                                for i = 1,ng_num do msg = msg.."+" end
+                            end
+                            msg = GameTextGet( "$hint_endingmcguffin_enter_newgameplus", "[USE]", msg )
+                        end
+                    end
+                    
+                    if( not( going_ng )) then
+                        if( data.orbs == 11 ) then
+                            clr = {255,255,178}
+                        elseif( data.orbs > 32 ) then
+                            clr = {121,201,153}
+                        else
+                            clr = {208,70,70}
+                        end
+                    end
+                end
+            elseif( data.orbs > 11 ) then
+                clr = {208,70,70}
+            end
+            
+            if( sampo_spot > 0 ) then
+                local sampo_x, sampo_y = EntityGetTransform( data.sampo )
+                local spot_x, spot_y = EntityGetTransform( sampo_spot )
+                if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
+                    uid = info_func( gui, uid, screen_h, screen_w, data, {
+                        id = sampo_spot,
+                        desc = { capitalizer( GameTextGetTranslatedOrNot( "$biome_boss_victoryroom" )), msg },
+                        txt = "[COMPLETE]",
+                        color = {{121,201,153}, clr },
+                    }, zs, xys )
+
+                    return uid, data
+                end
+            end
+        end
 
         local entities = EntityGetInRadius( x, y, 200 ) or {}
         if( #entities > 0 ) then
