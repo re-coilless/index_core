@@ -724,6 +724,9 @@ if( #ctrl_bodies > 0 ) then
             if( bars.flight ~= nil ) then
                 uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
+            if( bars.bossbar ~= nil ) then
+                uid, data, pos_tbl.bossbar = bars.bossbar( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+            end
             
             local actions = bars.action or {}
             if( actions.mana ~= nil ) then

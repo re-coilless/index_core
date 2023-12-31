@@ -41,6 +41,11 @@ function OnModInit()
 	file = ModTextFileGetContent( refresh_file )
 	file = string.gsub( file, "GameRegenItemActionsInPlayer%( entity_who_picked %)", "GameRegenItemActionsInPlayer( entity_who_picked )\nfor i,child in ipairs( EntityGetAllChildren( entity_who_picked ) or {}) do GameRegenItemActionsInPlayer( child ) end" )
 	ModTextFileSetContent( refresh_file, file )
+
+	local kolmi_file = "data/entities/animals/boss_centipede/sampo_pickup.lua"
+	file = ModTextFileGetContent( kolmi_file )
+	file = string.gsub( file, "EntityAddTag%( entity_id, \"boss_centipede_active\" %)", "EntityAddTag( entity_id, \"boss_centipede_active\" )\nEntityAddTag( entity_id, \"index_bossbar\" )" )
+	ModTextFileSetContent( kolmi_file, file )
 	
 	local slotless_file = "data/entities/items/pickup/"
 	local slotless_scum = {

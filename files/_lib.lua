@@ -612,14 +612,25 @@ function lua_callback( entity_id, func_names, input )
 		local real_GetUpdatedComponentID = GetUpdatedComponentID
 		GetUpdatedEntityID = function() return entity_id end
 
+		local frame_num = GameGetFrameNum()
 		for i,comp in ipairs( comps ) do
 			local path = ComponentGetValue2( comp, func_names[1]) or ""
 			if( path ~= "" ) then
-				got_some = true
+				local max_count = ComponentGetValue2( comp, "execute_times" )
+				local count = ComponentGetValue2( comp, "mTimesExecuted" )
+				if( max_count < 1 or count < max_count ) then
+					got_some = true
+					ComponentSetValue2( comp, "mLastExecutionFrame", frame_num )
+					ComponentSetValue2( comp, "mTimesExecuted", count + 1 )
+					
+					GetUpdatedComponentID = function() return comp end
+					dofile( path )
+					_G[ func_names[2]]( unpack( input ))
 
-				GetUpdatedComponentID = function() return comp end
-				dofile( path )
-				_G[ func_names[2]]( unpack( input ))
+					if( ComponentGetValue2( comp, "remove_after_executed" )) then
+						EntityRemoveComponent( entity_id, comp )
+					end
+				end
 			end
 		end
 		
@@ -1220,7 +1231,7 @@ function inv_check( data, this_info, inv_info )
 	local val = (( from_tbl_with_id( inv_info.kind, "universal" ) ~= 0 ) or #from_tbl_with_id( get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
 	if( val ) then
 		val = cat_callback( data, this_info, "on_inv_check", {
-			this_info, inv_info
+			data, this_info, inv_info
 		}, { val })
 	end
 	
@@ -1365,16 +1376,15 @@ function slot_swap( data, item_in, slot_data )
 	local parent1 = EntityGetParent( item_in )
 	local parent2 = slot_data.inv_id
 	local tbl = { parent1, parent2 }
-	local idata = {}
+	local idata = {
+		from_tbl_with_id( data.item_list, item_in, nil, nil, {}),
+		from_tbl_with_id( data.item_list, slot_data.id, nil, nil, {}),
+	}
 	for i = 1,2 do
 		local p = tbl[i]
 		if( p > 0 ) then
 			local p_info = data.inventories[p] or {}
 			if( p_info.update ~= nil ) then
-				if( #idata == 0 ) then
-					idata[1] = from_tbl_with_id( data.item_list, item_in, nil, nil, {})
-					idata[2] = from_tbl_with_id( data.item_list, slot_data.id, nil, nil, {})
-				end
 				if( p_info.update( data, from_tbl_with_id( data.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
 					table.insert( reset, get_item_owner( p, true ))
 				end
@@ -1400,7 +1410,13 @@ function slot_swap( data, item_in, slot_data )
 		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data.id, "ItemComponent" )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
 	end
-
+	
+	for i = 1,2 do
+		local this_info = idata[i]
+		if(( this_info.id or 0 ) > 0 ) then
+			cat_callback( data, this_info, "on_inv_swap", { data, this_info, slot_data })
+		end
+	end
 	for i,deadman in pairs( reset ) do
 		if( deadman > 0 ) then
 			active_item_reset( deadman )
@@ -1413,16 +1429,22 @@ function check_item_name( name )
 	return not( string_bullshit[ name ] or false ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
 end
 
-function get_item_name( entity_id, item_comp, abil_comp )
-	local name = ComponentGetValue2( item_comp, "item_name" )
-	if( abil_comp ~= nil ) then
+function get_entity_name( entity_id, item_comp, abil_comp )
+	local name = item_comp == nil and "" or ComponentGetValue2( item_comp, "item_name" )
+
+	local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
+	if( info_comp ~= nil ) then
+		local temp = ComponentGetValue2( info_comp, "name" )
+		name = check_item_name( temp ) and temp or name
+	elseif( abil_comp ~= nil ) then
 		local temp = ComponentGetValue2( abil_comp, "ui_name" )
 		name = check_item_name( temp ) and temp or name
 	end
-	if( check_item_name( name )) then
+	if( not( check_item_name( name ))) then
 		local temp = EntityGetName( entity_id )
 		name = check_item_name( temp ) and temp or name
 	end
+
 	return check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
@@ -1500,7 +1522,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			this_info.pic = ui_pic
 		end
 
-		this_info.desc = item_desc_fix( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
+		this_info.desc = full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
 		-- this_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
 		this_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 		
@@ -1525,6 +1547,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			"ctrl_script",
 
 			"on_inv_check",
+			"on_inv_swap",
 			"on_inventory",
 			"on_tooltip",
 			"on_slot",
@@ -1563,7 +1586,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			break
 		end
 	end
-	this_info.name, this_info.raw_name = get_item_name( item_id, item_comp, abil_comp )
+	this_info.name, this_info.raw_name = get_entity_name( item_id, item_comp, abil_comp )
 	if( this_info.cat == nil ) then
 		return data, {}
 	elseif(( this_info.name or "" ) == "" ) then
@@ -1822,6 +1845,13 @@ function space_obliterator( txt )
 	return tostring( string.gsub( tostring( txt ), "%s+$", "" ))
 end
 
+function full_stopper( text )
+	if( string_bullshit[ text or "" ]) then return "" end
+	
+	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
+	return text
+end
+
 function font_liner( text, length, height, font_data, default_return )
 	default_return = default_return or {"[NIL]"}
 	if(( text or "" ) == nil ) then return default_return end
@@ -1948,13 +1978,6 @@ function hud_num_fix( a, b, zeros )
 	a = string.format( "%."..zeros.."f", a )
 	b = string.format( "%."..zeros.."f", b )
 	return a.."/"..b
-end
-
-function item_desc_fix( text )
-	if( string_bullshit[ text or "" ]) then return "" end
-	
-	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
-	return text
 end
 
 function get_tip_width( text, min_width, max_width, k )
@@ -2304,12 +2327,12 @@ function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interac
 	return uid
 end
 
-function new_shaded_image( gui, uid, pic_x, pic_y, pic_z, pic, dims, s_x, s_y, alpha, interactive, angle )
+function new_shaded_image( gui, uid, pic_x, pic_y, pic_z, pic, dims, s_x, s_y, alpha, interactive, angle, shadow_alpha )
 	s_x, s_y, alpha = s_x or 1, s_y or 1, alpha or 1
 	new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
 	colourer( gui, {0,0,0})
 	local scale_x, scale_y = 1/( s_x*dims[1] ) + 1, 1/( s_y*dims[2] ) + 1
-	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, 0.05*alpha, false, angle )
+	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, shadow_alpha or 0.05*alpha, false, angle )
 end
 
 function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
@@ -2385,7 +2408,11 @@ function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_dri
 				end
 
 				colourer( gui, colours )
-				new_shaded_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, dims, 1, 1, colours[4])
+				if( do_shadow ) then
+					new_shaded_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, dims, 1, 1, colours[4], nil, nil, colours[5])
+				else
+					new_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, 1, 1, colours[4])
+				end
 
 				drift = drift + dims[1]
 			end
@@ -2441,35 +2468,6 @@ function new_interface( gui, uid, pos, pic_z, is_debugging )
 	end
 
 	return uid, clicked, r_clicked, hovered
-end
-
-function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
-	if(( pickup_info.desc or "" ) ~= "" ) then
-		if( type( pickup_info.desc ) ~= "table" ) then
-			pickup_info.desc = { pickup_info.desc, false }
-		end
-		if( pickup_info.desc[1] ~= "" ) then
-			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
-			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 40 })
-			local w, h = get_text_dim( pickup_info.desc[1])
-			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], clr )
-			if( is_elaborate ) then
-				w, h = get_text_dim( pickup_info.desc[2])
-				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {207,207,207})
-			end
-		end
-	end
-	if( pickup_info.id > 0 and not( data.is_opened ) and ( data.in_world_pickups or EntityHasTag( pickup_info.id, "index_txt" ))) then
-		if(( pickup_info.txt or "" ) ~= "" ) then
-			local x, y = EntityGetTransform( pickup_info.id )
-			local pic_x, pic_y = world2gui( x, y )
-			local w, h = get_text_dim( pickup_info.txt )
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207})
-		end
-	end
-
-	return uid
 end
 
 function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
@@ -2669,14 +2667,117 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			for i,line in ipairs( lines ) do
 				uid = new_image( gui, uid, pic_x + line[1], pic_y + line[2], z, gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), line[3], line[4], inter_alpha )
 			end
-			local dots = {{-1,-1},{x_offset-1,-1},{x_offset,0},{-1,y_offset-1},{0,y_offset},{x_offset,y_offset}}
+			local dots = {{-1,-1},{x_offset-1,-1},{x_offset,y_offset},{-1,y_offset-1}, {x_offset,0},{0,y_offset}}
 			for i,dot in ipairs( dots ) do
 				uid = new_image( gui, uid, pic_x + dot[1], pic_y + dot[2], z, gui_core..( is_fancy and "2_alt.xml" or "2.xml" ), 1, 1, inter_alpha )
+			end
+			local shadow_core = "mods/index_core/files/pics/tooltip_shadow_"
+			local shadows = {
+				{-2,-2,1,1},{4,-2,-1,1},{3,3,-1,-1},{-2,4,1,-1},
+				{1.5,-2,x_offset-1.5,1},{4,2,-1,y_offset-1.5},{-0.5,3,1.5-x_offset,-1},{-2,0,1,1.5-y_offset},
+			}
+			for k = 1,2 do
+				for e = 1,4 do
+					local i = e + ( k - 1 )*4
+					local name = e%2 == 0 and ( k > 1 and "B_alt.png" or "A_alt.png" ) or ( k > 1 and "B.png" or "A.png" )
+					uid = new_image( gui, uid, pic_x + dots[e][1] + shadows[i][1], pic_y + dots[e][2] + shadows[i][2], z + 0.011, shadow_core..name, 0.5*shadows[i][3], 0.5*shadows[i][4], inter_alpha )
+				end
 			end
 		end
 	end
 	
 	return uid, is_triggered
+end
+
+function new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
+	params = params or {}
+    local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
+    if( dmg_comp == nil ) then return uid,0,0,0,0,0 end
+    this_data = this_data or {
+        dmg_comp,
+
+        ComponentGetValue2( dmg_comp, "max_hp" ),
+        ComponentGetValue2( dmg_comp, "hp" ),
+        ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
+        math.max( data.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
+    }
+
+    local red_shift, length, height = 0, 0, params.height or 4
+    local max_hp, hp = this_data[2], this_data[3]
+    if( max_hp > 0 ) then
+        length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
+        length = ( params.length_mult or 1 )*( length < 5 and 40 or length )
+        hp = math.min( math.max( hp, 0 ), max_hp )
+
+		if( params.centered ) then pic_x = pic_x + length/2 end
+
+        local low_hp = math.max( math.min( max_hp/4, params.low_hp or data.hp_threshold ), params.low_hp_min or data.hp_threshold_min )
+        local pic = params.pic_hp or "data/ui_gfx/hud/colors_health_bar.png"
+        if( hp < low_hp ) then
+            local perc = ( low_hp - hp )/low_hp
+            local freq = ( params.hp_flashing or data.hp_flashing )*( 1.5 - perc )
+            
+            data.memo.hp_flashing = data.memo.hp_flashing or {}
+            data.memo.hp_flashing[ entity_id ] = data.memo.hp_flashing[ entity_id ] or {}
+            if( freq ~= data.memo.hp_flashing[ entity_id ][1] or -1 ) then
+                local freq_old = data.memo.hp_flashing[ entity_id ][1] or 1
+                data.memo.hp_flashing[ entity_id ] = { freq, freq*( data.memo.hp_flashing[ entity_id ][2] or 1 )/freq_old }
+            end
+            if( data.memo.hp_flashing[ entity_id ][2] > 4*freq ) then
+                data.memo.hp_flashing[ entity_id ][2] = data.memo.hp_flashing[ entity_id ][2] - 4*freq
+            end
+            red_shift = 0.5*( math.sin((( data.memo.hp_flashing[ entity_id ][2] + freq )*math.pi )/( 2*freq )) + 1 )
+            data.memo.hp_flashing[ entity_id ][2] = data.memo.hp_flashing[ entity_id ][2] + 1
+
+            if( red_shift > 0.5 ) then
+                uid = new_image( gui, uid, pic_x - ( length + 1 ), pic_y, pic_zs[1] - 0.001, params.pic_dmg or "data/ui_gfx/hud/colors_health_bar_bg_low_hp.png", ( length + 2 )/2, height/2 + 1 )
+            else
+                pic = params.pic_bg or "data/ui_gfx/hud/colors_health_bar_damage.png"
+            end
+            red_shift = red_shift*perc
+        end
+
+		local delay = 30 --params.damage_fading
+        if( this_data[5] <= delay ) then
+            local last_hp = math.min( math.max( this_data[4], 0 ), max_hp )
+            uid = new_image( gui, uid, pic_x - length, pic_y + 1, pic_zs[2] + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png", 0.5*length*last_hp/max_hp, height/2, ( delay - this_data[5])/delay )
+        end
+        
+        max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
+        hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
+        uid = new_vanilla_bar( gui, uid, pic_x, pic_y, pic_zs, { length, height, length*hp/max_hp }, pic )
+    end
+
+    return uid, length, height, max_hp, hp, red_shift
+end
+
+function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, xys )
+	if(( pickup_info.desc or "" ) ~= "" ) then
+		if( type( pickup_info.desc ) ~= "table" ) then
+			pickup_info.desc = { pickup_info.desc, false }
+		end
+		if( pickup_info.desc[1] ~= "" ) then
+			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
+			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 40 })
+			local w, h = get_text_dim( pickup_info.desc[1])
+			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], clr )
+			if( is_elaborate ) then
+				w, h = get_text_dim( pickup_info.desc[2])
+				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {207,207,207})
+			end
+		end
+	end
+	if( pickup_info.id > 0 and not( data.is_opened ) and ( data.in_world_pickups or EntityHasTag( pickup_info.id, "index_txt" ))) then
+		if(( pickup_info.txt or "" ) ~= "" ) then
+			local x, y = EntityGetTransform( pickup_info.id )
+			local pic_x, pic_y = world2gui( x, y )
+			local w, h = get_text_dim( pickup_info.txt )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207})
+		end
+	end
+
+	return uid
 end
 
 function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_debugging )
@@ -2698,11 +2799,11 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 end
 
 function new_vanilla_worldtip( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, zs, no_space, cant_buy, tip_func )
-	if( not( cant_buy )) then
+	-- if( not( cant_buy )) then
 		pic_x, pic_y = unpack( data.xys.hp )
 		pic_x, pic_y = pic_x - 43, pic_y - 1
 		uid = tip_func( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, zs.tips, true )
-	end
+	-- end
 	return uid
 end
 
@@ -2779,7 +2880,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	this_info.tt_spacing[6][1] = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1] + this_info.tt_spacing[3][1])
 	this_info.tt_spacing[6][1] = math.ceil( this_info.tt_spacing[6][1]/9 )*9 + 3
 	this_info.tt_spacing[2][1] = this_info.tt_spacing[6][1] - this_info.tt_spacing[3][1]
-	if( item_pic_data[ this_info.pic ]) then
+	if( item_pic_data[ this_info.pic ] and item_pic_data[ this_info.pic ].dims ) then
 		local dims = { scale*item_pic_data[ this_info.pic ].dims[1], scale*item_pic_data[ this_info.pic ].dims[2]}
 		local drift = { -scale*item_pic_data[ this_info.pic ].xy[2], dims[1]/2 + scale*item_pic_data[ this_info.pic ].xml_xy[1]}
 		if( this_info.tt_spacing[2][2] < dims[1]) then
@@ -2797,11 +2898,11 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	if( got_spells ) then
 		local p_size, n_size = 0, 0
 		if( #spell_list.permas > 0 ) then
-			p_size = 9*math.ceil( 9*( #spell_list.permas + 1 )/( this_info.tt_spacing[2][1] + 1 ))
+			p_size = 9*math.ceil( 9*( #spell_list.permas + 1 )/( this_info.tt_spacing[2][1] - 1 ))
 		end
 		if( #spell_list.permas > 0 and #spell_list.normies > 0 ) then p_size = p_size + 1 end
 		if( #spell_list.normies > 0 ) then
-			n_size = 9*math.ceil( 9*( #spell_list.normies )/( this_info.tt_spacing[2][1] + 1 ))
+			n_size = 9*math.ceil( 9*( #spell_list.normies )/( this_info.tt_spacing[2][1] - 1 ))
 		end
 		this_info.tt_spacing[5] = { p_size, n_size }
 	end
@@ -3686,7 +3787,8 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 						uid = new_image( gui, uid, cross_x + 0.5, cross_y + 0.5, zs.icons_front + 0.001, "mods/index_core/files/pics/vanilla_no_cards.xml", nil, nil, 0.75 )
 					end
 				else
-					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front, math.floor( this_info.charges ), nil, true )
+					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front, math.floor( this_info.charges ))
+					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ) + 0.5, slot_y + 0.5, zs.icons_front + 0.0001, math.floor( this_info.charges ), {0,0,0,0.75})
 				end
 			end
 		end
@@ -3824,6 +3926,8 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 					idata = from_tbl_with_id( data.item_list, slot )
 					if( idata.is_permanent ) then
 						uid = new_image( gui, uid, slot_x + 1, slot_y + 12, zs.icons_front, "data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
+						colourer( gui, {0,0,0})
+						uid = new_image( gui, uid, slot_x + 1.5, slot_y + 11.5, zs.icons_front + 0.0001, "data/ui_gfx/inventory/icon_gun_permanent_actions.png", nil, nil, 0.75 )
 					end
 				end
 				

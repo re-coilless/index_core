@@ -198,52 +198,17 @@ end
 
 function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
-    local red_shift = 0
+    local red_shift, length, height = 0, 0, 0
 
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
-        local max_hp = this_data[2]
+        local max_hp, hp = this_data[2], this_data[3]
         if( max_hp > 0 ) then
-            local length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
-            length = length < 5 and 40 or length
-            
-            local hp = math.min( math.max( this_data[3], 0 ), max_hp )
-            local low_hp = math.max( math.min( max_hp/4, data.hp_threshold ), data.hp_threshold_min )
-            local pic = "data/ui_gfx/hud/colors_health_bar.png"
-            if( hp < low_hp ) then
-                local perc = ( low_hp - hp )/low_hp
-                local freq = data.hp_flashing*( 1.5 - perc )
-                
-                data.memo.hp_flashing = data.memo.hp_flashing or {}
-                if( freq ~= data.memo.hp_flashing[1] or -1 ) then
-                    local freq_old = data.memo.hp_flashing[1] or 1
-                    data.memo.hp_flashing = { freq, freq*( data.memo.hp_flashing[2] or 1 )/freq_old }
-                end
-                if( data.memo.hp_flashing[2] > 4*freq ) then
-                    data.memo.hp_flashing[2] = data.memo.hp_flashing[2] - 4*freq
-                end
-                red_shift = 0.5*( math.sin((( data.memo.hp_flashing[2] + freq )*math.pi )/( 2*freq )) + 1 )
-                data.memo.hp_flashing[2] = data.memo.hp_flashing[2] + 1
+            uid, length, height, max_hp, hp, red_shift = new_vanilla_hp( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, data, data.player_id, this_data )
 
-                if( red_shift > 0.5 ) then
-                    uid = new_image( gui, uid, pic_x - ( length + 1 ), pic_y, zs.main_back - 0.001, "data/ui_gfx/hud/colors_health_bar_bg_low_hp.png", ( length + 2 )/2, 3 )
-                else
-                    pic = "data/ui_gfx/hud/colors_health_bar_damage.png"
-                end
-                red_shift = red_shift*perc
-            end
-            if( this_data[5] < 31 ) then
-                local last_hp = math.min( math.max( this_data[4], 0 ), max_hp )
-                uid = new_image( gui, uid, pic_x - length, pic_y + 1, zs.main + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png", 0.5*length*last_hp/max_hp, 2, ( 30 - this_data[5])/30 )
-            end
-            
-            max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
-            hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
-            local max_hp_text = get_short_num( max_hp )
-            local hp_text = get_short_num( hp )
+            local max_hp_text, hp_text = get_short_num( max_hp ), get_short_num( hp )
             uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", {8,8})
             uid = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { 255, 255, 255, 0.9 }, true )
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {length,4,length*hp/max_hp}, pic )
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
             uid = tipping( gui, uid, nil, nil, {
@@ -469,6 +434,42 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     return uid, data, {pic_x,pic_y}
 end
 
+function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --make it line up to 3 bars horizontally with width check
+    local pic_x, pic_y = unpack( xys.bossbar or {screen_w/2,screen_h-20})
+
+    local bosses = EntityGetInRadiusWithTag( data.player_xy[1], data.player_xy[2], 1000, "index_bossbar" ) or {}
+    if( #bosses > 0 ) then
+        for i,boss in ipairs( bosses ) do
+            local step, bar_func = 0, function( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
+                local name, length, step, max_hp, hp = get_entity_name( entity_id ), 0, 0, 0, 0
+                uid, length, step, max_hp, hp = new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
+                
+                if( string_bullshit[ name ]) then name = "Boss" end
+                uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, font_liner( name, length - 35 ), nil, true )
+
+                local value = ( math.floor( 1000*hp/max_hp + 0.5 )/10 ).."%"
+                uid = new_font_vanilla_shadow( gui, uid, pic_x + length/2 - ( 1 + get_text_dim( value )), pic_y + 2.5, pic_zs[2] - 0.001, value, nil, true )
+
+                return uid, length, step
+            end
+
+            local storage_bar = get_storage( boss, "index_bar" )
+            if( storage_bar ~= nil ) then
+                bar_func = dofile_once( ComponentGetValue2( storage_bar, "value_string" ))
+            end
+
+            uid,_,step = bar_func( gui, uid, pic_x, pic_y, {zs.in_world_back+0.01,zs.in_world_back}, data, boss, nil, {
+                low_hp = 0, low_hp_min = 0,
+                length_mult = 2, height = 13,
+                centered = true,
+            })
+            pic_y = pic_y - ( step + 4 )
+        end
+    end
+
+    return uid, data, {pic_x,pic_y}
+end
+
 function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.delay )
 
@@ -565,7 +566,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                         kind = { 0, name }
                     elseif( ComponentGetValue2( item_comp, "is_pickable" )) then
                         local name_func = function( item_id, item_comp, default_name )
-                            local name = get_item_name( item_id, item_comp )
+                            local name = get_entity_name( item_id, item_comp )
                             return name == "" and default_name or name
                         end
                         for k,cat in ipairs( data.item_cats ) do
@@ -576,7 +577,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                             end
                         end
                     elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
-                        name = EntityGetName( entity_id )
+                        name = get_entity_name( entity_id )
                         if( check_item_name( name )) then
                             kind = { 0, GameTextGetTranslatedOrNot( name )}
                         end
@@ -774,6 +775,12 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
     if( #this_data > 0 ) then
         local x, y = unpack( data.player_xy )
         y = y - data.player_core_off
+        
+        --sampo ending thing (add data.sampo; ending_sampo_spot_mountain + ending_sampo_spot_underground; radius is 10)
+        --script_source_file data/entities/animals/boss_centipede/ending/sampo_start_ending_sequence.lua
+        --hint_endingmcguffin_use
+        --hint_endingmcguffin_enter_newgameplus
+
         local entities = EntityGetInRadius( x, y, 200 ) or {}
         if( #entities > 0 ) then
             local stuff_to_figure = table_init( #data.item_cats + 1, {})
@@ -962,7 +969,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     pickup_data.id = 0
                 else
                     pickup_data.id = -pickup_data.id
-                    pickup_data.desc = { GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name ), true }
+                    pickup_data.desc = { full_stopper( GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name )), true }
                 end
             end
             if( pickup_data.id ~= 0 ) then

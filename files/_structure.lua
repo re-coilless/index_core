@@ -93,7 +93,7 @@ local ITEM_CATS = {
             return abil_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )
         end,
         on_info_name = function( item_id, item_comp, default_name )
-            local name = get_item_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
+            local name = get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
             return name == "" and default_name or name
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
@@ -263,7 +263,7 @@ local ITEM_CATS = {
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
             
-            local v1, v2 = get_item_name( item_id, item_comp )
+            local v1, v2 = get_entity_name( item_id, item_comp )
             local name, cap = get_potion_info( item_id, v1, barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
             return name..( cap or "" )
         end,
@@ -527,7 +527,7 @@ local ITEM_CATS = {
             this_info.tip_name = capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
             this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 221 )
-            this_info.desc = item_desc_fix( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
+            this_info.desc = full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
@@ -537,13 +537,27 @@ local ITEM_CATS = {
                 end
             end
 
+            if( GameGetGameEffectCount( data.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0 ) then
+                if( this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_entity_file_as_projectile_info_proxy" )) then
+                    this_info.inv_type = 0
+                end
+            end
+
             return data, this_info
         end,
         on_processed = function( item_id, data, this_info )
             local pic_comp = EntityGetFirstComponentIncludingDisabled( item_id, "SpriteComponent", "item_unidentified" )
             if( pic_comp ~= nil ) then EntityRemoveComponent( item_id, pic_comp ) end
         end,
-        
+
+        on_inv_check = function( data, this_info, inv_info )
+            return from_tbl_with_id( inv_info.kind, "quickest" ) == 0
+        end,
+        on_inv_swap = function( data, this_info, slot_data )
+            if( data.active_item == this_info.id ) then
+                active_item_reset( data.player_id )
+            end
+        end,
         on_tooltip = new_vanilla_stt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local angle, is_considered = 0, john_bool.is_dragged or john_bool.is_hov
@@ -593,6 +607,10 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return true
         end,
+        on_data = function( item_id, data, this_info, item_list_wip )
+            if( EntityHasTag( item_id, "this_is_sampo" )) then this_info.inv_type = 0 end
+            return data, this_info
+        end,
         
         on_tooltip = new_vanilla_itt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
@@ -625,6 +643,7 @@ local GUI_STRUCT = {
         hp = new_generic_hp,
         air = new_generic_air,
         flight = new_generic_flight,
+        bossbar = new_generic_bossbar,
         action = {
             mana = new_generic_mana,
             reload = new_generic_reload,
