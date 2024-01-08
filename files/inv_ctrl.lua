@@ -35,8 +35,27 @@ local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 if( #ctrl_bodies > 0 ) then
     local controller_id = ctrl_bodies[1]
     global_settings = global_settings or {
-        main_dump = dofile_once( "mods/index_core/files/_structure.lua" ),
-        
+        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
+        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
+        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
+        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+
+        quickest_size = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" ),
+        inv_spacings = D_extractor( ComponentGetValue2( get_storage( controller_id, "inv_spacings" ), "value_string" ), true ),
+        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
+        min_effect_duration = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" ),
+        spell_anim_frames = ComponentGetValue2( get_storage( controller_id, "spell_anim_frames" ), "value_int" ),
+
+        hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
+        hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
+        hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
+        hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
+
+        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
+        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
+        info_fading = ComponentGetValue2( get_storage( controller_id, "info_fading" ), "value_int" ),
+
+        loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
         slot_pic = {
             bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
             bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
@@ -44,7 +63,6 @@ if( #ctrl_bodies > 0 ) then
             active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
             locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
         },
-        loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
         sfxes = {
             click = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_click" ), "value_string" )),
             select = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_select" ), "value_string" )),
@@ -57,40 +75,30 @@ if( #ctrl_bodies > 0 ) then
             move_item = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_move_item" ), "value_string" )),
         },
         
-        mute_applets = ComponentGetValue2( get_storage( controller_id, "mute_applets" ), "value_bool" ),
-        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
+        always_show_full = ComponentGetValue2( get_storage( controller_id, "always_show_full" ), "value_bool" ),
         no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
-        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
-        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
-        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+        do_vanilla_dropping = ComponentGetValue2( get_storage( controller_id, "do_vanilla_dropping" ), "value_bool" ),
         no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
-        quickest_size = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" ),
-        inv_spacings = D_extractor( ComponentGetValue2( get_storage( controller_id, "inv_spacings" ), "value_string" ), true ),
 
-        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
-        hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
-        hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
-        hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
-        hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
-        fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
-        spell_anim_frames = ComponentGetValue2( get_storage( controller_id, "spell_anim_frames" ), "value_int" ),
-        spell_type_alpha = ComponentGetValue2( get_storage( controller_id, "spell_type_alpha" ), "value_float" ),
-        no_wand_scaling = ComponentGetValue2( get_storage( controller_id, "no_wand_scaling" ), "value_bool" ),
-        reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
-        delay_threshold = ComponentGetValue2( get_storage( controller_id, "delay_threshold" ), "value_int" ),
-        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
-        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
-        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
-        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
-        info_fading = ComponentGetValue2( get_storage( controller_id, "info_fading" ), "value_int" ),
-        info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
-        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
-        epsilon = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" ),
         max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
+        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
+        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
+        fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
+        reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
+
+        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
+        info_pointer_alpha = ComponentGetValue2( get_storage( controller_id, "info_pointer_alpha" ), "value_int" )*0.1,
+        info_mtr_hotkeyed = ComponentGetValue2( get_storage( controller_id, "info_mtr_hotkeyed" ), "value_bool" ),
+        info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+
+        mute_applets = ComponentGetValue2( get_storage( controller_id, "mute_applets" ), "value_bool" ),
+        no_wand_scaling = ComponentGetValue2( get_storage( controller_id, "no_wand_scaling" ), "value_bool" ),
+        allow_tips_always = ComponentGetValue2( get_storage( controller_id, "allow_tips_always" ), "value_bool" ),
         in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
     }
+    global_settings.main_dump = global_settings.main_dump or dofile_once( "mods/index_core/files/_structure.lua" )
+    
     local main_x, main_y = EntityGetTransform( controller_id )
-
     local hooman = EntityGetParent( controller_id )
     if( not( EntityGetIsAlive( hooman ))) then
         return
@@ -132,10 +140,16 @@ if( #ctrl_bodies > 0 ) then
         local mui_x, mui_y = world2gui( m_x, m_y )
         local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
         mouse_memo = { mui_x, mui_y }
-        
+
+        local mtr_action = not( global_settings.info_mtr_hotkeyed ) or get_input( { 53--[["`"]], "Key" }, "ad_matter_action", true, true )
         local pointer_mtr = 0
-        if( not( EntityGetIsAlive( mtr_probe ))) then
-            mtr_probe = EntityLoad( "mods/index_core/files/misc/matter_test.xml", m_x, m_y )
+        if( mtr_action ) then
+            if( not( EntityGetIsAlive( mtr_probe ))) then
+                mtr_probe = EntityLoad( "mods/index_core/files/misc/matter_test.xml", m_x, m_y )
+            end
+        elseif( EntityGetIsAlive( mtr_probe )) then
+            EntityKill( mtr_probe )
+            mtr_probe = 0
         end
         if( mtr_probe > 0 ) then
             local jitter_mag = 0.5
@@ -165,7 +179,7 @@ if( #ctrl_bodies > 0 ) then
         local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
         pointer_mtr = most_mtr_count > 5 and most_mtr or 0
         
-        local epsilon = global_settings.epsilon
+        local epsilon = global_settings.min_effect_duration
 
         local perk_tbl, effect_tbl = {}, {ings={},stains={},misc={}}
         local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
@@ -437,12 +451,10 @@ if( #ctrl_bodies > 0 ) then
             the_gui = real_gui,
             a_gui = fake_gui,
             some_guis = dead_guis,
-            
-            memo = ctrl_data,
-            frame_num = current_frame,
-            orbs = GameGetOrbCountThisRun(),
-            pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
-            nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
+
+            main_id = controller_id,
+            player_id = hooman,
+            player_xy = {0,0},
 
             pointer_world = {m_x,m_y},
             pointer_ui = {mui_x,mui_y},
@@ -450,15 +462,10 @@ if( #ctrl_bodies > 0 ) then
             pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
             pointer_matter = pointer_mtr,
 
-            main_id = controller_id,
-            player_id = hooman,
-            player_xy = {0,0},
-            can_tinker = false,
-            sampo = 0,
-
             shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
             drag_action = dragger_action,
-            tip_action = get_input( { 226--[["left_alt"]], "Key" }, "az_tip_action", true, true ),
+            tip_action = get_input( { 226--[["left_alt"]], "Key" }, "ac_tip_action", true, true ),
+            matter_action = mtr_action,
 
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
             inventory = inv_comp,
@@ -466,17 +473,22 @@ if( #ctrl_bodies > 0 ) then
             inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - global_settings.quickest_size,
             inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
 
+            memo = ctrl_data,
+            frame_num = current_frame,
+            pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
+            nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
             global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
-            gmod = {},
-            applets = applets,
 
+            gmod = {},
             xys = pos_tbl,
+            applets = applets,
             slot_func = inv.slot,
             icon_func = inv.icon,
             tip_func = inv.tooltip,
             plate_func = inv.plate,
             wand_func = inv.wand,
 
+            orbs = GameGetOrbCountThisRun(),
             icon_data = effect_tbl,
             perk_data = perk_tbl,
 
@@ -484,6 +496,8 @@ if( #ctrl_bodies > 0 ) then
             active_info = {},
             just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
             no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
+            can_tinker = false,
+            sampo = 0,
 
             inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )},
             inventories = {},
@@ -500,39 +514,47 @@ if( #ctrl_bodies > 0 ) then
                 is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
             },
 
-            slot_pic = global_settings.slot_pic,
-            loot_marker = global_settings.loot_marker,
-            sfxes = global_settings.sfxes,
-
-            mute_applets = global_settings.mute_applets,
             player_core_off = global_settings.player_core_off,
-            no_inv_shooting = global_settings.no_inv_shooting,
             throw_pos_rad = global_settings.throw_pos_rad,
             throw_pos_size = global_settings.throw_pos_size,
             throw_force = global_settings.throw_force,
-            no_action_on_drop = global_settings.no_action_on_drop,
-            inv_spacings = global_settings.inv_spacings,
 
-            short_hp = global_settings.short_hp,
+            inv_spacings = global_settings.inv_spacings,
+            effect_icon_spacing = global_settings.effect_icon_spacing,
+            min_effect_duration = epsilon,
+            spell_anim_frames = global_settings.spell_anim_frames,
+
             hp_threshold = global_settings.hp_threshold,
             hp_threshold_min = global_settings.hp_threshold_min,
             hp_flashing = global_settings.hp_flashing,
             hp_flashing_intensity = global_settings.hp_flashing_intensity,
-            fancy_potion_bar = global_settings.fancy_potion_bar,
-            spell_anim_frames = global_settings.spell_anim_frames,
-            spell_type_alpha = global_settings.spell_type_alpha,
-            no_wand_scaling = global_settings.no_wand_scaling,
-            reload_threshold = global_settings.reload_threshold,
-            delay_threshold = global_settings.delay_threshold,
-            short_gold = global_settings.short_gold,
-            info_pointer = global_settings.info_pointer,
+
             info_radius = global_settings.info_radius,
             info_threshold = global_settings.info_threshold,
             info_fading = global_settings.info_fading,
-            info_mtr_static = global_settings.info_mtr_static,
-            effect_icon_spacing = global_settings.effect_icon_spacing,
-            min_effect_time = epsilon,
+
+            loot_marker = global_settings.loot_marker,
+            slot_pic = global_settings.slot_pic,
+            sfxes = global_settings.sfxes,
+
+            always_show_full = global_settings.always_show_full,
+            no_inv_shooting = global_settings.no_inv_shooting,
+            do_vanilla_dropping = global_settings.do_vanilla_dropping,
+            no_action_on_drop = global_settings.no_action_on_drop,
+
             max_perks = global_settings.max_perks,
+            short_hp = global_settings.short_hp,
+            short_gold = global_settings.short_gold,
+            fancy_potion_bar = global_settings.fancy_potion_bar,
+            reload_threshold = global_settings.reload_threshold,
+
+            info_pointer = global_settings.info_pointer,
+            info_pointer_alpha = global_settings.info_pointer_alpha,
+            info_mtr_hotkeyed = global_settings.info_mtr_hotkeyed,
+            info_mtr_static = global_settings.info_mtr_static,
+
+            no_wand_scaling = global_settings.no_wand_scaling,
+            allow_tips_always = global_settings.allow_tips_always,
             in_world_pickups = global_settings.in_world_pickups,
             
             Controls = {},
@@ -696,11 +718,6 @@ if( #ctrl_bodies > 0 ) then
             }
             table.insert( data.applets.l, close_applets )
             table.insert( data.applets.r, close_applets )
-            
-            if( data.mute_applets ) then
-                data.applets.l_state = false
-                data.applets.r_state = false
-            end
         end
 
         local global_callback = data.gmod.custom_func
@@ -797,17 +814,29 @@ if( #ctrl_bodies > 0 ) then
         elseif( data.gmod.no_inv_toggle and not( data.is_opened )) then
             ComponentSetValue2( iui_comp, "mActive", true )
         end
-        if( not( gonna_drop )) then
-            if( not( dragger_action ) or data.gmod.allow_advanced_draggables ) then
+
+        if( data.do_vanilla_dropping ) then
+            if( data.dragger.item_id == 0 ) then
+                never_drop = false
+            elseif( data.gmod.allow_advanced_draggables or never_drop ) then
                 data.dragger.wont_drop = true
             elseif( dragger_action and slot_memo[ data.dragger.item_id ]) then
-                gonna_drop = true
+                never_drop = true
             end
-        elseif( data.dragger.item_id == 0 ) then
-            gonna_drop = false
         else
-            uid = new_font_vanilla_shadow( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
+            if( not( gonna_drop )) then
+                if( not( dragger_action ) or data.gmod.allow_advanced_draggables ) then
+                    data.dragger.wont_drop = true
+                elseif( dragger_action and slot_memo[ data.dragger.item_id ]) then
+                    gonna_drop = true
+                end
+            elseif( data.dragger.item_id == 0 ) then
+                gonna_drop = false
+            else
+                uid = new_font_vanilla_shadow( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
+            end
         end
+
         if( slot_hover_sfx[2]) then
             slot_hover_sfx[2] = false
         elseif( slot_hover_sfx[1] ~= 0 ) then

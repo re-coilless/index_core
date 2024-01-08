@@ -59,8 +59,8 @@ local GLOBAL_MODES = {
 
 local GLOBAL_MUTATORS = {}
 local APPLETS = {
-    l_state = true,
-    r_state = true,
+    l_state = not( global_settings.mute_applets ),
+    r_state = not( global_settings.mute_applets ),
     l_hover = {},
     r_hover = {},
 
@@ -195,7 +195,7 @@ local ITEM_CATS = {
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             
-            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+            if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
             
@@ -264,10 +264,15 @@ local ITEM_CATS = {
             barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
             
             local v1, v2 = get_entity_name( item_id, item_comp )
-            local name, cap = get_potion_info( item_id, v1, barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+            local name, cap = v1, ""
+            if( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil ) then
+                name, cap = get_potion_info( item_id, v1, barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+            end
             return name..( cap or "" )
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
+            this_info.is_true_potion = EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil
+
             local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
             this_info.MatterC = matter_comp
             this_info.matter_info = {
@@ -298,7 +303,9 @@ local ITEM_CATS = {
                 }
             end
 
-            this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+            if( this_info.is_true_potion ) then
+                this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+            end
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
             
             this_info.potion_cutout = 3 - b2n( this_info.matter_info[1] < this_info.matter_info[2][1])
@@ -344,7 +351,7 @@ local ITEM_CATS = {
         end,
         on_tooltip = new_vanilla_ptt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+            if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
 
@@ -560,17 +567,16 @@ local ITEM_CATS = {
         end,
         on_tooltip = new_vanilla_stt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            local angle, is_considered = 0, john_bool.is_dragged or john_bool.is_hov
+            local angle, is_considered, anim_speed = 0, john_bool.is_dragged or john_bool.is_hov, data.spell_anim_frames
             if( john_bool.can_drag ) then
-                local spd = data.spell_anim_frames
-                angle = -math.rad( 10 )*( is_considered and 1.5 or math.sin(( data.frame_num%spd )*math.pi/spd + 0.2 ))
+                angle = -math.rad( 5 )*( is_considered and 1.5 or ( anim_speed == 0 and 0 or math.sin(( data.frame_num%anim_speed )*math.pi/anim_speed )))
             end
             local pic_z = slot_z( data, this_info.id, zs.icons )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
             if( is_considered ) then colourer( gui, {185,220,223}) end
-            uid = new_spell_frame( gui, uid, pic_x, pic_y, ( john_bool.is_dragged and pic_z or zs.icons ) + 0.001, this_info.spell_info.type )
-            
-            if( john_bool.is_hov and hov_func ~= nil ) then
+            uid = new_spell_frame( gui, uid, pic_x, pic_y, zs.icons + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
+
+            if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
@@ -591,7 +597,7 @@ local ITEM_CATS = {
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             
-            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+            if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
@@ -622,7 +628,7 @@ local ITEM_CATS = {
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
 
-            if( data.is_opened and john_bool.is_hov and hov_func ~= nil ) then
+            if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end

@@ -107,7 +107,7 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights
+--DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )

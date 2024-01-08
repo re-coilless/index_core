@@ -1468,9 +1468,9 @@ function get_potion_info( entity_id, name, max_count, total_count, matters )
 	if( string.sub(name,1,1) == "$" ) then
 		name = capitalizer( GameTextGet( name, ( info == "" and GameTextGetTranslatedOrNot( "$item_potion_empty" ) or info )))
 	else
-		name = info..( info == "" and info or " " )..string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" )
+		name = string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" )
 	end
-	return name, v
+	return info..( info == "" and info or " " )..name, v
 end
 
 function get_item_data( item_id, data, inventory_data, item_list )
@@ -1843,8 +1843,9 @@ function get_mouse_pos()
 	return world2gui( m_x, m_y )
 end
 
-function slot_z( data, id, z )
-	return data.dragger.item_id == id and z-2 or z
+function slot_z( data, id, z, state )
+	if( state == nil ) then state = data.dragger.item_id == id end
+	return state and z-2 or z
 end
 
 function capitalizer( text )
@@ -1886,6 +1887,7 @@ function font_liner( text, length, height, font_data, default_return )
 		return formatted, dims
 	end
 
+	local was_spaced = false
 	local formatted,max_l,h = {},0,0
 	local full_text = "@"..string.gsub( string.gsub( text, "\n", "@" ), "\t", "\\_" ).."@"
 	for paragraph in string.gmatch( full_text, "([^@]+)" ) do
@@ -2339,10 +2341,10 @@ end
 
 function new_shaded_image( gui, uid, pic_x, pic_y, pic_z, pic, dims, s_x, s_y, alpha, interactive, angle, shadow_alpha )
 	s_x, s_y, alpha = s_x or 1, s_y or 1, alpha or 1
-	new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
+	new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, false, angle )
 	colourer( gui, {0,0,0})
 	local scale_x, scale_y = 1/( s_x*dims[1] ) + 1, 1/( s_y*dims[2] ) + 1
-	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, shadow_alpha or 0.05*alpha, false, angle )
+	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, shadow_alpha or 0.05*alpha, interactive, angle )
 end
 
 function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
@@ -2606,7 +2608,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 		if( not( tip_going[tid] or false )) then
 			tip_going[tid] = true
 			tip_anim[tid] = tip_anim[tid] or {0,0,0}
-
+			
 			local frame_num = GameGetFrameNum()
 			tip_anim[tid][2] = frame_num
 			if( tip_anim[tid][1] == 0 ) then
@@ -2632,7 +2634,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			local edge_spacing, dims = 3, {0,0}
 			if( text[1] ~= "" ) then text[1], dims = font_liner( text[1], w*0.9, h - 2 ) end
 			
-			local x_offset, y_offset = text[4] or ( dims[1] + ( is_right and edge_spacing or 1 )), text[5] or dims[2]
+			local x_offset, y_offset = text[4] or ( dims[1] + edge_spacing ), text[5] or dims[2]
 			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
 			if( is_right or is_up ) then
 				if( is_right ) then
@@ -2785,7 +2787,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
 			local w, h = get_text_dim( pickup_info.txt )
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207}, true )
+			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207,1,0.2}, true )
 		end
 	end
 
@@ -2843,7 +2845,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	--slot (has no alt mode but will stay open if alt is held)
 	--inventory (stats have tooltips, advanced stats replace the desc)
 	
-	local scale = data.no_wand_scaling and 1 or 2
+	local scale = 2--data.no_wand_scaling and 1 or 2
 	local spell_list, got_spells = {permas={},normies={}}, false
 	if( not( is_advanced )) then
 		local spells = EntityGetAllChildren( item_id ) or {}
@@ -2922,7 +2924,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[6][1] + 2, this_info.tt_spacing[6][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		if( not( is_advanced ) and this_info.is_frozen ) then
-			uid = new_shaded_image( gui, uid, pic_x - 4, pic_y - 5, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
+			uid = new_shaded_image( gui, uid, pic_x - 4, pic_y - 4, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
 		end
 
 		pic_x = pic_x + 2
@@ -3283,7 +3285,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
 		colourer( gui, type2frame[ this_info.spell_info.type ][2])
-		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, data.spell_type_alpha*inter_alpha )
+		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, 0.75*inter_alpha )
 		uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
 		colourer( gui, {0,0,0})
 		uid = new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
@@ -3553,7 +3555,8 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 end
 
 function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angle )
-	return new_image( gui, uid, pic_x - 10, pic_y - 10, pic_z, type2frame[ spell_type ][1], nil, nil, alpha, nil, angle )
+	local off_x, off_y = rotate_offset( 10, 10, angle or 0 )
+	return new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, type2frame[ spell_type ][1], nil, nil, alpha, nil, angle )
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
@@ -3774,6 +3777,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 				is_quick = is_quick,
 				can_drag = can_drag,
 				is_dragged = is_dragged,
+				is_opened = data.is_opened or data.allow_tips_always,
 			}, cat_tbl.on_rmb, cat_tbl.on_drag, cat_tbl.on_tooltip, might_swap and 1.2 or 1 )
 		end
 		if( not( suppress_action or false )) then
@@ -3905,13 +3909,14 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 		local clicked, r_clicked, is_hovered = false, false, false
 		uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, { pic_x, pic_y, section_off, 18 + this_info.w_spacing[4]}, pic_z - 0.001 )
 		pic_x = pic_x + section_off
+		if( this_info.is_frozen ) then
+			uid = new_shaded_image( gui, uid, pic_x - 5, pic_y + step_y - 7, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha, true )
+			uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ))
+		end
 		if( is_hovered ) then
 			uid = cat_callback( data, this_info, "on_tooltip", {
 				gui, uid, nil, this_info.id, data, this_info, pic_x + 1, pic_y - 2, zs.tips, false, true
 			}, { uid })
-		end
-		if( this_info.is_frozen ) then
-			uid = new_shaded_image( gui, uid, pic_x - 6, pic_y + step_y - 6, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
 		end
 		uid = new_image( gui, uid, pic_x, pic_y - 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
 		

@@ -1,3 +1,5 @@
+conjurer wands are in reversed order
+
 rewrite the draggers to be based upon lmb click rather than pic clicking + the spells hovering is kinda sus (check pointer being near edges)
 try once again to get the mouse pos with screenshake
 wand slot scrolling
@@ -5,6 +7,7 @@ allow fake spell injection (just add a spell that gets lua input; the icon is he
 make a translator function that will allow multiple translation keys to exist (allow mixed strings too)
 generic game effects should only be displayed if uiicons was detected
 pickup inv
+make custom monospace highres font
 
 [WARNING] THIS ENTIRE DOC IS HOPELESSLY OBSOLETE!!!
 

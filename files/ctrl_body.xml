@@ -7,20 +7,30 @@
 		name="forced_state"
 		value_int="0"
 	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="global_mode"
+		value_int="1"
+	></VariableStorageComponent>
 
 	<VariableStorageComponent
 		name="override_settings"
-		value_bool="0"
+		value_bool="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="update_settings"
+		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="reset_settings"
 		value_bool="0"
 	></VariableStorageComponent>
+	<LuaComponent
+		script_source_file="mods/index_core/files/misc/settings_updater.lua"
+		execute_every_n_frame="1"
+		execute_on_added="1"
+	></LuaComponent>
 
-	<VariableStorageComponent
-		name="global_mode"
-		value_int="1"
-	></VariableStorageComponent>
+
 
 	<VariableStorageComponent
 		name="dragger_done_externally"
@@ -41,6 +51,74 @@
 	<VariableStorageComponent
 		name="dragger_is_quickest"
 		value_bool="0"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="player_core_off"
+		value_float="-7"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_pos_rad"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_pos_size"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="throw_force"
+		value_float="40"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="quickest_size"
+		value_int="4"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="inv_spacings"
+		value_string="|2|9|"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="effect_icon_spacing"
+		value_int="45"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="min_effect_duration"
+		value_float="0.001"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="spell_anim_frames"
+		value_int="120"
+	></VariableStorageComponent>
+
+	<VariableStorageComponent
+		name="low_hp_flashing_threshold"
+		value_float="1"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_threshold_min"
+		value_float="0.2"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_period"
+		value_int="15"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="low_hp_flashing_intensity"
+		value_float="0.75"
+	></VariableStorageComponent>
+	
+	<VariableStorageComponent
+		name="info_radius"
+		value_int="10"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_threshold"
+		value_float="3"
+	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="info_fading"
+		value_int="20"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
@@ -105,93 +183,44 @@
 		value_string="|data/audio/Desktop/ui.bank|ui/item_switch_places|"
 	></VariableStorageComponent>
 	
+
+
 	<VariableStorageComponent
-		name="mute_applets"
+		name="always_show_full"
 		value_bool="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="player_core_off"
-		value_float="-7"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="no_inv_shooting"
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="throw_pos_rad"
-		value_int="10"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="throw_pos_size"
-		value_int="10"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="throw_force"
-		value_float="40"
+		name="do_vanilla_dropping"
+		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="no_action_on_drop"
 		value_bool="1"
 	></VariableStorageComponent>
+
 	<VariableStorageComponent
-		name="quickest_size"
-		value_int="4"
+		name="max_perk_count"
+		value_int="5"
 	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="inv_spacings"
-		value_string="|2|9|"
-	></VariableStorageComponent>
-	
 	<VariableStorageComponent
 		name="short_hp"
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="low_hp_flashing_threshold"
-		value_float="1"
+		name="short_gold"
+		value_bool="0"
 	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="low_hp_flashing_threshold_min"
-		value_float="0.2"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="low_hp_flashing_period"
-		value_int="15"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="low_hp_flashing_intensity"
-		value_float="0.75"
-	></VariableStorageComponent>
-	
 	<VariableStorageComponent
 		name="fancy_potion_bar"
 		value_bool="1"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="spell_anim_frames"
-		value_int="75"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="spell_type_alpha"
-		value_float="0.75"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="no_wand_scaling"
-		value_bool="0"
-	></VariableStorageComponent>
-	
-	<VariableStorageComponent
 		name="reload_threshold"
 		value_int="30"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="delay_threshold"
-		value_int="30"
-	></VariableStorageComponent>
-	
-	<VariableStorageComponent
-		name="short_gold"
-		value_bool="0"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent
@@ -199,35 +228,30 @@
 		value_bool="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="info_radius"
-		value_int="10"
+		name="info_pointer_alpha"
+		value_int="5"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="info_threshold"
-		value_float="3"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="info_fading"
-		value_int="20"
+		name="info_mtr_hotkeyed"
+		value_bool="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
 		name="info_mtr_static"
 		value_bool="0"
 	></VariableStorageComponent>
-	
+
 	<VariableStorageComponent
-		name="effect_icon_spacing"
-		value_int="40"
+		name="mute_applets"
+		value_bool="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="min_effect_duration"
-		value_float="0.001"
+		name="no_wand_scaling"
+		value_bool="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="max_perk_count"
-		value_int="5"
+		name="allow_tips_always"
+		value_bool="0"
 	></VariableStorageComponent>
-	
 	<VariableStorageComponent
 		name="in_world_pickups"
 		value_bool="0"

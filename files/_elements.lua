@@ -53,10 +53,12 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         if( data.is_opened ) then
             uid = new_font_vanilla_shadow( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             uid = new_font_vanilla_shadow( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-            if( data.gmod.show_full ) then
-                pic_x = pic_x + data.inv_spacings[2]
-                uid = new_font_vanilla_shadow( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
-                
+
+            pic_x = pic_x + data.inv_spacings[2]
+            uid = new_font_vanilla_shadow( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+        end
+        if( data.gmod.show_full ) then
+            if( data.is_opened or data.always_show_full ) then
                 local core_y = pic_y
                 inv_id = data.inventories_player[2]
                 slot_data = data.slot_state[ inv_id ]
@@ -68,7 +70,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
-                        }, data.is_opened, true, true )
+                        }, data.is_opened, true, data.is_opened )
                         pic_x, pic_y = pic_x, pic_y + h + step
                     end
                     pic_x, pic_y = pic_x + w + step, core_y
@@ -84,6 +86,9 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_x, pic_y = pic_x + 3 - step, pic_y + 3
         end
 
+        -- if( InputIsKeyJustDown( 41--[[escape]])) then
+        --     data.inv_toggle = data.is_opened
+        -- else
         if( data.Controls[2][2]) then
             data.inv_toggle = true
         end
@@ -401,7 +406,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
     if( this_data.wand_info ~= nil and not( data.gmod.menu_capable )) then
         local cast_delay = this_data.wand_info.delay_frame
         data.memo.delay_max[data.active_item] = ( data.memo.delay_max[data.active_item] or -1 ) < cast_delay and cast_delay or data.memo.delay_max[data.active_item]
-        if( data.memo.delay_max[data.active_item] > data.delay_threshold ) then
+        if( data.memo.delay_max[data.active_item] > data.reload_threshold ) then
             if( data.memo.delay_max[data.active_item] ~= cast_delay ) then
                 if( data.memo.delay_shake[data.active_item] == nil and data.just_fired ) then
                     data.memo.delay_shake[data.active_item] = data.frame_num
@@ -444,10 +449,21 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
                 local name, length, step, max_hp, hp = get_entity_name( entity_id ), 0, 0, 0, 0
                 uid, length, step, max_hp, hp = new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
                 
-                if( string_bullshit[ name ]) then name = "Boss" end
-                uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, font_liner( name, length - 35 ), nil, true )
+                local num_width, rounding = 35, 10
+                if( max_hp >= 10^6 ) then
+                    rounding = 1000
+                    num_width = num_width + 12
+                elseif( max_hp >= 10^5 ) then
+                    rounding = 100
+                    num_width = num_width + 6
+                end
 
-                local value = ( math.floor( 1000*hp/max_hp + 0.5 )/10 ).."%"
+                if( length > num_width ) then
+                    if( string_bullshit[ name ]) then name = "Boss" end
+                    uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, font_liner( name, length - num_width ), nil, true )
+                end
+
+                local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
                 uid = new_font_vanilla_shadow( gui, uid, pic_x + length/2 - ( 1 + get_text_dim( value )), pic_y + 2.5, pic_zs[2] - 0.001, value, nil, true )
 
                 return uid, length, step
@@ -530,7 +546,7 @@ end
 
 function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = 0,0
-
+    
     function do_info( gui, p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         
@@ -541,7 +557,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             p_x = p_x - offset_x
         end
         if( hover_func ~= nil ) then hover_func( offset_x ) end
-        uid = new_font_vanilla_shadow( gui, uid, p_x, p_y, zs.main, txt, {255,255,255,alpha})
+        uid = new_font_vanilla_shadow( gui, uid, p_x, p_y, zs.main, txt, {255,255,255,alpha}, true )
     end
     
     data.memo.ui_info = data.memo.ui_info or { 0, 0 }
@@ -614,17 +630,17 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         if( info ~= "" ) then
-            local is_dragging = data.dragger.item_id > 0
-            if( data.info_pointer ) then
+            local is_obstructed = data.dragger.item_id > 0 or ( data.frame_num - tip_anim["generic"][2]) < 2
+            if( data.always_show_full or data.info_pointer ) then
                 pic_x, pic_y = unpack( data.pointer_ui )
-                pic_x, pic_y = pic_x + ( is_dragging and -2 or 6 ), pic_y + 3
-                fading = fading*0.5
+                pic_x, pic_y = pic_x + ( is_obstructed and -2 or 6 ), pic_y + 3
+                fading = fading*data.info_pointer_alpha
             else
                 pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
                 pic_x, pic_y = pic_x + 3, pic_y + 5 + ( data.is_opened and 3 or 0 )
-                is_dragging = false
+                is_obstructed = false
             end
-            do_info( gui, pic_x, pic_y, info, fading, is_dragging )
+            do_info( gui, pic_x, pic_y, info, fading, is_obstructed )
         end
     end
 
@@ -662,7 +678,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             if( not( data.info_mtr_static and matter == 0 )) then
                 txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
             end
-            do_info( gui, pic_x + 3, pic_y - 2.5, txt, fading, true, alphaer )
+            do_info( gui, pic_x + 2, pic_y - 2.5, txt, fading, true, alphaer )
         end
     end
     
@@ -1023,6 +1039,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
             end
             if( pickup_data.id ~= 0 ) then
+                local ignore_default = false
                 if( data.is_opened and data.gmod.show_full ) then
                     pickup_data.id = -1
                     pickup_data.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_data.this_info.name ), true }
@@ -1031,11 +1048,13 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = world2gui( i_x, i_y )
-                        uid = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
+                        uid, ignore_default = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
                     end
                 end
                 
-                uid = info_func( gui, uid, screen_h, screen_w, data, pickup_data, zs, xys )
+                if( not( ignore_default )) then
+                    uid = info_func( gui, uid, screen_h, screen_w, data, pickup_data, zs, xys )
+                end
                 if( pickup_data.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
                     local anim_x, anim_y = world2gui( pkp_x, pkp_y )

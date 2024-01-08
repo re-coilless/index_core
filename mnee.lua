@@ -13,11 +13,18 @@ bindings["index_core"] = {
 			["mouse_right"] = 1,
 		},
 	},
-	az_tip_action = {
+	ac_tip_action = {
 		name = "Tip Action",
 		desc = "Displays additional info in the tooltip.",
 		keys = {
 			["left_alt"] = 1,
+		},
+	},
+	ad_matter_action = {
+		name = "Matter Probing",
+		desc = "Displays the name of the matter below the pointer.",
+		keys = {
+			["`"] = 1,
 		},
 	},
 
