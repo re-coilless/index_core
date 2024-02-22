@@ -1,0 +1,17 @@
+<Sprite
+	filename="data/ui_gfx/inventory/hover_info_empty_slot.png"
+	default_animation="stand"
+	>
+	
+	<RectAnimation
+		name="stand"
+		pos_x="2"
+		pos_y="10"
+		frame_width="2"
+		frame_height="4"
+		frame_count="1"
+		frames_per_row="1"
+		frame_wait="999999999999999"
+		loop="1"
+	></RectAnimation>
+</Sprite>
