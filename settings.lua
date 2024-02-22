@@ -77,6 +77,15 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = update_settings,
 			},
+			{
+				id = "FORCE_VANILLA_FULLEST",
+				ui_name = "Force-Show Fullest Inventory",
+				ui_description = "Extra rows of inventory won't be hidden while in the \"Full\" Global Mode.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = update_settings,
+			},
 		},
 	},
 	{

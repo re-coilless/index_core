@@ -201,6 +201,10 @@
 		name="no_action_on_drop"
 		value_bool="1"
 	></VariableStorageComponent>
+	<VariableStorageComponent
+		name="force_vanilla_fullest"
+		value_bool="0"
+	></VariableStorageComponent>
 
 	<VariableStorageComponent
 		name="max_perk_count"

@@ -83,6 +83,7 @@ if( #ctrl_bodies > 0 ) then
         no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
         do_vanilla_dropping = ComponentGetValue2( get_storage( controller_id, "do_vanilla_dropping" ), "value_bool" ),
         no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
+        force_vanilla_fullest = ComponentGetValue2( get_storage( controller_id, "force_vanilla_fullest" ), "value_bool" ),
 
         max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
         short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
@@ -100,7 +101,7 @@ if( #ctrl_bodies > 0 ) then
         allow_tips_always = ComponentGetValue2( get_storage( controller_id, "allow_tips_always" ), "value_bool" ),
         in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
     }
-    global_settings.main_dump = global_settings.main_dump or dofile_once( "mods/index_core/files/_structure.lua" )
+    global_settings.main_dump = global_settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
     
     local main_x, main_y = EntityGetTransform( controller_id )
     local hooman = EntityGetParent( controller_id )

@@ -13,6 +13,7 @@ if( ComponentGetValue2( storage_update, "value_bool" )) then
         NO_INV_SHOOTING = "no_inv_shooting",
         DO_VANILLA_DROPPING = "do_vanilla_dropping",
         NO_ACTION_ON_DROP = "no_action_on_drop",
+        FORCE_VANILLA_FULLEST = "force_vanilla_fullest",
 
         MAX_PERKS = "max_perk_count",
         SHORT_HP = "short_hp",

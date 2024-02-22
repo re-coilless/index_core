@@ -30,6 +30,7 @@ local GLOBAL_MODES = {
         is_default = true,
         allow_wand_editing = true,
         show_full = true,
+        show_fullest = global_settings.force_vanilla_fullest,
     },
     {
         name = "MANAGEMENT",
