@@ -1,6 +1,6 @@
 conjurer wands are in reversed order
 
-rewrite the draggers to be based upon lmb click rather than pic clicking + the spells hovering is kinda sus (check pointer being near edges)
+rewrite the draggers to be based upon lmb click rather than pic clicking
 try once again to get the mouse pos with screenshake
 wand slot scrolling
 allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo; make one local and one global)

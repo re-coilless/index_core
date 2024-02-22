@@ -1,6 +1,4 @@
-if( ModIsEnabled( "mnee" )) then
-	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
-end
+if( ModIsEnabled( "mnee" )) then ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" ) end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 

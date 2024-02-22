@@ -1,4 +1,8 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
+if( not( ModIsEnabled( "index_core" ))) then
+    self_destruct()
+    return
+end
 
 ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)

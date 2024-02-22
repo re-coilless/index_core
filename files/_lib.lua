@@ -474,6 +474,22 @@ function get_input( vanilla_id, mnee_id, is_continuous, is_dirty )
 	return state
 end
 
+function self_destruct()
+	local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
+	if( #ctrl_bodies > 0 ) then
+		local controller_id = ctrl_bodies[1]
+		local hooman = EntityGetRootEntity( controller_id )
+		
+		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+		local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
+		EntitySetComponentIsEnabled( hooman, iui_comp, true )
+		EntitySetComponentIsEnabled( hooman, pick_comp, true )
+		
+		EntityKill( get_hooman_child( hooman, "index_ctrl" ))
+		EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
+	end
+end
+
 --ESC backend
 function get_storage( hooman, name )
 	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
@@ -3682,7 +3698,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 	local pic_bg, clicked, r_clicked, is_hovered = ( is_full == true ) and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
 	local w, h = get_pic_dim( pic_bg )
 	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
-	local clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
+	clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
 	local might_swap = not( data.is_opened ) and is_quick and is_hovered
 	if(( clicked or slot_data.force_equip ) and this_info.id > 0 ) then
 		local do_default = might_swap or slot_data.force_equip
