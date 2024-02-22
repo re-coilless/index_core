@@ -430,11 +430,15 @@ if( #ctrl_bodies > 0 ) then
             table.sort( perk_tbl, function( a, b )
                 return a.count > b.count
             end)
-
+            
             for i,e in ipairs( effect_tbl.misc ) do
-                table.sort( e.time_tbl, function( a, b )
-                    return a > b
-                end)
+                if( e.time_tbl == nil ) then
+                    effect_tbl.misc[i].time_tbl = {}
+                else
+                    table.sort( e.time_tbl, function( a, b )
+                        return a > b
+                    end)
+                end
                 effect_tbl.misc[1].txt = get_effect_timer( e.time_tbl[1])
                 if( #e.time_tbl > 1 ) then
                     local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )

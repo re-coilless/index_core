@@ -484,7 +484,7 @@ function self_destruct()
 		local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
 		EntitySetComponentIsEnabled( hooman, iui_comp, true )
 		EntitySetComponentIsEnabled( hooman, pick_comp, true )
-		
+
 		EntityKill( get_hooman_child( hooman, "index_ctrl" ))
 		EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 	end
@@ -902,6 +902,7 @@ function get_action_data( data, spell_id )
 			current_reload_time, shot_effects = 0, {}
 			ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
 
+			SetRandomSeed( 0, 0 )
 			ConfigGunShotEffects_Init( shot_effects )
 			local metadata = create_shot()
 			c, metadata.state_proj = metadata.state, {damage={},explosion={},crit={},lightning={}}
@@ -909,7 +910,7 @@ function get_action_data( data, spell_id )
 			c.draw_many = 0
 			c.projs = {}
 			
-			spell_info.action()
+			pcall( spell_info.action )
 			if( spell_info.tip_data ~= nil ) then spell_info.tip_data() end
 			if( math.abs( current_reload_time ) > 1e6 ) then
 				data.memo.spell_data[ spell_id ].is_chainsaw = true
