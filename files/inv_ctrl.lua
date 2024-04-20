@@ -405,8 +405,8 @@ if( #ctrl_bodies > 0 ) then
                         end
 
                         if( true_id == nil ) then
+                            icon_info.time_tbl = {}
                             if( icon_info.amount ~= 0 ) then
-                                icon_info.time_tbl = {}
                                 local time = icon_info.amount/60
                                 if( time > 0 ) then
                                     table.insert( icon_info.time_tbl, time )
@@ -432,13 +432,9 @@ if( #ctrl_bodies > 0 ) then
             end)
             
             for i,e in ipairs( effect_tbl.misc ) do
-                if( e.time_tbl == nil ) then
-                    effect_tbl.misc[i].time_tbl = {}
-                else
-                    table.sort( e.time_tbl, function( a, b )
-                        return a > b
-                    end)
-                end
+                table.sort( e.time_tbl, function( a, b )
+                    return a > b
+                end)
                 effect_tbl.misc[1].txt = get_effect_timer( e.time_tbl[1])
                 if( #e.time_tbl > 1 ) then
                     local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
