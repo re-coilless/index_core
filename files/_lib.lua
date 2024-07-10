@@ -1,3 +1,4 @@
+dofile_once( "mods/penman/_penman.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
 --utility lists
@@ -462,7 +463,7 @@ function get_input( vanilla_id, mnee_id, is_continuous, is_dirty )
 	local state = false
 	if( ModIsEnabled( "mnee" )) then
 		dofile_once( "mods/mnee/lib.lua" )
-		state = is_binding_down( "index_core", mnee_id, is_dirty, not( is_continuous ))
+		state = mnee.mnin_bind( "index_core", mnee_id, is_dirty, not( is_continuous ))
 	else
 		local kind = ""
 		if( type( vanilla_id ) == "table" ) then
@@ -705,7 +706,7 @@ function active_item_reset( hooman )
 end
 
 function get_active_item( hooman )
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
+	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman or 0, "Inventory2Component" )
 	if( inv_comp ~= nil ) then
 		return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 )
 	end
@@ -927,177 +928,160 @@ function get_action_data( data, spell_id )
 				total_dmg_add = total_dmg_add + ( c[dmg] or 0 )
 			end
 			c.damage_total_add = total_dmg_add
-
+			
 			local is_gonna = false
 			c.proj_count = #c.projs
-			if( c.proj_count > 0 and ModIsEnabled( "penman" )) then
-				dofile_once( "mods/penman/lib.lua" )
-				is_gonna = true
-				
-				local path = c.projs[1][2]
-				spell_proj_data[ path ] = spell_proj_data[ path ] or {}
-				if( spell_proj_data[ path ].penman == nil ) then
-					spell_proj_data[ path ].penman = penman_read( path )
-					spell_proj_data[ path ].penman_frame = data.frame_num
-				elseif( type( spell_proj_data[ path ].penman ) == "number" ) then
-					if( spell_proj_data[ path ].penman_frame < data.frame_num ) then
-						local file = penman_return( spell_proj_data[ path ].penman ) or ""
-						if( file ~= "" ) then
-							is_gonna = false
+			if( c.proj_count > 0 ) then
+				local nxml = dofile_once( "mods/index_core/nxml.lua" )
+				local xml = nxml.parse( ModTextFileGetContent( c.projs[1][2]))
+				local xml_kid = xml:first_of( "ProjectileComponent" )
+				if( xml_kid == nil ) then
+					xml_kid = xml:first_of( "Base" )
+					if( xml_kid ~= nil ) then
+						xml_kid = xml_kid:first_of( "ProjectileComponent" )
+					end
+				end
+				if( xml_kid ) then
+					metadata.state_proj = {
+						damage = {
+							curse = 0,
+							drill = 0,
+							electricity = 0,
+							explosion = 0,
+							fire = 0,
+							healing = 0,
+							ice = 0,
+							melee = 0,
+							overeating = 0,
+							physics_hit = 0,
+							poison = 0,
+							projectile = tonumber( xml_kid.attr.damage or 0 ),
+							radioactive = 0,
+							slice = 0,
+							holy = 0,
+						},
+						explosion = {},
+						crit = {},
+						lightning = {},
+						laser = {},
+						damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
+						damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
+						
+						lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
 
-							local nxml = dofile_once( "mods/index_core/nxml.lua" )
-							local xml = nxml.parse( penman_restore( file ))
-							local xml_kid = xml:first_of( "ProjectileComponent" )
-							if( xml_kid == nil ) then
-								xml_kid = xml:first_of( "Base" )
-								if( xml_kid ~= nil ) then
-									xml_kid = xml_kid:first_of( "ProjectileComponent" )
-								end
-							end
-							if( xml_kid ) then
-								metadata.state_proj = {
-									damage = {
-										curse = 0,
-										drill = 0,
-										electricity = 0,
-										explosion = 0,
-										fire = 0,
-										healing = 0,
-										ice = 0,
-										melee = 0,
-										overeating = 0,
-										physics_hit = 0,
-										poison = 0,
-										projectile = tonumber( xml_kid.attr.damage or 0 ),
-										radioactive = 0,
-										slice = 0,
-										holy = 0,
-									},
-									explosion = {},
-									crit = {},
-									lightning = {},
-									laser = {},
-									damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
-									damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
-									
-									lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
+						speed = math.floor(( tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
 
-									speed = math.floor(( tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
+						inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
+						bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
+						
+						on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
+						on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
+						on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
+						on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
 
-									inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
-									bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
-									
-									on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
-									on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
-									on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
-									on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
+						collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
+						penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
+						dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
+						never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
+						friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
+						explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
 
-									collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
-									penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
-									dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
-									never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
-									friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
-									explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
+						collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
+						penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
+						go_through_this_material = xml_kid.attr.go_through_this_material or "",
+						ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
+						ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
+					}
 
-									collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
-									penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
-									go_through_this_material = xml_kid.attr.go_through_this_material or "",
-									ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
-									ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
-								}
+					local dmg_kid = xml_kid:first_of( "damage_by_type" )
+					if( dmg_kid ) then
+						metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
+						metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
+						metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
+						metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
+						metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
+						metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
+						metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
+						metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
+						metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
+						metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
+						metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
+						metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + tonumber( dmg_kid.attr.projectile or 0 )
+						metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
+						metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
+						metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
+					end
+					local exp_kid = xml_kid:first_of( "config_explosion" )
+					if( exp_kid ) then
+						metadata.state_proj.explosion = {
+							damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
+							damage = tonumber( exp_kid.attr.damage or 0 ),
+							is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
+							explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
+							max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
+							ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
+						}
+					end
+					local crit_kid = xml_kid:first_of( "damage_critical" )
+					if( crit_kid ) then
+						metadata.state_proj.crit = {
+							chance = tonumber( crit_kid.attr.chance or 0 ),
+							damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
+						}
+					end
 
-								local dmg_kid = xml_kid:first_of( "damage_by_type" )
-								if( dmg_kid ) then
-									metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
-									metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
-									metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
-									metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
-									metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
-									metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
-									metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
-									metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
-									metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
-									metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
-									metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
-									metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + tonumber( dmg_kid.attr.projectile or 0 )
-									metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
-									metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
-									metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
-								end
-								local exp_kid = xml_kid:first_of( "config_explosion" )
-								if( exp_kid ) then
-									metadata.state_proj.explosion = {
-										damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
-										damage = tonumber( exp_kid.attr.damage or 0 ),
-										is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
-										explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
-										max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
-										ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
-									}
-								end
-								local crit_kid = xml_kid:first_of( "damage_critical" )
-								if( crit_kid ) then
-									metadata.state_proj.crit = {
-										chance = tonumber( crit_kid.attr.chance or 0 ),
-										damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
-									}
-								end
-
-								xml_kid = xml:first_of( "LightningComponent" )
-								if( xml_kid == nil ) then
-									xml_kid = xml:first_of( "Base" )
-									if( xml_kid ~= nil ) then
-										xml_kid = xml_kid:first_of( "LightningComponent" )
-									end
-								end
-								if( xml_kid ) then
-									local lght_kid = xml_kid:first_of( "config_explosion" )
-									if( lght_kid ) then
-										metadata.state_proj.lightning = {
-											damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
-											damage = tonumber( lght_kid.attr.damage or 0 ),
-											is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
-											explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
-											max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
-											ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
-										}
-									end
-								end
-
-								xml_kid = xml:first_of( "LaserEmitterComponent" )
-								if( xml_kid == nil ) then
-									xml_kid = xml:first_of( "Base" )
-									if( xml_kid ~= nil ) then
-										xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
-									end
-								end
-								if( xml_kid ) then
-									local laser_kid = xml_kid:first_of( "laser" )
-									if( laser_kid ) then
-										metadata.state_proj.laser = {
-											max_length = tonumber( laser_kid.attr.max_length or 0 ),
-											beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
-											damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
-											damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
-											max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
-										}
-									end
-								end
-								
-								local total_dmg = 0
-								for field,dmg in pairs( metadata.state_proj.damage ) do
-									total_dmg = total_dmg + dmg
-								end
-								if( metadata.state_proj.explosion.damage_mortals ) then
-									total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
-								end
-								if( metadata.state_proj.lightning.damage_mortals ) then
-									total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
-								end
-								metadata.state_proj.damage["total"] = total_dmg
-							end
+					xml_kid = xml:first_of( "LightningComponent" )
+					if( xml_kid == nil ) then
+						xml_kid = xml:first_of( "Base" )
+						if( xml_kid ~= nil ) then
+							xml_kid = xml_kid:first_of( "LightningComponent" )
 						end
 					end
+					if( xml_kid ) then
+						local lght_kid = xml_kid:first_of( "config_explosion" )
+						if( lght_kid ) then
+							metadata.state_proj.lightning = {
+								damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
+								damage = tonumber( lght_kid.attr.damage or 0 ),
+								is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
+								explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
+								max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
+								ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
+							}
+						end
+					end
+
+					xml_kid = xml:first_of( "LaserEmitterComponent" )
+					if( xml_kid == nil ) then
+						xml_kid = xml:first_of( "Base" )
+						if( xml_kid ~= nil ) then
+							xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
+						end
+					end
+					if( xml_kid ) then
+						local laser_kid = xml_kid:first_of( "laser" )
+						if( laser_kid ) then
+							metadata.state_proj.laser = {
+								max_length = tonumber( laser_kid.attr.max_length or 0 ),
+								beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
+								damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
+								damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
+								max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
+							}
+						end
+					end
+					
+					local total_dmg = 0
+					for field,dmg in pairs( metadata.state_proj.damage ) do
+						total_dmg = total_dmg + dmg
+					end
+					if( metadata.state_proj.explosion.damage_mortals ) then
+						total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
+					end
+					if( metadata.state_proj.lightning.damage_mortals ) then
+						total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
+					end
+					metadata.state_proj.damage["total"] = total_dmg
 				end
 			end
 
@@ -2220,29 +2204,19 @@ function register_item_pic( data, this_info, is_advanced )
 			end
 		end
 		
-		if( is_xml and ModIsEnabled( "penman" )) then
-			dofile_once( "mods/penman/lib.lua" )
-			if( item_pic_data[ this_info.pic ].penman == nil ) then
-				item_pic_data[ this_info.pic ].penman = penman_read( this_info.pic )
-				item_pic_data[ this_info.pic ].penman_frame = data.frame_num
-				item_pic_data[ this_info.pic ].dims = nil
-				this_info.pic = data.nopixel
-			elseif( type( item_pic_data[ this_info.pic ].penman ) == "number" ) then
-				if( item_pic_data[ this_info.pic ].penman_frame < data.frame_num ) then
-					local nxml = dofile_once( "mods/index_core/nxml.lua" )
-					local xml = nxml.parse( penman_restore( penman_return( item_pic_data[ this_info.pic ].penman )))
-					local xml_kid = xml:first_of( "RectAnimation" )
-					if( xml_kid.attr.has_offset ) then
-						item_pic_data[ this_info.pic ].xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
-					else
-						item_pic_data[ this_info.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y }
-					end
-					item_pic_data[ this_info.pic ].dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
-					if( xml_kid.attr.shrink_by_one_pixel ) then
-						item_pic_data[ this_info.pic ].dims[1] = item_pic_data[ this_info.pic ].dims[1] + 1
-						item_pic_data[ this_info.pic ].dims[2] = item_pic_data[ this_info.pic ].dims[2] + 1
-					end
-				end
+		if( is_xml ) then
+			local nxml = dofile_once( "mods/index_core/nxml.lua" )
+			local xml = nxml.parse( ModTextFileGetContent( this_info.pic ))
+			local xml_kid = xml:first_of( "RectAnimation" )
+			if( xml_kid.attr.has_offset ) then
+				item_pic_data[ this_info.pic ].xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
+			else
+				item_pic_data[ this_info.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y }
+			end
+			item_pic_data[ this_info.pic ].dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
+			if( xml_kid.attr.shrink_by_one_pixel ) then
+				item_pic_data[ this_info.pic ].dims[1] = item_pic_data[ this_info.pic ].dims[1] + 1
+				item_pic_data[ this_info.pic ].dims[2] = item_pic_data[ this_info.pic ].dims[2] + 1
 			end
 		end
 	end

@@ -1,5 +1,6 @@
 bindings["index_core"] = {
 	aa_shift_action = {
+		allow_special = true,
 		name = "Shift Action",
 		desc = "Fancy inventory stuff.",
 		keys = {
@@ -7,6 +8,7 @@ bindings["index_core"] = {
 		},
 	},
 	ab_drag_action = {
+		allow_special = true,
 		name = "Dropping/Special Action",
 		desc = "Fancy dragging stuff.",
 		keys = {
@@ -14,6 +16,7 @@ bindings["index_core"] = {
 		},
 	},
 	ac_tip_action = {
+		allow_special = true,
 		name = "Tip Action",
 		desc = "Displays additional info in the tooltip.",
 		keys = {

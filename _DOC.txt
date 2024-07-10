@@ -1,4 +1,8 @@
+penman time
+remove vanilla utils lib call?
 conjurer wands are in reversed order
+don't forget to change api version in compat.xml
+if the pointer is dragged outside the box while dropping, it throws it
 
 rewrite the draggers to be based upon lmb click rather than pic clicking
 try once again to get the mouse pos with screenshake
@@ -8,6 +12,17 @@ make a translator function that will allow multiple translation keys to exist (a
 generic game effects should only be displayed if uiicons was detected
 pickup inv
 make custom monospace highres font
+
+InputGetMousePosOnScreen()
+EntityGetHotspot( entity:int, hotspot_tag:string, transformed:bool, include_disabled_components:bool = false )
+SessionNumbersGetValue( key:string ) -> string
+SessionNumbersSetValue( key:string, value:string )
+PhysicsComponentSetTransform( component_id:int, x:number, y:number, angle:number, vel_x:number, vel_y:number, angular_vel:number )
+GameSetPostFxTextureParameter( parameter_name:string, texture_filename:string, filtering_mode:int, wrapping_mode:int, update_texture:bool = false )
+LoadRagdoll( filename:string, pos_x:float, pos_y:float, material:string ="meat", scale_x:float=1, impulse_x:float=0, impulse_y:float=0 )
+ModImageSetPixel( id:int, x:int, y:int, color:uint )
+PhysicsKeepInWorldComponent
+CharacterData/CharacterCollision dont_update_velocity_and_xform - use this for custom speed controller
 
 [WARNING] THIS ENTIRE DOC IS HOPELESSLY OBSOLETE!!!
 

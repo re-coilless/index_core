@@ -1,6 +1,12 @@
-if( ModIsEnabled( "mnee" )) then ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" ) end
+if( ModIsEnabled( "mnee" )) then
+	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
+end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
+
+--penman must be present internally
+--apparently magic numbers file is not appended
+--DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 
 penman_r = ModTextFileGetContent
 penman_w = ModTextFileSetContent
@@ -90,7 +96,7 @@ function OnPausePreUpdate()
 	--escape closes, e again picks up in the first free slot or replaces the currently held
 	--(if no noitapatcher, drop to 20 frames - off by default)
 	--pause code in a func
-
+	
 	--top half is the shit being picked up
 	--bottom half is the shit to pick + scrollbar
 	--darker background
@@ -105,14 +111,8 @@ end
 -- 	end
 -- end
 
---DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
-
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
-	
-	if( HasFlagPersistent( "one_shall_not_spawn" )) then
-		RemoveFlagPersistent( "one_shall_not_spawn" )
-	end
 
 	if( not( custom_font_set or false )) then
 		custom_font_set = true

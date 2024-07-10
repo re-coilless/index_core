@@ -580,7 +580,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     end
                     if( check_item_name( name )) then
                         kind = { 0, name }
-                    elseif( ComponentGetValue2( item_comp, "is_pickable" )) then
+                    elseif( item_comp ~= nil and ComponentGetValue2( item_comp, "is_pickable" )) then
                         local name_func = function( item_id, item_comp, default_name )
                             local name = get_entity_name( item_id, item_comp )
                             return name == "" and default_name or name
