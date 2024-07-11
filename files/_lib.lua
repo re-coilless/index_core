@@ -1,68 +1,6 @@
 dofile_once( "mods/penman/_penman.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
---utility lists
-string_bullshit = {
-	default = 1,
-	unknown = 1,
-	[" "] = 1,
-	[""] = 1,
-}
-str2id = {
-	[" "]=32,	["!"]=33,	["\""]=34,	["#"]=35,	["$"]=36,	["%"]=37,	["&"]=38,	["'"]=39,	["("]=40,	[")"]=41,	["*"]=42,
-	["+"]=43,	[","]=44,	["-"]=45,	["."]=46,	["/"]=47,	["0"]=48,	["1"]=49,	["2"]=50,	["3"]=51,	["4"]=52,	["5"]=53,
-	["6"]=54,	["7"]=55,	["8"]=56,	["9"]=57,	[":"]=58,	[";"]=59,	["<"]=60,	["="]=61,	[">"]=62,	["?"]=63,	["@"]=64,
-	["A"]=65,	["B"]=66,	["C"]=67,	["D"]=68,	["E"]=69,	["F"]=70,	["G"]=71,	["H"]=72,	["I"]=73,	["J"]=74,	["K"]=75,
-	["L"]=76,	["M"]=77,	["N"]=78,	["O"]=79,	["P"]=80,	["Q"]=81,	["R"]=82,	["S"]=83,	["T"]=84,	["U"]=85,	["V"]=86,
-	["W"]=87,	["X"]=88,	["Y"]=89,	["Z"]=90,	["["]=91,	["\\"]=92,	["]"]=93,	["^"]=94,	["_"]=95,	["`"]=96,	["a"]=97,
-	["b"]=98,	["c"]=99,	["d"]=100,	["e"]=101,	["f"]=102,	["g"]=103,	["h"]=104,	["i"]=105,	["j"]=106,	["k"]=107,	["l"]=108,
-	["m"]=109,	["n"]=110,	["o"]=111,	["p"]=112,	["q"]=113,	["r"]=114,	["s"]=115,	["t"]=116,	["u"]=117,	["v"]=118,	["w"]=119,
-	["x"]=120,	["y"]=121,	["z"]=122,	["|"]=124,	["~"]=126,	["¡"]=161,	["©"]=169,	["«"]=171,	["¬"]=172,	["»"]=187,	["¿"]=191,
-	["À"]=192,	["Á"]=193,	["Â"]=194,	["Ã"]=195,	["Ä"]=196,	["Å"]=197,	["Ç"]=199,	["È"]=200,	["É"]=201,	["Ê"]=202,	["Ë"]=203,
-	["Ì"]=204,	["Í"]=205,	["Î"]=206,	["Ï"]=207,	["Ñ"]=209,	["Ó"]=211,	["Ô"]=212,	["Õ"]=213,	["Ö"]=214,	["Ø"]=216,	["Ù"]=217,
-	["Ú"]=218,	["Û"]=219,	["Ü"]=220,	["ß"]=223,	["à"]=224,	["á"]=225,	["â"]=226,	["ã"]=227,	["ä"]=228,	["å"]=229,	["ç"]=231,
-	["è"]=232,	["é"]=233,	["ê"]=234,	["ë"]=235,	["ì"]=236,	["í"]=237,	["î"]=238,	["ï"]=239,	["ñ"]=241,	["ó"]=243,	["ô"]=244,
-	["õ"]=245,	["ö"]=246,	["ø"]=248,	["ù"]=249,	["ú"]=250,	["û"]=251,	["ü"]=252,	["Ą"]=260,	["ą"]=261,	["Ć"]=262,	["ć"]=263,
-	["Ę"]=280,	["ę"]=281,	["Ł"]=321,	["ł"]=322,	["Ń"]=323,	["ń"]=324,	["Œ"]=338,	["œ"]=339,	["Ś"]=346,	["ś"]=347,	["Ź"]=377,
-	["ź"]=378,	["Ż"]=379,	["ż"]=380,	["Ё"]=1025,	["А"]=1040,	["Б"]=1041,	["В"]=1042,	["Г"]=1043,	["Д"]=1044,	["Е"]=1045,	["Ж"]=1046,
-	["З"]=1047,	["И"]=1048,	["Й"]=1049,	["К"]=1050,	["Л"]=1051,	["М"]=1052,	["Н"]=1053,	["О"]=1054,	["П"]=1055,	["Р"]=1056,	["С"]=1057,
-	["Т"]=1058,	["У"]=1059,	["Ф"]=1060,	["Х"]=1061,	["Ц"]=1062,	["Ч"]=1063,	["Ш"]=1064,	["Щ"]=1065,	["Ъ"]=1066,	["Ы"]=1067,	["Ь"]=1068,
-	["Э"]=1069,	["Ю"]=1070,	["Я"]=1071,	["а"]=1072,	["б"]=1073,	["в"]=1074,	["г"]=1075,	["д"]=1076,	["е"]=1077,	["ж"]=1078,	["з"]=1079,
-	["и"]=1080,	["й"]=1081,	["к"]=1082,	["л"]=1083,	["м"]=1084,	["н"]=1085,	["о"]=1086,	["п"]=1087,	["р"]=1088,	["с"]=1089,	["т"]=1090,
-	["у"]=1091,	["ф"]=1092,	["х"]=1093,	["ц"]=1094,	["ч"]=1095,	["ш"]=1096,	["щ"]=1097,	["ъ"]=1098,	["ы"]=1099,	["ь"]=1100,	["э"]=1101,
-	["ю"]=1102,	["я"]=1103,	["ё"]=1105,	["–"]=8211,	["—"]=8212,	["’"]=8217,	["“"]=8220,	["”"]=8221,	["„"]=8222,	["…"]=8230,	["∞"]=8734,
-}
-byte2id = {
-	[32]=32,	[33]=33,	[34]=34,	[35]=35,	[36]=36,	[37]=37,	[38]=38,	[39]=39,	[40]=40,	[41]=41,	[42]=42,
-	[43]=43,	[44]=44,	[45]=45,	[46]=46,	[47]=47,	[48]=48,	[49]=49,	[50]=50,	[51]=51,	[52]=52,	[53]=53,
-	[54]=54,	[55]=55,	[56]=56,	[57]=57,	[58]=58,	[59]=59,	[60]=60,	[61]=61,	[62]=62,	[63]=63,	[64]=64,
-	[65]=65,	[66]=66,	[67]=67,	[68]=68,	[69]=69,	[70]=70,	[71]=71,	[72]=72,	[73]=73,	[74]=74,	[75]=75,
-	[76]=76,	[77]=77,	[78]=78,	[79]=79,	[80]=80,	[81]=81,	[82]=82,	[83]=83,	[84]=84,	[85]=85,	[86]=86,
-	[87]=87,	[88]=88,	[89]=89,	[90]=90,	[91]=91,	[92]=92,	[93]=93,	[94]=94,	[95]=95,	[96]=96,	[97]=97,
-	[98]=98,	[99]=99,	[100]=100,	[101]=101,	[102]=102,	[103]=103,	[104]=104,	[105]=105,	[106]=106,	[107]=107,	[108]=108,
-	[109]=109,	[110]=110,	[111]=111,	[112]=112,	[113]=113,	[114]=114,	[115]=115,	[116]=116,	[117]=117,	[118]=118,	[119]=119,
-	[120]=120,	[121]=121,	[122]=122,	[124]=124,	[126]=126,
-	[198817]=161,	[198825]=169,	[198827]=171,	[198828]=172,	[198843]=187,	[198847]=191,	[199808]=192,	[199809]=193,
-	[199810]=194,	[199811]=195,	[199812]=196,	[199813]=197,	[199815]=199,	[199816]=200,	[199817]=201,	[199818]=202,
-	[199819]=203,	[199820]=204,	[199821]=205,	[199822]=206,	[199823]=207,	[199825]=209,	[199827]=211,	[199828]=212,
-	[199829]=213,	[199830]=214,	[199832]=216,	[199833]=217,	[199834]=218,	[199835]=219,	[199836]=220,	[199839]=223,
-	[199840]=224,	[199841]=225,	[199842]=226,	[199843]=227,	[199844]=228,	[199845]=229,	[199847]=231,	[199848]=232,
-	[199849]=233,	[199850]=234,	[199851]=235,	[199852]=236,	[199853]=237,	[199854]=238,	[199855]=239,	[199857]=241,
-	[199859]=243,	[199860]=244,	[199861]=245,	[199862]=246,	[199864]=248,	[199865]=249,	[199866]=250,	[199867]=251,
-	[199868]=252,	[200836]=260,	[200837]=261,	[200838]=262,	[200839]=263,	[200856]=280,	[200857]=281,	[201857]=321,
-	[201858]=322,	[201859]=323,	[201860]=324,	[201874]=338,	[201875]=339,	[201882]=346,	[201883]=347,	[201913]=377,
-	[201914]=378,	[201915]=379,	[201916]=380,	[213121]=1025,	[213136]=1040,	[213137]=1041,	[213138]=1042,	[213139]=1043,
-	[213140]=1044,	[213141]=1045,	[213142]=1046,	[213143]=1047,	[213144]=1048,	[213145]=1049,	[213146]=1050,	[213147]=1051,
-	[213148]=1052,	[213149]=1053,	[213150]=1054,	[213151]=1055,	[213152]=1056,	[213153]=1057,	[213154]=1058,	[213155]=1059,
-	[213156]=1060,	[213157]=1061,	[213158]=1062,	[213159]=1063,	[213160]=1064,	[213161]=1065,	[213162]=1066,	[213163]=1067,
-	[213164]=1068,	[213165]=1069,	[213166]=1070,	[213167]=1071,	[213168]=1072,	[213169]=1073,	[213170]=1074,	[213171]=1075,
-	[213172]=1076,	[213173]=1077,	[213174]=1078,	[213175]=1079,	[213176]=1080,	[213177]=1081,	[213178]=1082,	[213179]=1083,
-	[213180]=1084,	[213181]=1085,	[213182]=1086,	[213183]=1087,	[214144]=1088,	[214145]=1089,	[214146]=1090,	[214147]=1091,
-	[214148]=1092,	[214149]=1093,	[214150]=1094,	[214151]=1095,	[214152]=1096,	[214153]=1097,	[214154]=1098,	[214155]=1099,
-	[214156]=1100,	[214157]=1101,	[214158]=1102,	[214159]=1103,	[214161]=1105,
-	[237109395]=8211,	[237109396]=8212,	[237109401]=8217,	[237109404]=8220,
-	[237109405]=8221,	[237109406]=8222,	[237109414]=8230,	[237117598]=8734,
-}
 type2frame = {
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", {90,35,35}}, --ACTION_TYPE_PROJECTILE
 	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", {141,63,24}}, --ACTION_TYPE_STATIC_PROJECTILE
@@ -1426,8 +1364,7 @@ function slot_swap( data, item_in, slot_data )
 end
 
 function check_item_name( name )
-	if( name == nil ) then return false end
-	return not( string_bullshit[ name ] or false ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
+	return pen.vld( name ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
 end
 
 function get_entity_name( entity_id, item_comp, abil_comp )
@@ -1858,7 +1795,7 @@ function space_obliterator( txt )
 end
 
 function full_stopper( text )
-	if( string_bullshit[ text or "" ]) then return "" end
+	if( not( pen.vld( text ))) then return "" end
 	
 	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
 	return text
@@ -2186,7 +2123,7 @@ function register_item_pic( data, this_info, is_advanced )
 		if( storage_anim ~= nil ) then
 			item_pic_data[ this_info.pic ].anim = D_extractor( ComponentGetValue2( storage_anim, "value_string" ))
 		end
-
+		
 		local storage_off = get_storage( this_info.id, "index_pic_offset" )
 		if( storage_off ~= nil ) then
 			item_pic_data[ this_info.pic ].xy = D_extractor( ComponentGetValue2( storage_off, "value_string" ), true )
@@ -2224,59 +2161,6 @@ function register_item_pic( data, this_info, is_advanced )
 	return this_info.pic
 end
 
-function register_new_font( name, penman_r, penman_w, path_from, path_to, interline_drift, colours )
-	local default_char = string.gsub( penman_r( "mods/index_core/files/fonts/char.xml" ), "|filename|", path_from..".png" )
-	local dims, max_height = {}, 1
-
-	colours = colours or {1,1,1,1}
-	default_char = default_char:gsub( "|rgb_r|", colours[1])
-	default_char = default_char:gsub( "|rgb_g|", colours[2])
-	default_char = default_char:gsub( "|rgb_b|", colours[3])
-	default_char = default_char:gsub( "|alpha|", colours[4])
-
-	local nxml = dofile_once( "mods/index_core/nxml.lua" )
-	local font = nxml.parse( penman_r( path_from..".xml" ))
-	for i,char in ipairs( font:all_of( "QuadChar" )) do
-		local this_char, id = default_char, char.attr.id
-		local pos_x, pos_y = char.attr.rect_x or 0, char.attr.rect_y or 0
-		local size_x, size_y = char.attr.rect_w or 0, char.attr.rect_h or 0
-		this_char = this_char:gsub( "|pos_x|", pos_x )
-		this_char = this_char:gsub( "|pos_y|", pos_y )
-		this_char = this_char:gsub( "|width|", size_x )
-		this_char = this_char:gsub( "|height|", size_y )
-		
-		dims[id] = { size_x, size_y }
-		if( max_height < tonumber( size_y )) then max_height = tonumber( size_y ) end
-
-		local scale = ( char.attr.rect_w or 0 )/( char.attr.width or char.attr.rect_w or 1 )
-		this_char = this_char:gsub( "|scale_x|", scale )
-		this_char = this_char:gsub( "|scale_y|", scale )
-		
-		penman_w( path_to..id..".xml", this_char )
-	end
-	
-	local world_id = GameGetWorldStateEntity()
-	local kid = get_hooman_child( world_id, "font_kid" ) or 0
-	if( kid == 0 ) then
-		kid = EntityLoad( "mods/index_core/files/misc/font_kid.xml" )
-		EntityAddChild( world_id, kid )
-	end
-
-	local storage = get_storage( kid, name )
-	if( storage == nil ) then
-		storage = EntityAddComponent( kid, "VariableStorageComponent",
-		{
-			name = name,
-			value_string = "",
-		})
-	end
-	ComponentSetValue2( storage, "value_string", font_packer({
-		path = path_to,
-		height = max_height + ( interline_drift or 0 ),
-		dims = dims,
-	}))
-end
-
 --GUI frontend
 function gui_killer( gui )
 	if( gui ~= nil ) then
@@ -2297,26 +2181,6 @@ function colourer( gui, c_type, alpha )
 		color.b = c_type[3] or 255
 	end
 	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, alpha or c_type[4] or 1 )
-end
-
-function new_text( gui, pic_x, pic_y, pic_z, text, colours, alpha )
-	local out_str = {}
-	if( text ~= nil ) then
-		if( type( text ) == "table" ) then
-			out_str = text
-		else
-			table.insert( out_str, text )
-		end
-	else
-		table.insert( out_str, "[NIL]" )
-	end
-	
-	for i,line in ipairs( out_str ) do
-		colourer( gui, colours, alpha )
-		GuiZSetForNextWidget( gui, pic_z )
-		GuiText( gui, pic_x, pic_y, line )
-		pic_y = pic_y + 9
-	end
 end
 
 function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
@@ -2387,52 +2251,13 @@ function new_anim_looped( core_path, delay, duration )
 	return core_path..num..".png"
 end
 
---gmatch string and execute custom code for the characters that match
-function new_font( gui, uid, pic_x, pic_y, pic_z, font_name, text, interline_drift, colours, do_shadow )
-	if( type( text ) ~= "table" ) then text = { tostring( text )} end
-	interline_drift = interline_drift or 0
-	colours = colours or {}
-	do_shadow = do_shadow or false
-	uid = uid + 1
-	
-	local total_drift = 0
-	local font_data = font_extractor( font_name ) or {}
-	if( font_data.path ~= nil ) then
-		for i,txt in ipairs( text ) do
-			local drift = 0
-			local raw_txt = get_metafont( txt )
-			for i,c in ipairs( raw_txt ) do
-				local char, dims = c, font_data.dims[ c ]
-				if( dims == nil ) then
-					char = "unknown.png"
-					dims = {3,0}
-				else
-					char = char..".xml"
-				end
-
-				colourer( gui, colours )
-				if( do_shadow ) then
-					new_shaded_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, dims, 1, 1, colours[4], nil, nil, colours[5])
-				else
-					new_image( gui, -uid, pic_x + drift, pic_y, pic_z, font_data.path..char, 1, 1, colours[4])
-				end
-
-				drift = drift + dims[1]
-			end
-			if( total_drift < drift ) then total_drift = drift end
-			pic_y = pic_y + font_data.height + interline_drift
-		end
-		uid = uid + 1
-	end
-	return uid, total_drift
-end
-
-function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours, do_shadow )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_shadow", text, nil, colours, do_shadow )
+function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours )
+	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, { is_shadow = true, color = colours })
 end
 
 function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours, do_shadow )
-	return new_font( gui, uid, pic_x, pic_y, pic_z, "vanilla_small", text, nil, colours, do_shadow )
+	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, {
+		font = "mods/index_core/files/fonts/vanilla_small/font_small_numbers.xml", is_shadow = true, color = colours })
 end
 
 function new_interface( gui, uid, pos, pic_z, is_debugging )
@@ -2874,7 +2699,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		{},
 	}
 	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ) + 3
-	if( is_advanced and not( string_bullshit[ this_info.desc ] or false )) then
+	if( is_advanced and pen.vld( this_info.desc )) then
 		this_info.done_desc, this_info.tt_spacing[3] = font_liner( this_info.desc, math.floor( get_tip_width( this_info.desc )*0.5 ), -1 )
 		this_info.tt_spacing[3] = { this_info.tt_spacing[3][1] + 4, this_info.tt_spacing[3][2] - 1 }
 		if( this_info.tt_spacing[2][2] < this_info.tt_spacing[3][2]) then
@@ -3458,7 +3283,7 @@ function new_vanilla_ttt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 end
 
 function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
-	if( string_bullshit[ this_info.name or "" ] or string_bullshit[ this_info.desc or "" ] or string_bullshit[ this_info.pic or "" ]) then
+	if( not( pen.vld( this_info.name ) and pen.vld( this_info.desc ) and pen.vld( this_info.pic ))) then
 		return uid
 	end
 	
@@ -3488,10 +3313,13 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			end
 			local runic_state = ComponentGetValue2( storage_rune, "value_float" )
 			if( runic_state ~= 1 ) then
-				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, "vanilla_rune", this_info.done_desc, nil, {121,201,153,inter_alpha*(1-runic_state)})
+				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z,
+					table.concat({ "{>runic>{", this_info.done_desc, "}<runic<}" }), {
+					fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state )})
 			end
 			if( runic_state >= 0 ) then
-				uid = new_font( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, "vanilla_shadow", this_info.done_desc, nil, {255,255,255,inter_alpha*runic_state})
+				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, this_info.done_desc, {
+					fully_featured = true, is_shadow = true, alpha = inter_alpha*runic_state })
 				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
@@ -3882,16 +3710,18 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 		if( is_shuffle or is_multi ) then
 			if( is_shuffle ) then
 				uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
-				colourer( gui, {0,0,0})
+				colourer( gui, pen.PALETTE.B )
 				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha*0.75 )
 			end
 			if( is_multi ) then
 				local multi_y = pic_y + this_info.w_spacing[4]
 				uid = new_image( gui, uid, pic_x, multi_y + 11, pic_z, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
-				colourer( gui, {0,0,0})
+				colourer( gui, pen.PALETTE.B )
 				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
-				new_text( gui, pic_x + 9, multi_y + 10, pic_z, this_info.wand_info.actions_per_round, {170,170,170}, inter_alpha )
-				new_text( gui, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001, this_info.wand_info.actions_per_round, {0,0,0}, inter_alpha*0.5 )
+				uid = pen.new_text( gui, uid, pic_x + 9, multi_y + 10, pic_z, this_info.wand_info.actions_per_round, {
+					color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
+				uid = pen.new_text( gui, uid, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001, this_info.wand_info.actions_per_round, {
+					color = pen.PALETTE.B, alpha = inter_alpha*0.5 })
 			end
 		end
 

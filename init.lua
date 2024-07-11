@@ -114,22 +114,6 @@ end
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 
-	if( not( custom_font_set or false )) then
-		custom_font_set = true
-		register_new_font( "default", penman_r, penman_w,
-			"data/fonts/font_pixel_noshadow",
-			"mods/index_core/files/fonts/vanilla/", -2 )
-		register_new_font( "vanilla_shadow", penman_r, penman_w,
-			"data/fonts/font_pixel",
-			"mods/index_core/files/fonts/vanilla_shadow/", -2 )
-		register_new_font( "vanilla_small", penman_r, penman_w,
-			"mods/index_core/files/fonts/vanilla_small/font_small_numbers",
-			"mods/index_core/files/fonts/vanilla_small/", 1 )
-		register_new_font( "vanilla_rune", penman_r, penman_w,
-			"data/fonts/font_pixel_runes",
-			"mods/index_core/files/fonts/vanilla_rune/", -2 )
-	end
-
 	if( not( matter_test_set or false )) then
 		matter_test_set = true
 		

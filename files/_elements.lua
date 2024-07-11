@@ -459,7 +459,7 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
                 end
 
                 if( length > num_width ) then
-                    if( string_bullshit[ name ]) then name = "Boss" end
+                    if( not( pen.vld( name ))) then name = "Boss" end
                     uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, font_liner( name, length - num_width ), nil, true )
                 end
 
@@ -509,7 +509,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         uid = tipping( gui, uid, nil, nil, {
             pic_x + 2.5,
             pic_y - 1,
-            10.5 + final_length,
+            10.5 + final_length[1],
             8,
         }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 
@@ -1243,8 +1243,8 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 play_sound( data, gonna_reset and "reset" or "click" )
                 ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
             end
-
-            new_text( gui, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, {255,255,255,alpha})
+            
+            uid = pen.new_text( gui, uid, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, { alpha = alpha })
             uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
             
             colourer( gui, arrow_left_c )
