@@ -213,7 +213,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
 
             local max_hp_text, hp_text = get_short_num( max_hp ), get_short_num( hp )
             uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", {8,8})
-            uid = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { 255, 255, 255, 0.9 }, true )
+            uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, is_shadow = true, alpha = 0.9 })
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
             uid = tipping( gui, uid, nil, nil, {
@@ -237,7 +237,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
-            uid = new_font_vanilla_small( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { 255, 255, 255, 0.9 }, true )
+            uid = pen.new_text( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, is_shadow = true, alpha = 0.9 })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
@@ -460,7 +460,7 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
 
                 if( length > num_width ) then
                     if( not( pen.vld( name ))) then name = "Boss" end
-                    uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, font_liner( name, length - num_width ), nil, true )
+                    uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
                 end
 
                 local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
@@ -500,16 +500,16 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         local v = get_short_num( god_i_love_money_holy_fuck )
-        local final_length = 0
+        local dims = {}
         uid = new_shaded_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", {8,8})
-        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, v, { 255, 255, 255, 0.9 }, true )
+        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, is_shadow = true, alpha = 0.9 })
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
         uid = tipping( gui, uid, nil, nil, {
             pic_x + 2.5,
             pic_y - 1,
-            10.5 + final_length[1],
+            10.5 + dims[1],
             8,
         }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 
@@ -525,16 +525,16 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
     if( data.orbs > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 1
         
-        local final_length = 0
+        local dims = {}
         uid = new_shaded_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", {8,8})
-        uid, final_length = new_font_vanilla_small( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { 255, 255, 255, 0.9 }, true )
+        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { is_huge = false, is_shadow = true, alpha = 0.9 })
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
         uid = tipping( gui, uid, nil, nil, {
             pic_x + 2,
             pic_y - 1,
-            11 + final_length,
+            11 + dims[1],
             8,
         }, { tip, tip_x - 43, tip_y - 1 }, {zs.tips,zs.main_far_back}, true )
 

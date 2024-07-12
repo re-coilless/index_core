@@ -12,374 +12,69 @@ type2frame = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
 }
 
+-- b2n
+-- get_sign
+-- float_compare
+-- t2w
+-- uint2color
+-- rotate_offset
+-- limiter
+-- check_bounds
+-- table_init
+-- magic_copy
+-- magic_sorter
+-- generic_random
+-- get_table_count
+-- get_most_often
+-- from_tbl_with_id
+-- D_extractor
+-- D_packer
+-- clean_append
+-- get_storage
+-- edit_component_ultimate
+-- edit_component_with_tag_ultimate
+-- closest_getter
+-- get_hooman_child
+-- child_play
+-- child_play_full
+-- get_child_num
+-- lua_callback
+-- play_sound
+-- active_item_reset
+-- get_active_item
+-- get_item_owner
+-- is_wand_useless
+-- get_tinker_state
+-- get_phys_mass
+-- get_matters
+-- world2gui
+-- get_text_dim
+-- get_pic_dim
+-- get_mouse_pos
+-- capitalizer
+-- space_obliterator
+-- font_liner
+-- new_font_vanilla_shadow
+-- font_extractor
+-- font_packer
+-- init_metafont
+-- test_metafont
+-- get_metafont
+-- gui_killer
+-- colourer
+-- new_image
+-- new_shaded_image
+-- new_button
+-- new_dragger
+-- new_cutout
+-- new_interface
+
 --core backend
-function b2n( a )
-	return a and 1 or 0
-end
-
-function get_sign( a )
-	if( a < 0 ) then
-		return -1
-	else
-		return 1
-	end
-end
-
-function float_compare( a, b )
-	local epsln = 0.0001
-	return math.abs( a - b ) < epsln
-end
-
-function t2w( str )
-	local t = {}
-	
-	for word in string.gmatch( str, "([^%s]+)" ) do
-		table.insert( t, word )
-	end
-	
-	return t
-end
-
-function uint2color( color )
-	return { bit.band( color, 0xff ), bit.band( bit.rshift( color, 8 ), 0xff ), bit.band( bit.rshift( color, 16 ), 0xff )}
-end
-
-function rotate_offset( x, y, angle )
-	return x*math.cos( angle ) - y*math.sin( angle ), x*math.sin( angle ) + y*math.cos( angle )
-end
-
-function limiter( value, limit, max_mode )
-	max_mode = max_mode or false
-	limit = math.abs( limit )
-	
-	if(( max_mode and math.abs( value ) < limit ) or ( not( max_mode ) and math.abs( value ) > limit )) then
-		return get_sign( value )*limit
-	end
-	
-	return value
-end
-
-function check_bounds( dot, pos, box )
-	if( box == nil ) then
-		return false
-	end
-	
-	if( type( box ) ~= "table" ) then
-		local off_x, off_y = ComponentGetValue2( box, "offset" )
-		pos = { pos[1] + off_x, pos[2] + off_y }
-		box = {
-			ComponentGetValue2( box, "aabb_min_x" ),
-			ComponentGetValue2( box, "aabb_max_x" ),
-			ComponentGetValue2( box, "aabb_min_y" ),
-			ComponentGetValue2( box, "aabb_max_y" ),
-		}
-	end
-	return dot[1]>=(pos[1]+box[1]) and dot[2]>=(pos[2]+box[3]) and dot[1]<=(pos[1]+box[2]) and dot[2]<=(pos[2]+box[4])
-end
-
-function table_init( amount, value )
-	local tbl = {}
-	local temp = value
-	for i = 1,amount do
-		if( type( value ) == "table" ) then
-			temp = {}
-		end
-		tbl[i] = temp
-	end
-	
-	return tbl
-end
-
-function magic_copy( orig, copies )
-    copies = copies or {}
-    local orig_type = type( orig )
-    local copy = {}
-    if( orig_type == "table" ) then
-        if( copies[orig] ) then
-            copy = copies[orig]
-        else
-            copy = {}
-            copies[orig] = copy
-            for orig_key, orig_value in next, orig, nil do
-                copy[ magic_copy( orig_key, copies )] = magic_copy( orig_value, copies )
-            end
-            setmetatable( copy, magic_copy( getmetatable( orig ), copies ))
-        end
-    else
-        copy = orig
-    end
-    return copy
-end
-
-function magic_sorter( tbl, func )
-    local out_tbl = {}
-    for n in pairs( tbl ) do
-        table.insert( out_tbl, n )
-    end
-    table.sort( out_tbl, func )
-	
-    local i = 0
-    local iter = function ()
-        i = i + 1
-        if( out_tbl[i] == nil ) then
-            return nil
-        else
-            return out_tbl[i], tbl[out_tbl[i]]
-        end
-    end
-    return iter
-end
-
-function generic_random( a, b, macro_drift, bidirectional )
-	bidirectional = bidirectional or false
-	
-	if( macro_drift == nil ) then
-		macro_drift = GetUpdatedEntityID() or 0
-		if( macro_drift > 0 ) then
-			local drft_a, drft_b = EntityGetTransform( macro_drift )
-			macro_drift = macro_drift + tonumber( macro_drift ) + ( drft_a*1000 + drft_b )
-		else
-			macro_drift = 1
-		end
-	elseif( type( macro_drift ) == "table" ) then
-		macro_drift = macro_drift[1]*1000 + macro_drift[2]
-	end
-	macro_drift = math.floor( macro_drift + 0.5 )
-	
-	local tm = { GameGetDateAndTimeUTC() }
-	SetRandomSeed( math.random( GameGetFrameNum(), macro_drift ), (((( tm[2]*30 + tm[3] )*24 + tm[4] )*60 + tm[5] )*60 + tm[6] )%macro_drift )
-	Random( 1, 5 ); Random( 1, 5 ); Random( 1, 5 )
-	return bidirectional and ( Random( a, b*2 ) - b ) or Random( a, b )
-end
-
-function get_table_count( tbl, just_checking )
-	tbl = tbl or 0
-	if( type( tbl ) ~= "table" ) then
-		return 0
-	end
-	
-	local table_count = 0
-	for i,element in pairs( tbl ) do
-		table_count = table_count + 1
-		if( just_checking ) then
-			break
-		end
-	end
-	return table_count
-end
-
-function get_most_often( tbl )
-	local count = {}
-	for n,v in pairs( tbl ) do
-		count[v] = ( count[v] or 0 ) + 1
-	end
-	local best = {0,0}
-	for n,v in pairs( count ) do
-		if( best[2] < v ) then
-			best = {n,v}
-		end
-	end
-	return unpack( best )
-end
-
-function from_tbl_with_id( tbl, id, subtract, custom_key, default )
-	local stuff = default or 0
-	local tbl_id = nil
-	
-	local key = custom_key or "id"
-	if( type( id ) == "table" ) then
-		stuff = {}
-		if( subtract ) then
-			if( #id < #tbl ) then
-				if( #id > 0 ) then
-					for i = #tbl,1,-1 do
-						for e,dud in ipairs( id ) do
-							if( dud == ( tbl[i][key] or tbl[i][1] or tbl[i])) then
-								table.remove( tbl, i )
-								table.remove( id, e )
-								break
-							end
-						end
-					end
-				end
-				return tbl
-			end
-			return {}
-		else
-			for i,dud in ipairs( tbl ) do
-				for e,bub in ipairs( id ) do
-					if(( dud[key] or dud[1] or dud ) == bub ) then
-						table.insert( stuff, dud )
-						break
-					end
-				end
-			end
-		end
-	else
-		local gonna_stuff = default == nil
-		for i,dud in ipairs( tbl ) do
-			if( gonna_stuff and type( dud ) == "table" ) then
-				stuff = {}
-				gonna_stuff = false
-			end
-			if(( dud[key] or dud[1] or dud ) == id ) then
-				stuff = dud
-				tbl_id = i
-				break
-			end
-		end
-	end
-	
-	return stuff, tbl_id
-end
-
-function D_extractor( data_raw, use_nums, div )
-	if( data_raw == nil ) then
-		return nil
-	end
-	use_nums = use_nums or false
-	
-	local data = {}
-	
-	for value in string.gmatch( data_raw, "([^"..( div or "|" ).."]+)" ) do
-		if( use_nums ) then
-			table.insert( data, tonumber( value ))
-		else
-			table.insert( data, value )
-		end
-	end
-	
-	return data
-end
-
-function D_packer( data, div )
-	if( data == nil ) then
-		return nil
-	end
-
-	div = div or "|"
-	local data_raw = div
-	
-	for i,value in ipairs( data ) do
-		data_raw = data_raw..value..div
-	end
-	
-	return data_raw
-end
-
-function font_extractor( font_name )
-	font_database = font_database or {}
-	if( font_database[ font_name ] ~= nil ) then return font_database[ font_name ] end
-
-	local storage = get_storage( get_hooman_child( GameGetWorldStateEntity(), "font_kid" ), font_name )
-	if( storage == nil ) then return end
-	local font_raw = ComponentGetValue2( storage, "value_string" )
-
-	local font_tbl = {}
-	for value in string.gmatch( font_raw, "([^|]+)" ) do
-		if( font_tbl.path == nil ) then
-			font_tbl.path = value
-		elseif( font_tbl.height == nil ) then
-			font_tbl.height = tonumber( value )
-		else
-			font_tbl.dims = font_tbl.dims or {}
-			for char in string.gmatch( value, "([^:]+)" ) do
-				local char_tbl = {}
-				for v in string.gmatch( char, "([^&]+)" ) do
-					table.insert( char_tbl, tonumber( v ))
-				end
-				font_tbl.dims[ char_tbl[1]] = { char_tbl[2], char_tbl[3]}
-			end
-		end
-	end
-	font_database[ font_name ] = font_tbl
-
-	return font_tbl
-end
-
-function font_packer( font_tbl )
-	local dims_raw = ":"
-	for id,dim in pairs( font_tbl.dims ) do
-		dims_raw = dims_raw.."&"..id.."&"..dim[1].."&"..dim[2].."&:"
-	end
-	return ( "|"..font_tbl.path.."|"..font_tbl.height.."|"..dims_raw.."|" )
-end
-
-function init_metafont()
-    local out, memo = "", {}
-	for l,id in magic_sorter( str2id ) do
-	    local num = 0
-	    for c in string.gmatch( l, "." ) do
-	        num = bit.lshift( num, 10 ) + string.byte( c )
-	    end
-	    if( memo[ num ]) then print( num.." :: "..memo[ num ].."|"..id ) end
-        out = out.."["..num.."]="..id..",\t"
-        memo[ num ] = id
-	end
-    print( out )
-end
-
-function test_metafont()
-	GlobalsSetValue( "METAFONT_TEST", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz|~¡©«¬»¿ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÓÔÕÖØÙÚÛÜßàáâãäåçèéêëìíîïñóôõöøùúûüĄąĆćĘęŁłŃńŒœŚśŹźŻżЁАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяё–—’“”„…∞" )
-    local str = GlobalsGetValue( "METAFONT_TEST", "" )
-    local num, new_str = 0, ""
-	for c in string.gmatch( str, "." ) do
-	    num = bit.lshift( num, 10 ) + string.byte( c )
-	    
-	    local id = byte2id[ num ]
-	    if( id ) then
-	        num = 0
-	        for char,i in pairs( str2id ) do
-	            if( id == i ) then
-					print( char.."|"..id )
-	                new_str = new_str..char
-	                break
-                end
-	        end
-        end
-	end
-	print( tostring( str == new_str ))
-end
-
-function get_metafont( str )
-	metafont_memo = metafont_memo or {}
-	if( metafont_memo[ str ] ~= nil ) then
-		local out = metafont_memo[ str ]
-		if( GameGetFrameNum()%36000 == 0 ) then
-			metafont_memo = nil
-		end
-		return out
-	end
-	
-	local str_tbl, num = {}, 0
-	for c in string.gmatch( str, "." ) do
-		num = bit.lshift( num, 10 ) + string.byte( c )
-	    
-	    local id = byte2id[ num ]
-	    if( id ) then
-			table.insert( str_tbl, id )
-	        num = 0
-        end
-	end
-	metafont_memo[ str ] = str_tbl
-
-	return str_tbl
-end
-
-function clean_append( to_file, from_file )
-	local marker = "%-%-<{> MAGICAL APPEND MARKER <}>%-%-"
-	local line_wrecker = "\n\n\n"
-	
-	local a = ModTextFileGetContent( to_file )
-	local b = ModTextFileGetContent( from_file )
-	ModTextFileSetContent( to_file, string.gsub( a, marker, b..line_wrecker..marker ))
-end
-
-function get_button_state( ctrl_comp, btn, frame )
+function get_button_state( ctrl_comp, btn, frame ) --port this to penman
 	return { ComponentGetValue2( ctrl_comp, "mButtonDown"..btn ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..btn ) == frame }
 end
 
-function get_discrete_button( entity_id, comp, btn )
+function get_discrete_button( entity_id, comp, btn ) --kinda sus
 	local id = entity_id..btn
 	local state = false
 	if( ComponentGetValue2( comp, btn )) then
@@ -394,7 +89,7 @@ function get_discrete_button( entity_id, comp, btn )
 	return state
 end
 
-function get_input( vanilla_id, mnee_id, is_continuous, is_dirty )
+function get_input( vanilla_id, mnee_id, is_continuous, is_dirty ) --definitely replace with mnee
 	is_dirty = is_dirty or false
 	is_continuous = is_continuous or false
 	
@@ -430,171 +125,6 @@ function self_destruct()
 end
 
 --ESC backend
-function get_storage( hooman, name )
-	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
-	if( #comps > 0 ) then
-		for i,comp in ipairs( comps ) do
-			if( ComponentGetValue2( comp, "name" ) == name ) then
-				return comp
-			end
-		end
-	end
-	
-	return nil
-end
-
-function edit_component_ultimate( entity_id, type_name, do_what )
-	if( entity_id == 0 or entity_id == nil ) then
-		return
-	end
-	
-	local comp = EntityGetFirstComponentIncludingDisabled( entity_id, type_name )
-	if( comp ~= nil ) then
-		local modified_vars = { }
-		do_what( comp, modified_vars )
-		for key,value in pairs( modified_vars ) do 
-			ComponentSetValue( comp, key, to_string(value) )
-		end
-		return comp
-	end
-end
-
-function edit_component_with_tag_ultimate( entity_id, type_name, tag, do_what )
-	if( entity_id == 0 or entity_id == nil ) then
-		return
-	end
-	
-	local comp = EntityGetFirstComponentIncludingDisabled( entity_id, type_name, tag )
-	if( comp ~= nil ) then
-		local modified_vars = { }
-		do_what( comp, modified_vars )
-		for key,value in pairs( modified_vars ) do 
-			ComponentSetValue( comp, key, to_string(value) )
-		end
-		return comp
-	end
-end
-
-function closest_getter( x, y, stuff, check_sight, limits, extra_check )
-	check_sight = check_sight or false
-	limits = limits or { 0, 0, }
-	if( #( stuff or {}) == 0 ) then
-		return 0
-	end
-	
-	local actual_thing = 0
-	local min_dist = -1
-	for i,raw_thing in ipairs( stuff ) do
-		local thing = type( raw_thing ) == "table" and raw_thing[1] or raw_thing
-
-		local t_x, t_y = EntityGetTransform( thing )
-		if( not( check_sight ) or not( RaytracePlatforms( x, y, t_x, t_y ))) then
-			local d_x, d_y = math.abs( t_x - x ), math.abs( t_y - y )
-			if(( d_x < limits[1] or limits[1] == 0 ) and ( d_y < limits[2] or limits[2] == 0 )) then
-				local dist = math.sqrt( d_x^2 + d_y^2 )
-				if( min_dist == -1 or dist < min_dist ) then
-					if( extra_check == nil or extra_check( raw_thing )) then
-						min_dist = dist
-						actual_thing = raw_thing
-					end
-				end
-			end
-		end
-	end
-	
-	return actual_thing
-end
-
-function get_hooman_child( hooman, tag, ignore_id )
-	if( hooman == nil ) then
-		return -1
-	end
-	
-	local children = EntityGetAllChildren( hooman ) or {}
-	if( #children > 0 ) then
-		for i,child in ipairs( children ) do
-			if( child ~= ignore_id and ( EntityGetName( child ) == tag or EntityHasTag( child, tag ))) then
-				return child
-			end
-		end
-	end
-	
-	return nil
-end
-
-function child_play( entity_id, action, sorter )
-	local children = EntityGetAllChildren( entity_id ) or {}
-	if( #children > 0 ) then
-		if( sorter ~= nil ) then table.sort( children, sorter ) end
-		for i,child in ipairs( children ) do
-			local value = action( entity_id, child, i ) or false
-			if( value ) then
-				return value
-			end
-		end
-	end
-end
-
-function child_play_full( dude_id, func, params )
-	local ignore = func( dude_id, params ) or false
-	return child_play( dude_id, function( parent, child )
-		if( ignore ) then
-			return func( child, params )
-		else
-			return child_play_full( child, func, params )
-		end
-	end)
-end
-
-function get_child_num( inv_id, item_id )
-	local children = EntityGetAllChildren( inv_id ) or {}
-	if( #children > 0 ) then
-		for i,child in ipairs( children ) do
-			if( child == item_id ) then
-				return i-1
-			end
-		end
-	end
-
-	return 0
-end
-
-function lua_callback( entity_id, func_names, input )
-	local got_some = false
-	local comps = EntityGetComponentIncludingDisabled( entity_id, "LuaComponent" ) or {}
-	if( #comps > 0 ) then
-		local real_GetUpdatedEntityID = GetUpdatedEntityID
-		local real_GetUpdatedComponentID = GetUpdatedComponentID
-		GetUpdatedEntityID = function() return entity_id end
-
-		local frame_num = GameGetFrameNum()
-		for i,comp in ipairs( comps ) do
-			local path = ComponentGetValue2( comp, func_names[1]) or ""
-			if( path ~= "" ) then
-				local max_count = ComponentGetValue2( comp, "execute_times" )
-				local count = ComponentGetValue2( comp, "mTimesExecuted" )
-				if( max_count < 1 or count < max_count ) then
-					got_some = true
-					
-					GetUpdatedComponentID = function() return comp end
-					dofile( path )
-					_G[ func_names[2]]( unpack( input ))
-
-					ComponentSetValue2( comp, "mLastExecutionFrame", frame_num )
-					ComponentSetValue2( comp, "mTimesExecuted", count + 1 )
-					if( ComponentGetValue2( comp, "remove_after_executed" )) then
-						EntityRemoveComponent( entity_id, comp )
-					end
-				end
-			end
-		end
-		
-		GetUpdatedEntityID = real_GetUpdatedEntityID
-		GetUpdatedComponentID = real_GetUpdatedComponentID
-	end
-	return got_some
-end
-
 function cat_callback( data, this_info, name, input, sos )
 	do_default_callback = false
 
@@ -623,135 +153,6 @@ function cat_callback( data, this_info, name, input, sos )
 			return unpack( out )
 		end
 	end
-end
-
-function play_sound( data, sfx, x, y )
-	if( x == nil or y == nil ) then
-		x, y = unpack( data.player_xy )
-	end
-	local sound = type( sfx ) == "table" and sfx or data.sfxes[ sfx ]
-	GamePlaySound( sound[1], sound[2], x, y )
-end
-
-function active_item_reset( hooman )
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman or 0, "Inventory2Component" )
-	if( inv_comp ~= nil ) then
-		ComponentSetValue2( inv_comp, "mActiveItem", 0 )
-		ComponentSetValue2( inv_comp, "mActualActiveItem", 0 )
-		ComponentSetValue2( inv_comp, "mInitialized", false )
-	end
-	return inv_comp
-end
-
-function get_active_item( hooman )
-	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman or 0, "Inventory2Component" )
-	if( inv_comp ~= nil ) then
-		return tonumber( ComponentGetValue2( inv_comp, "mActiveItem" ) or 0 )
-	end
-	
-	return 0
-end
-
-function get_item_owner( item_id, figure_it_out )
-	if( item_id ~= nil ) then
-		local root_man = EntityGetRootEntity( item_id )
-		local parent = item_id
-		while( parent ~= root_man ) do
-			parent = EntityGetParent( parent )
-
-			local item_check = get_active_item( parent )
-			if( figure_it_out or false ) then
-				item_check = item_check > 0
-			else
-				item_check = item_check == item_id
-			end
-
-			if( item_check ) then
-				return parent
-			end
-		end
-	end
-	
-	return 0
-end
-
-function is_wand_useless( wand_id )
-	local children = EntityGetAllChildren( wand_id ) or {}
-	if( #children > 0 ) then
-		for i,child in ipairs( children ) do
-			local itm_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
-			if( itm_comp ~= nil ) then
-				if( ComponentGetValue2( itm_comp, "uses_remaining" ) ~= 0 ) then
-					return false
-				end
-			end
-		end
-	end
-	return true
-end
-
-function get_tinker_state( hooman, x, y )
-	for n = 1,2 do
-		local v = GameGetGameEffectCount( hooman, n == 1 and "EDIT_WANDS_EVERYWHERE" or "NO_WAND_EDITING" ) > 0
-		v = v and n or child_play( hooman, function( parent, child )
-			if( GameGetGameEffectCount( child, n == 1 and "EDIT_WANDS_EVERYWHERE" or "NO_WAND_EDITING" ) > 0 ) then
-				return n
-			end
-		end)
-		if( v ) then return v == 1 end
-	end
-	
-	local workshops = EntityGetWithTag( "workshop" ) or {}
-	if( #workshops > 0 ) then
-		for i,workshop in ipairs( workshops ) do
-			local w_x, w_y = EntityGetTransform( workshop )
-			local box_comp = EntityGetFirstComponent( workshop, "HitboxComponent" )
-			if( box_comp ~= nil and check_bounds({x,y}, {w_x,w_y}, box_comp )) then
-				return true
-			end
-		end
-	end
-
-	return false
-end
-
-function get_phys_mass( entity_id )
-	local mass = 0
-	
-	local shape_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "PhysicsImageShapeComponent" )
-	if( shape_comp ~= nil ) then
-		local x, y = EntityGetTransform( entity_id )
-		local drift_x, drift_y = ComponentGetValue2( shape_comp, "offset_x" ), ComponentGetValue2( shape_comp, "offset_y" )
-		x, y = x - drift_x, y - drift_y
-		drift_x, drift_y = 1.5*drift_x, 1.5*drift_y
-		
-		local function calculate_force_for_body( entity, body_mass, body_x, body_y, body_vel_x, body_vel_y, body_vel_angular )
-			if( math.abs( x - body_x ) < 0.001 and math.abs( y - body_y ) < 0.001 ) then
-				mass = body_mass
-			end
-			return body_x, body_y, 0, 0, 0
-		end
-		PhysicsApplyForceOnArea( calculate_force_for_body, nil, x - drift_x, y - drift_y, x + drift_x, y + drift_y )
-	end
-	
-	return mass
-end
-
-function get_matters( matters )
-	local mttrs = {}
-	local got_some = 0
-	if( #matters > 0 ) then
-		for i,mttr in ipairs( matters ) do
-			if( mttr > 0 ) then
-				table.insert( mttrs, {i-1,mttr})
-				got_some = got_some + mttr
-			end
-		end 
-		table.sort( mttrs, function( a, b )
-			return a[2] > b[2]
-		end)
-	end
-	return got_some, mttrs
 end
 
 function clean_my_gun()
@@ -1038,7 +439,7 @@ function get_action_data( data, spell_id )
 	return data, data.memo.spell_data[ spell_id ]
 end
 
-function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
+function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc ) --kinda sus
 	perc = perc or 0.1
 	
 	local gonna_pour = type( mouth_id ) == "table"
@@ -1716,82 +1117,9 @@ function drop_item( h_x, h_y, this_info, data, throw_force, do_action )
 end
 
 --GUI backend
-function world2gui( x, y, not_pos )
-	not_pos = not_pos or false
-	
-	local gui = GuiCreate()
-	GuiStartFrame( gui )
-	local w, h = GuiGetScreenDimensions( gui )
-	GuiDestroy( gui )
-	
-	local shit_from_ass = w/( MagicNumbersGetValue( "VIRTUAL_RESOLUTION_X" ) + MagicNumbersGetValue( "VIRTUAL_RESOLUTION_OFFSET_X" ))
-	if( not_pos ) then
-		x, y = shit_from_ass*x, shit_from_ass*y
-	else
-		local cam_x, cam_y = GameGetCameraPos()
-		x, y = w/2 + shit_from_ass*( x - cam_x ), h/2 + shit_from_ass*( y - cam_y )
-	end
-	
-	return x, y, shit_from_ass
-end
-
-function get_text_dim( text, font_data )
-	if( type( text ) ~= "table" ) then text = { text } end
-	font_data = font_data or font_extractor( "default" ) or {}
-	if( font_data.path == nil ) then return 0,0 end
-	
-	local w, h = 0, 0
-	local total_w, total_h = 0, 0
-	for i,txt in ipairs( text ) do
-		local num = 0
-		for c in string.gmatch( txt, "." ) do
-			num = bit.lshift( num, 10 ) + string.byte( c )
-			
-			local id = byte2id[ num ]
-			if( id ) then
-				w = w + font_data.dims[ id ][1]
-				num = 0
-			end
-		end
-		
-		if( w > total_w ) then total_w = w end
-		total_h = total_h + font_data.height
-	end
-	
-	return total_w, total_h
-end
-
-function get_pic_dim( path )
-	local w,h = 0,0
-
-	if( item_pic_data == nil or item_pic_data[ path ] == nil or item_pic_data[ path ].dims == nil ) then
-		local gui = GuiCreate()
-		GuiStartFrame( gui )
-		w,h = GuiGetImageDimensions( gui, path, 1 )
-		GuiDestroy( gui )
-	else
-		w,h = unpack( item_pic_data[ path ].dims )
-	end
-	
-	return w, h
-end
-
-function get_mouse_pos()
-	local m_x, m_y = DEBUG_GetMouseWorld()
-	return world2gui( m_x, m_y )
-end
-
 function slot_z( data, id, z, state )
 	if( state == nil ) then state = data.dragger.item_id == id end
 	return state and z-2 or z
-end
-
-function capitalizer( text )
-	return string.gsub( string.gsub( tostring( text ), "%s%l", string.upper ), "^%l", string.upper )
-end
-
-function space_obliterator( txt )
-	return tostring( string.gsub( tostring( txt ), "%s+$", "" ))
 end
 
 function full_stopper( text )
@@ -1799,101 +1127,6 @@ function full_stopper( text )
 	
 	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
 	return text
-end
-
-function font_liner( text, length, height, font_data, default_return )
-	default_return = default_return or {"[NIL]"}
-	if(( text or "" ) == nil ) then return default_return end
-	font_data = font_data or font_extractor( "default" ) or {}
-	if( font_data.path == nil ) then return default_return end
-
-	local space_l = font_data.dims[ string.byte( " " )][1]
-	length = length + space_l
-	height = height or font_data.height
-
-	local hid = length..( height < 0 and -1 or math.floor( height/font_data.height ))
-	liner_database = liner_database or {}
-	liner_database.reset_num = liner_database.reset_num or 0
-	if( liner_database.reset_num > 999 ) then
-		liner_database = {}
-		liner_database.reset_num = 0
-	end
-	liner_database[ font_data.path ] = liner_database[ font_data.path ] or {}
-	liner_database[ font_data.path ][ hid ] = liner_database[ font_data.path ][ hid ] or {}
-	if( liner_database[ font_data.path ][ hid ][ text ] ~= nil ) then
-		local formatted, dims = unpack( liner_database[ font_data.path ][ hid ][ text ])
-		return formatted, dims
-	end
-
-	local was_spaced = false
-	local formatted,max_l,h = {},0,0
-	local full_text = "@"..string.gsub( string.gsub( text, "\n", "@" ), "\t", "\\_" ).."@"
-	for paragraph in string.gmatch( full_text, "([^@]+)" ) do
-		local line,l = "", 0
-		if( paragraph ~= "" ) then
-			for i,word in ipairs( t2w( paragraph )) do
-				local num, range, w = 0, {1,1}, " "
-				local counter, this_l, overlines = 0, space_l, {}
-				for c in string.gmatch( word, "." ) do
-					num = bit.lshift( num, 10 ) + string.byte( c )
-					counter = counter + 1
-					
-					local id = byte2id[ num ]
-					if( id ) then
-						w = w..string.sub( word, range[1], range[2])
-						local new_l = this_l + font_data.dims[ id ][1]
-						if( new_l > length ) then
-							table.insert( overlines, counter )
-							new_l = new_l - this_l + space_l
-						end
-						this_l = new_l
-						
-						num, range[1] = 0, range[2] + 1
-						range[2] = range[1]
-					else
-						range[2] = range[2] + 1
-					end
-				end
-				
-				local is_complicated = #overlines > 0
-				local new_l = is_complicated and ( length + 1 ) or ( l + this_l )
-				if( new_l > length and line ~= "" ) then
-					local new_h = h + font_data.height
-					if( height > 0 and new_h > height ) then break end
-					table.insert( formatted, { line, l })
-					line, new_l = "", new_l - l
-					h = new_h
-				end
-				for k,overpos in ipairs( overlines ) do
-					local new_h = h + font_data.height
-					if( height > 0 and new_h > height ) then
-						is_complicated = 1
-						break
-					end
-					h = new_h
-					table.insert( formatted, {( k > 1 and " " or "" )..string.sub( w, ( overlines[k-1] or 0 ) + 1, overpos ), length })
-					if( k == #overlines ) then
-						w, new_l = " "..string.sub( w, overpos + 1, #w ), this_l
-					end
-				end
-				if( is_complicated == 1 ) then break end
-				line, l = line..w, new_l
-			end
-		end
-		local new_h = h + font_data.height
-		if( height > 0 and new_h > height ) then break end
-		table.insert( formatted, { line, l })
-		h = new_h
-	end
-	for i,line in ipairs( formatted ) do
-		if( line[2] > max_l ) then max_l = line[2] end 
-		formatted[i] = string.gsub( string.gsub( line[1], "^ ", "" ), "\\_", "    " )
-	end
-	
-	local dims = { max_l - space_l, h }
-	liner_database[ font_data.path ][ hid ][ text ] = { formatted, dims }
-	liner_database.reset_num = liner_database.reset_num + 1
-	return formatted, dims
 end
 
 function check_dragger_buffer( data, id )
@@ -1930,7 +1163,7 @@ function hud_num_fix( a, b, zeros )
 	return a.."/"..b
 end
 
-function get_tip_width( text, min_width, max_width, k )
+function get_tip_width( text, min_width, max_width, k ) --port to penman
 	min_width, max_width, k = min_width or 121, max_width or 251, k or 1
 	if( string.find( text, "[\n@]" ) ~= nil ) then k = 2*k end
 
@@ -1965,7 +1198,7 @@ function get_matter_colour( matter )
 	return color
 end
 
---thanks to Nathan for The Math
+--thanks to Nathan for The Math; port to penman
 function sine_anim( framecount, target_scale, delay, delay_scale, frame ) --y=c\sin x-\ln\left(e^{b\sin x+a}+f\right)+d [0.4;3.6;-0.2;3.2;2]
     framecount, delay, frame = 2*framecount, delay > 0 and ( delay + 1 ) or 0, frame or GameGetFrameNum()
     local i = frame%( framecount + delay )
@@ -1978,7 +1211,7 @@ function sine_anim( framecount, target_scale, delay, delay_scale, frame ) --y=c\
     end
 end
 
-function simple_anim( data, name, target, speed, min_delta )
+function simple_anim( data, name, target, speed, min_delta ) --kidna sus
 	speed = speed or 0.1
 	min_delta = min_delta or 1
 	
@@ -1988,7 +1221,7 @@ function simple_anim( data, name, target, speed, min_delta )
 	return data.memo[name]
 end
 
-function get_short_num( num, no_subzero, force_sign )
+function get_short_num( num, no_subzero, force_sign ) --port to penman
 	no_subzero = no_subzero or false
 	force_sign = force_sign or false
 
@@ -2030,7 +1263,7 @@ function get_short_num( num, no_subzero, force_sign )
 	return num
 end
 
-function get_tiny_num( num, no_subzero )
+function get_tiny_num( num, no_subzero ) --port to penman
 	no_subzero = no_subzero or false
 	
 	if( num < 0 and not( no_subzero )) then
@@ -2162,140 +1395,9 @@ function register_item_pic( data, this_info, is_advanced )
 end
 
 --GUI frontend
-function gui_killer( gui )
-	if( gui ~= nil ) then
-		GuiDestroy( gui )
-	end
-end
-
-function colourer( gui, c_type, alpha )
-	c_type = c_type or {}
-	if( #c_type == 0 and alpha == nil ) then
-		return
-	end
-
-	local color = { r = 0, g = 0, b = 0 }
-	if( type( c_type ) == "table" ) then
-		color.r = c_type[1] or 255
-		color.g = c_type[2] or 255
-		color.b = c_type[3] or 255
-	end
-	GuiColorSetForNextWidget( gui, color.r/255, color.g/255, color.b/255, alpha or c_type[4] or 1 )
-end
-
-function new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, interactive, angle )
-	if( not( interactive or false )) then
-		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-	end
-	GuiZSetForNextWidget( gui, pic_z )
-	if( uid >= 0 ) then GuiIdPush( gui, uid ) end
-	uid = math.abs( uid ) + 1
-	GuiImage( gui, uid, pic_x, pic_y, pic, alpha or 1, s_x or 1, s_y or 1, angle )
-	return uid
-end
-
-function new_shaded_image( gui, uid, pic_x, pic_y, pic_z, pic, dims, s_x, s_y, alpha, interactive, angle, shadow_alpha )
-	s_x, s_y, alpha = s_x or 1, s_y or 1, alpha or 1
-	new_image( gui, uid, pic_x, pic_y, pic_z, pic, s_x, s_y, alpha, false, angle )
-	colourer( gui, {0,0,0})
-	local scale_x, scale_y = 1/( s_x*dims[1] ) + 1, 1/( s_y*dims[2] ) + 1
-	return new_image( gui, uid, pic_x - 0.5, pic_y - 0.5, pic_z + 0.0001, pic, scale_x, scale_y, shadow_alpha or 0.05*alpha, interactive, angle )
-end
-
-function new_button( gui, uid, pic_x, pic_y, pic_z, pic )
-	GuiZSetForNextWidget( gui, pic_z )
-	uid = uid + 1
-	GuiIdPush( gui, uid )
-	GuiOptionsAddForNextWidget( gui, 6 ) --NoPositionTween
-	GuiOptionsAddForNextWidget( gui, 4 ) --ClickCancelsDoubleClick
-	GuiOptionsAddForNextWidget( gui, 21 ) --DrawNoHoverAnimation
-	GuiOptionsAddForNextWidget( gui, 47 ) --NoSound
-	local clicked, r_clicked = GuiImageButton( gui, uid, pic_x, pic_y, "", pic )
-	return uid, clicked, r_clicked
-end
-
-function new_dragger( gui, pic_x, pic_y ) --you need to uid them manually
-	local is_going = false
-	
-	GuiOptionsAddForNextWidget( gui, 51 ) --IsExtraDraggable
-	new_button( gui, 1023, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
-	local clicked, r_clicked, hovered, _, _, _, _, d_x, d_y = GuiGetPreviousWidgetInfo( gui )
-	if( d_x ~= 0 and d_y ~= 0 ) then
-		pic_x = d_x
-		pic_y = d_y
-		is_going = true
-	end
-	
-	return pic_x, pic_y, is_going, clicked, r_clicked, hovered
-end
-
-function new_cutout( gui, uid, pic_x, pic_y, size_x, size_y, func, v )
-	uid = uid + 1
-	GuiIdPush( gui, uid )
-
-	local margin = 0
-	GuiAnimateBegin( gui )
-	GuiAnimateAlphaFadeIn( gui, uid, 0, 0, true )
-	GuiBeginAutoBox( gui )
-	GuiBeginScrollContainer( gui, uid, pic_x - margin, pic_y - margin, size_x, size_y, false, margin, margin )
-	GuiEndAutoBoxNinePiece( gui )
-	GuiAnimateEnd( gui )
-	uid = func( gui, uid, v )
-	GuiEndScrollContainer( gui )
-
-	return uid
-end
-
 function new_anim_looped( core_path, delay, duration )
 	local num = math.floor( GameGetFrameNum()/tonumber( delay ))%tonumber( duration ) + 1
 	return core_path..num..".png"
-end
-
-function new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, text, colours )
-	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, { is_shadow = true, color = colours })
-end
-
-function new_font_vanilla_small( gui, uid, pic_x, pic_y, pic_z, text, colours, do_shadow )
-	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, {
-		font = "mods/index_core/files/fonts/vanilla_small/font_small_numbers.xml", is_shadow = true, color = colours })
-end
-
-function new_interface( gui, uid, pos, pic_z, is_debugging )
-	local x, y, s_x, s_y = pos[1], pos[2], math.abs( pos[3] or 1 ), math.abs( pos[4] or 1 )
-
-	local is_vertical = s_x < s_y
-	local width = is_vertical and s_x or s_y
-	local clicked, r_clicked, hovered = false, false, false
-	
-	local function do_interface( p_x, p_y )
-		uid = new_image( gui, uid, p_x, p_y, pic_z, "data/ui_gfx/empty"..( is_debugging and "_white" or "" )..".png", width/2, width/2, 0.75, true )
-		local c, r_c, h = GuiGetPreviousWidgetInfo( gui )
-		clicked, r_clicked, hovered = clicked or c, r_clicked or r_c, hovered or h
-	end
-	
-	if( s_x ~= 0 and s_y ~= 0 ) then
-		local count = math.floor( is_vertical and s_y/s_x or s_x/s_y )
-		for i = 1,count do
-			do_interface( x, y )
-			if( is_vertical ) then
-				y = y + width
-			else
-				x = x + width
-			end
-		end
-		local leftover = ( is_vertical and s_y or s_x ) - count*width
-		if( leftover > 0 ) then
-			local drift = width - leftover
-			if( is_vertical ) then
-				y = y - drift
-			else
-				x = x - drift
-			end
-			do_interface( x, y )
-		end
-	end
-
-	return uid, clicked, r_clicked, hovered
 end
 
 function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
@@ -2414,6 +1516,7 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	return uid
 end
 
+--ass
 function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right, is_up, is_fancy )
 	tid = tid or "generic"
 
@@ -2479,7 +1582,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			if( type( extra_func[1] ) == "function" ) then
 				uid = extra_func[1]( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha, extra_func[2])
 			else
-				uid = new_font_vanilla_shadow( gui, uid, pic_x + 3, pic_y + 1, z, text[1], {255,255,255,inter_alpha})
+				uid = pen.new_text( gui, uid, pic_x + 3, pic_y + 1, z, text[1], { is_shadow = true, alpha = inter_alpha })
 			end
 			
 			anim_frame = anim_frame + 1
@@ -2589,12 +1692,12 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 		if( pickup_info.desc[1] ~= "" ) then
 			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
 			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 44 })
-			local w, h = get_text_dim( pickup_info.desc[1])
 			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y, zs.in_world_ui, pickup_info.desc[1], pickup_info.color[1] or clr, true )
+			uid = pen.new_text( gui, uid, pic_x, pic_y, zs.in_world_ui, pickup_info.desc[1], {
+				is_centered_x = true, is_shadow = true, color = pickup_info.color[1] or clr })
 			if( is_elaborate ) then
-				w, h = get_text_dim( pickup_info.desc[2])
-				uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], pickup_info.color[2] or {207,207,207}, true )
+				uid = pen.new_text( gui, uid, pic_x, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {
+					is_centered_x = true, is_shadow = true, color = pickup_info.color[2] or {207,207,207}})
 			end
 		end
 	end
@@ -2602,8 +1705,8 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 		if(( pickup_info.txt or "" ) ~= "" ) then
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = world2gui( x, y )
-			local w, h = get_text_dim( pickup_info.txt )
-			uid = new_font_vanilla_shadow( gui, uid, pic_x - w/2 + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {207,207,207,1,0.2}, true )
+			uid = pen.new_text( gui, uid, pic_x + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {
+				is_centered_x = true, is_shadow = true, color = {207,207,207}})
 		end
 	end
 
@@ -2749,14 +1852,16 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			colourer( gui, {0,0,0})
 			uid = new_image( gui, uid, pic_x - 1, pic_y + 2, pic_z + 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
 		end
-		uid = new_font_vanilla_shadow( gui, uid, pic_x + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ), pic_y, pic_z, this_info.name, {255,255,178,inter_alpha})
+		uid = pen.new_text( gui, uid, pic_x + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ), pic_y, pic_z, this_info.name, {
+			is_shadow = true, color = {255,255,178}, alpha = inter_alpha })
 		
 		local orig_y = pic_y
 		pic_y = pic_y + 13
 		uid = new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[6][1], 1, 0.5*inter_alpha )
 		if( this_info.done_desc ) then
 			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[2][1] - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, this_info.tt_spacing[6][2] - 10, 0.5*inter_alpha )
-			uid = new_font_vanilla_shadow( gui, uid, pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.done_desc, {255,255,255,inter_alpha})
+			uid = pen.new_text( gui, uid, pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.done_desc, {
+				is_shadow = true, alpha = inter_alpha })
 		end
 
 		local function get_generic_stat( v, v_add, dft, allow_inf )
@@ -2790,11 +1895,11 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 				v = function( w_info ) return w_info.spread_degrees or 0 end,
 				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, color )
-					local shift = 0
-					uid, shift = new_font_vanilla_shadow( gui, uid, pic_x, pic_y, pic_z, txt, color )
-					colourer( gui, color )
-					uid = new_image( gui, uid, pic_x + shift, pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
+				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data )
+					local dims = {}
+					uid, dims = pen.new_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
+					colourer( gui, data.color )
+					uid = new_image( gui, uid, pic_x + dims[1], pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
 					return uid
 				end,
 				tip = 0,
@@ -2878,8 +1983,8 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				end
 			end
 
-			stat.custom_func = stat.custom_func or new_font_vanilla_shadow
-			uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, done_v, clr )
+			stat.custom_func = stat.custom_func or pen.new_text
+			uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, done_v, { color = clr })
 			-- stat.desc or ""
 			
 			stat_y = stat_y + 8 + ( stat.extra_step or 0 )
@@ -3318,8 +2423,8 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 					fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state )})
 			end
 			if( runic_state >= 0 ) then
-				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001, this_info.done_desc, {
-					fully_featured = true, is_shadow = true, alpha = inter_alpha*runic_state })
+				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001,
+					this_info.done_desc, { fully_featured = true, is_shadow = true, alpha = inter_alpha*runic_state })
 				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
@@ -3622,8 +2727,10 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 						uid = new_image( gui, uid, cross_x + 0.5, cross_y + 0.5, zs.icons_front + 0.001, "mods/index_core/files/pics/vanilla_no_cards.xml", nil, nil, 0.75 )
 					end
 				else
-					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front, math.floor( this_info.charges ))
-					uid = new_font_vanilla_small( gui, uid, slot_x + ( 1 - shift ) + 0.5, slot_y + 0.5, zs.icons_front + 0.0001, math.floor( this_info.charges ), {0,0,0,0.75})
+					uid = pen.new_text( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front,
+						math.floor( this_info.charges ), { is_huge = false })
+					uid = pen.new_text( gui, uid, slot_x + ( 1 - shift ) + 0.5, slot_y + 0.5, zs.icons_front + 0.0001,
+						math.floor( this_info.charges ), { is_huge = false, color = pen.PALETTE.B, alpha = 0.75 })
 				end
 			end
 		end
@@ -3721,7 +2828,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 				uid = pen.new_text( gui, uid, pic_x + 9, multi_y + 10, pic_z, this_info.wand_info.actions_per_round, {
 					color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
 				uid = pen.new_text( gui, uid, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001, this_info.wand_info.actions_per_round, {
-					color = pen.PALETTE.B, alpha = inter_alpha*0.5 })
+					color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
 			end
 		end
 
