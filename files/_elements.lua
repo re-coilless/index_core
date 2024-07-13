@@ -51,11 +51,14 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         if( data.is_opened ) then
-            uid = new_font_vanilla_shadow( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            uid = new_font_vanilla_shadow( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+            uid = new_shadowed_text( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back,
+                GameTextGetTranslatedOrNot( "$hud_title_wands" ))
+            uid = new_shadowed_text( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back,
+                GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
 
             pic_x = pic_x + data.inv_spacings[2]
-            uid = new_font_vanilla_shadow( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back, GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+            uid = new_shadowed_text( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back,
+                GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
         end
         if( data.gmod.show_full ) then
             if( data.is_opened or data.always_show_full ) then
@@ -159,7 +162,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
                                 if( not( is_left )) then
                                     for i,gmod in ipairs( data.gmod.gmods ) do
                                         if( gmod.menu_capable ) then
-                                            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", i )
+                                            pen.magic_storage( data.main_id, "global_mode", "value_int", i )
                                             break
                                         end
                                     end
@@ -319,7 +322,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
                 potion_data = { "data/ui_gfx/hud/potion.png", }
                 if( data.fancy_potion_bar ) then
                     table.insert( potion_data, data.pixel )
-                    table.insert( potion_data, uint2color( GameGetPotionColorUint( data.active_item )))
+                    table.insert( potion_data, pen.magic_uint( GameGetPotionColorUint( data.active_item )))
                     table.insert( potion_data, 0.8 )
                 end
             end
@@ -460,19 +463,17 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
 
                 if( length > num_width ) then
                     if( not( pen.vld( name ))) then name = "Boss" end
-                    uid = new_font_vanilla_shadow( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
+                    uid = new_shadowed_text( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
                 end
 
                 local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
-                uid = new_font_vanilla_shadow( gui, uid, pic_x + length/2 - ( 1 + get_text_dim( value )), pic_y + 2.5, pic_zs[2] - 0.001, value, nil, true )
+                uid = new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value )), pic_y + 2.5, pic_zs[2] - 0.001, value )
 
                 return uid, length, step
             end
 
-            local storage_bar = get_storage( boss, "index_bar" )
-            if( storage_bar ~= nil ) then
-                bar_func = dofile_once( ComponentGetValue2( storage_bar, "value_string" ))
-            end
+            local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
+            if( func_path ~= nil ) then bar_func = dofile_once( func_path ) end
 
             uid,_,step = bar_func( gui, uid, pic_x, pic_y, {zs.in_world_back+0.01,zs.in_world_back}, data, boss, nil, {
                 low_hp = 0, low_hp_min = 0,
@@ -495,7 +496,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         if( not( this_data[2])) then
             data.memo.money = data.memo.money or this_data[3]
             local delta = this_data[3] - data.memo.money
-            data.memo.money = data.memo.money + limiter( limiter( 0.1*delta, 1, true ), delta )
+            data.memo.money = data.memo.money + pen.limiter( pen.limiter( 0.1*delta, 1, true ), delta )
             god_i_love_money_holy_fuck = data.memo.money
         end
 
@@ -550,14 +551,14 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
     function do_info( gui, p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         
-        txt = capitalizer( txt )
+        txt = pen.capitalizer( txt )
         if( is_right ) then
-            local w,h = get_text_dim( txt )
+            local w,h = pen.get_text_dims( txt )
             offset_x = w + 1
             p_x = p_x - offset_x
         end
         if( hover_func ~= nil ) then hover_func( offset_x ) end
-        uid = new_font_vanilla_shadow( gui, uid, p_x, p_y, zs.main, txt, {255,255,255,alpha}, true )
+        uid = new_shadowed_text( gui, uid, p_x, p_y, zs.main, txt, { alpha = alpha })
     end
     
     data.memo.ui_info = data.memo.ui_info or { 0, 0 }
@@ -606,7 +607,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
             end
             if( #dist_tbl > 0 ) then
-                local the_one = closest_getter( data.pointer_world[1], data.pointer_world[2], dist_tbl, nil, nil, function( thing )
+                local the_one = pen.get_closest( data.pointer_world[1], data.pointer_world[2], dist_tbl, nil, nil, function( thing )
                     return thing[2] == best_kind
                 end)
                 if( the_one ~= 0 ) then
@@ -837,7 +838,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
                     uid = info_func( gui, uid, screen_h, screen_w, data, {
                         id = sampo_spot,
-                        desc = { capitalizer( GameTextGetTranslatedOrNot( "$biome_boss_victoryroom" )), msg },
+                        desc = { pen.capitalizer( GameTextGetTranslatedOrNot( "$biome_boss_victoryroom" )), msg },
                         txt = "[COMPLETE]",
                         color = {{121,201,153}, clr },
                     }, zs, xys )
@@ -849,7 +850,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
         local entities = EntityGetInRadius( x, y, 200 ) or {}
         if( #entities > 0 ) then
-            local stuff_to_figure = table_init( #data.item_cats + 1, {})
+            local stuff_to_figure = pen.t.init( #data.item_cats + 1, {})
             local interactables = {}
             for i,ent in ipairs( entities ) do
                 local action_comp = EntityGetFirstComponentIncludingDisabled( ent, "InteractableComponent" )
@@ -869,7 +870,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
                     if( button_data[2] == 0 ) then
                         local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
-                        button_data[2] = check_bounds({x,y}, {b_x, b_y}, box_comp )
+                        button_data[2] = pen.check_bounds({x,y}, {b_x, b_y}, box_comp )
                     else
                         button_data[2] = dist <= button_data[2]
                     end
@@ -900,7 +901,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         if( item_data[2]) then
                             if( item_data[3] == 0 ) then
                                 local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
-                                item_data[3] = check_bounds({x,y}, {i_x,i_y}, box_comp )
+                                item_data[3] = pen.check_bounds({x,y}, {i_x,i_y}, box_comp )
                             else
                                 item_data[3] = dist <= item_data[3]
                             end
@@ -1047,7 +1048,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     local guiing = cat_callback( data, pickup_data.this_info, "on_gui_world" ) --this should be able to nuke the info_func
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
-                        local pic_x, pic_y = world2gui( i_x, i_y )
+                        local pic_x, pic_y = pen.world2gui( i_x, i_y )
                         uid, ignore_default = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
                     end
                 end
@@ -1057,7 +1058,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 end
                 if( pickup_data.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
-                    local anim_x, anim_y = world2gui( pkp_x, pkp_y )
+                    local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
                     table.insert( slot_anim, {
                         id = pickup_data.id,
                         x = anim_x,
@@ -1082,20 +1083,16 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
 
                 local will_show = true
                 local button_data = interactables[1]
-                local storage_check = get_storage( button_data[1], "index_check" )
-                if( storage_check ~= nil ) then
-                    button_data, will_show, do_action = dofile_once( ComponentGetValue2( storage_check, "value_string" ))( data, button_data )
-                end
+                local func_path = pen.magic_storage( button_data[1], "index_check", "value_string" )
+                if( func_path ~= nil ) then button_data, will_show, do_action = dofile_once( func_path )( data, button_data ) end
                 if( will_show ) then
                     local message_func = info_func
-                    local storage_info = get_storage( button_data[1], "index_message" )
-                    if( storage_check ~= nil ) then
-                        message_func = dofile_once( ComponentGetValue2( storage_info, "value_string" ))
-                    end
+                    local func_path = pen.magic_storage( button_data[1], "index_message", "value_string" )
+                    if( func_path ~= nil ) then message_func = dofile_once( func_path ) end
 
                     uid = message_func( gui, uid, screen_h, screen_w, data, {
                         id = button_data[1],
-                        desc = { capitalizer( button_data[3]), string.gsub( button_data[4], "$0", "[USE]" )},
+                        desc = { pen.capitalizer( button_data[3]), string.gsub( button_data[4], "$0", "[USE]" )},
                         txt = "[USE]",
                     }, zs, xys )
                 end
@@ -1126,17 +1123,17 @@ function new_generic_drop( this_item, data )
         play_sound( data, { "data/audio/Desktop/ui.bank", "ui/item_remove" })
         
         local do_default = true
-        local this_info = from_tbl_with_id( data.item_list, this_item )
+        local this_info = pen.t.get( data.item_list, this_item )
         local inv_data = data.inventories[ this_info.inv_id ] or {}
         local callback = cat_callback( data, this_info, "on_drop" )
         if( callback ~= nil ) then
             do_default = callback( this_item, data, this_info, false )
         end
         if( inv_data.update ~= nil ) then
-            if( inv_data.update( data, from_tbl_with_id( data.item_list, p, nil, nil, inv_data ), this_info, {})) then
-                local reset_id = get_item_owner( p, true )
+            if( inv_data.update( data, pen.t.get( data.item_list, p, nil, nil, inv_data ), this_info, {})) then
+                local reset_id = pen.get_item_owner( p, true )
                 if( reset_id > 0 ) then
-                    active_item_reset( reset_id )
+                    pen.reset_active_item( reset_id )
                 end
             end
         end
@@ -1157,7 +1154,7 @@ function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys )
         for i,extra_inv in ipairs( data.inventories_extra ) do
             local inv_data = data.inventories[ extra_inv ]
             local x, y = EntityGetTransform( extra_inv )
-            local pic_x, pic_y = world2gui( x, y )
+            local pic_x, pic_y = pen.world2gui( x, y )
             uid, data = inv_data.func( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, data.slot_func )
         end
     end
@@ -1169,7 +1166,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
     local mode_data = data.gmod
     if( mode_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
         local check = true
-        local w,h = get_text_dim( mode_data.name )
+        local w,h = pen.get_text_dims( mode_data.name )
         local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
         if( not( mode_data.show_full )) then
             pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
@@ -1241,7 +1238,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
 
                 play_sound( data, gonna_reset and "reset" or "click" )
-                ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", new_mode )
+                pen.magic_storage( data.main_id, "global_mode", "value_int", new_mode )
             end
             
             uid = pen.new_text( gui, uid, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, { alpha = alpha })

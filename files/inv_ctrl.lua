@@ -39,67 +39,67 @@ local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 if( #ctrl_bodies > 0 ) then
     local controller_id = ctrl_bodies[1]
     global_settings = global_settings or {
-        player_core_off = ComponentGetValue2( get_storage( controller_id, "player_core_off" ), "value_float" ),
-        throw_pos_rad = ComponentGetValue2( get_storage( controller_id, "throw_pos_rad" ), "value_int" ),
-        throw_pos_size = ComponentGetValue2( get_storage( controller_id, "throw_pos_size" ), "value_int" ),
-        throw_force = ComponentGetValue2( get_storage( controller_id, "throw_force" ), "value_float" ),
+        player_core_off = pen.magic_storage( controller_id, "player_core_off", "value_float" ),
+        throw_pos_rad = pen.magic_storage( controller_id, "throw_pos_rad", "value_int" ),
+        throw_pos_size = pen.magic_storage( controller_id, "throw_pos_size", "value_int" ),
+        throw_force = pen.magic_storage( controller_id, "throw_force", "value_float" ),
 
-        quickest_size = ComponentGetValue2( get_storage( controller_id, "quickest_size" ), "value_int" ),
-        inv_spacings = D_extractor( ComponentGetValue2( get_storage( controller_id, "inv_spacings" ), "value_string" ), true ),
-        effect_icon_spacing = ComponentGetValue2( get_storage( controller_id, "effect_icon_spacing" ), "value_int" ),
-        min_effect_duration = ComponentGetValue2( get_storage( controller_id, "min_effect_duration" ), "value_float" ),
-        spell_anim_frames = ComponentGetValue2( get_storage( controller_id, "spell_anim_frames" ), "value_int" ),
+        quickest_size = pen.magic_storage( controller_id, "quickest_size", "value_int" ),
+        inv_spacings = D_extractor( pen.magic_storage( controller_id, "inv_spacings", "value_string" ), true ),
+        effect_icon_spacing = pen.magic_storage( controller_id, "effect_icon_spacing", "value_int" ),
+        min_effect_duration = pen.magic_storage( controller_id, "min_effect_duration", "value_float" ),
+        spell_anim_frames = pen.magic_storage( controller_id, "spell_anim_frames", "value_int" ),
 
-        hp_threshold = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold" ), "value_float" ),
-        hp_threshold_min = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_threshold_min" ), "value_float" ),
-        hp_flashing = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_period" ), "value_int" ),
-        hp_flashing_intensity = ComponentGetValue2( get_storage( controller_id, "low_hp_flashing_intensity" ), "value_float" ),
+        hp_threshold = pen.magic_storage( controller_id, "low_hp_flashing_threshold", "value_float" ),
+        hp_threshold_min = pen.magic_storage( controller_id, "low_hp_flashing_threshold_min", "value_float" ),
+        hp_flashing = pen.magic_storage( controller_id, "low_hp_flashing_period", "value_int" ),
+        hp_flashing_intensity = pen.magic_storage( controller_id, "low_hp_flashing_intensity", "value_float" ),
 
-        info_radius = ComponentGetValue2( get_storage( controller_id, "info_radius" ), "value_int" ),
-        info_threshold = ComponentGetValue2( get_storage( controller_id, "info_threshold" ), "value_float" ),
-        info_fading = ComponentGetValue2( get_storage( controller_id, "info_fading" ), "value_int" ),
+        info_radius = pen.magic_storage( controller_id, "info_radius", "value_int" ),
+        info_threshold = pen.magic_storage( controller_id, "info_threshold", "value_float" ),
+        info_fading = pen.magic_storage( controller_id, "info_fading", "value_int" ),
 
-        loot_marker = ComponentGetValue2( get_storage( controller_id, "loot_marker" ), "value_string" ),
+        loot_marker = pen.magic_storage( controller_id, "loot_marker", "value_string" ),
         slot_pic = {
-            bg = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg" ), "value_string" ),
-            bg_alt = ComponentGetValue2( get_storage( controller_id, "slot_pic_bg_alt" ), "value_string" ),
-            hl = ComponentGetValue2( get_storage( controller_id, "slot_pic_hl" ), "value_string" ),
-            active = ComponentGetValue2( get_storage( controller_id, "slot_pic_active" ), "value_string" ),
-            locked = ComponentGetValue2( get_storage( controller_id, "slot_pic_locked" ), "value_string" ),
+            bg = pen.magic_storage( controller_id, "slot_pic_bg", "value_string" ),
+            bg_alt = pen.magic_storage( controller_id, "slot_pic_bg_alt", "value_string" ),
+            hl = pen.magic_storage( controller_id, "slot_pic_hl", "value_string" ),
+            active = pen.magic_storage( controller_id, "slot_pic_active", "value_string" ),
+            locked = pen.magic_storage( controller_id, "slot_pic_locked", "value_string" ),
         },
         sfxes = {
-            click = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_click" ), "value_string" )),
-            select = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_select" ), "value_string" )),
-            hover = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_hover" ), "value_string" )),
-            open = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_open" ), "value_string" )),
-            close = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_close" ), "value_string" )),
-            error = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_error" ), "value_string" )),
-            reset = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_reset" ), "value_string" )),
-            move_empty = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_move_empty" ), "value_string" )),
-            move_item = D_extractor( ComponentGetValue2( get_storage( controller_id, "sfx_move_item" ), "value_string" )),
+            click = D_extractor( pen.magic_storage( controller_id, "sfx_click", "value_string" )),
+            select = D_extractor( pen.magic_storage( controller_id, "sfx_select", "value_string" )),
+            hover = D_extractor( pen.magic_storage( controller_id, "sfx_hover", "value_string" )),
+            open = D_extractor( pen.magic_storage( controller_id, "sfx_open", "value_string" )),
+            close = D_extractor( pen.magic_storage( controller_id, "sfx_close", "value_string" )),
+            error = D_extractor( pen.magic_storage( controller_id, "sfx_error", "value_string" )),
+            reset = D_extractor( pen.magic_storage( controller_id, "sfx_reset", "value_string" )),
+            move_empty = D_extractor( pen.magic_storage( controller_id, "sfx_move_empty", "value_string" )),
+            move_item = D_extractor( pen.magic_storage( controller_id, "sfx_move_item", "value_string" )),
         },
         
-        always_show_full = ComponentGetValue2( get_storage( controller_id, "always_show_full" ), "value_bool" ),
-        no_inv_shooting = ComponentGetValue2( get_storage( controller_id, "no_inv_shooting" ), "value_bool" ),
-        do_vanilla_dropping = ComponentGetValue2( get_storage( controller_id, "do_vanilla_dropping" ), "value_bool" ),
-        no_action_on_drop = ComponentGetValue2( get_storage( controller_id, "no_action_on_drop" ), "value_bool" ),
-        force_vanilla_fullest = ComponentGetValue2( get_storage( controller_id, "force_vanilla_fullest" ), "value_bool" ),
+        always_show_full = pen.magic_storage( controller_id, "always_show_full", "value_bool" ),
+        no_inv_shooting = pen.magic_storage( controller_id, "no_inv_shooting", "value_bool" ),
+        do_vanilla_dropping = pen.magic_storage( controller_id, "do_vanilla_dropping", "value_bool" ),
+        no_action_on_drop = pen.magic_storage( controller_id, "no_action_on_drop", "value_bool" ),
+        force_vanilla_fullest = pen.magic_storage( controller_id, "force_vanilla_fullest", "value_bool" ),
 
-        max_perks = ComponentGetValue2( get_storage( controller_id, "max_perk_count" ), "value_int" ),
-        short_hp = ComponentGetValue2( get_storage( controller_id, "short_hp" ), "value_bool" ),
-        short_gold = ComponentGetValue2( get_storage( controller_id, "short_gold" ), "value_bool" ),
-        fancy_potion_bar = ComponentGetValue2( get_storage( controller_id, "fancy_potion_bar" ), "value_bool" ),
-        reload_threshold = ComponentGetValue2( get_storage( controller_id, "reload_threshold" ), "value_int" ),
+        max_perks = pen.magic_storage( controller_id, "max_perk_count", "value_int" ),
+        short_hp = pen.magic_storage( controller_id, "short_hp", "value_bool" ),
+        short_gold = pen.magic_storage( controller_id, "short_gold", "value_bool" ),
+        fancy_potion_bar = pen.magic_storage( controller_id, "fancy_potion_bar", "value_bool" ),
+        reload_threshold = pen.magic_storage( controller_id, "reload_threshold", "value_int" ),
 
-        info_pointer = ComponentGetValue2( get_storage( controller_id, "info_pointer" ), "value_bool" ),
-        info_pointer_alpha = ComponentGetValue2( get_storage( controller_id, "info_pointer_alpha" ), "value_int" )*0.1,
-        info_mtr_hotkeyed = ComponentGetValue2( get_storage( controller_id, "info_mtr_hotkeyed" ), "value_bool" ),
-        info_mtr_static = ComponentGetValue2( get_storage( controller_id, "info_mtr_static" ), "value_bool" ),
+        info_pointer = pen.magic_storage( controller_id, "info_pointer", "value_bool" ),
+        info_pointer_alpha = pen.magic_storage( controller_id, "info_pointer_alpha", "value_int" )*0.1,
+        info_mtr_hotkeyed = pen.magic_storage( controller_id, "info_mtr_hotkeyed", "value_bool" ),
+        info_mtr_static = pen.magic_storage( controller_id, "info_mtr_static", "value_bool" ),
 
-        mute_applets = ComponentGetValue2( get_storage( controller_id, "mute_applets" ), "value_bool" ),
-        no_wand_scaling = ComponentGetValue2( get_storage( controller_id, "no_wand_scaling" ), "value_bool" ),
-        allow_tips_always = ComponentGetValue2( get_storage( controller_id, "allow_tips_always" ), "value_bool" ),
-        in_world_pickups = ComponentGetValue2( get_storage( controller_id, "in_world_pickups" ), "value_bool" ),
+        mute_applets = pen.magic_storage( controller_id, "mute_applets", "value_bool" ),
+        no_wand_scaling = pen.magic_storage( controller_id, "no_wand_scaling", "value_bool" ),
+        allow_tips_always = pen.magic_storage( controller_id, "allow_tips_always", "value_bool" ),
+        in_world_pickups = pen.magic_storage( controller_id, "in_world_pickups", "value_bool" ),
     }
     global_settings.main_dump = global_settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
     
@@ -122,7 +122,7 @@ if( #ctrl_bodies > 0 ) then
         end
     end
 
-    local forced_state = ComponentGetValue2( get_storage( controller_id, "forced_state" ), "value_int" )
+    local forced_state = pen.magic_storage( controller_id, "forced_state", "value_int" )
     local is_going = forced_state > 0
     if( forced_state == 0 ) then
         is_going = ComponentGetValue2( ctrl_comp, "enabled" )
@@ -142,7 +142,7 @@ if( #ctrl_bodies > 0 ) then
         local m_x, m_y = DEBUG_GetMouseWorld()
         local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
         mouse_memo_world = { m_x, m_y }
-        local mui_x, mui_y = world2gui( m_x, m_y )
+        local mui_x, mui_y = pen.world2gui( m_x, m_y )
         local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
         mouse_memo = { mui_x, mui_y }
         
@@ -158,7 +158,7 @@ if( #ctrl_bodies > 0 ) then
         end
         if( mtr_probe > 0 ) then
             local jitter_mag = 0.5
-            EntityApplyTransform( mtr_probe, m_x + jitter_mag*get_sign( math.random(-1,0)), m_y + jitter_mag*get_sign( math.random(-1,0)))
+            EntityApplyTransform( mtr_probe, m_x + jitter_mag*pen.get_sign( math.random(-1,0)), m_y + jitter_mag*pen.get_sign( math.random(-1,0)))
             
             local mtr_list = {}
             local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
@@ -181,7 +181,7 @@ if( #ctrl_bodies > 0 ) then
         end
         table.remove( mtr_probe_memo, 1 )
         table.insert( mtr_probe_memo, pointer_mtr )
-        local most_mtr, most_mtr_count = get_most_often( mtr_probe_memo )
+        local most_mtr, most_mtr_count = pen.t.get_most( mtr_probe_memo )
         pointer_mtr = most_mtr_count > 5 and most_mtr or 0
         
         local epsilon = global_settings.min_effect_duration
@@ -204,7 +204,7 @@ if( #ctrl_bodies > 0 ) then
             end
             
             local simple_effects = {}
-            child_play( hooman, function( parent, child, i )
+            pen.child_play( hooman, function( parent, child, i )
                 local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
                 if( effect_comp ~= nil ) then
                     local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
@@ -235,7 +235,7 @@ if( #ctrl_bodies > 0 ) then
                 for i,duration in ipairs( ing_frame ) do
                     local effect_id = i
                     if( duration ~= 0 ) then
-                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
+                        local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
                         local time = get_effect_duration( duration, effect_info, epsilon )
                         if( effect_info.id ~= nil and time ~= 0 ) then
                             local mtr = GameTextGetTranslatedOrNot( CellFactory_GetUIName( ing_matter[effect_id]))
@@ -305,7 +305,7 @@ if( #ctrl_bodies > 0 ) then
                     local effect_id = i
                     local perc = get_stain_perc( duration )
                     if( perc > 0 ) then
-                        local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
+                        local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
                         if( effect_info.id ~= nil ) then
                             local effect_data = {
                                 id = effect_id,
@@ -326,7 +326,7 @@ if( #ctrl_bodies > 0 ) then
                     return a.id > b.id
                 end)
                 if( dmg_comp ~= nil and ComponentGetIsEnabled( dmg_comp ) and ComponentGetValue2( dmg_comp, "mIsOnFire" )) then
-                    local fire_info = from_tbl_with_id( status_effects, "ON_FIRE" )
+                    local fire_info = pen.t.get( status_effects, "ON_FIRE" )
                     local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
                     table.insert( effect_tbl.stains, 1, {
                         pic = fire_info.ui_icon,
@@ -340,7 +340,7 @@ if( #ctrl_bodies > 0 ) then
                 end
             end
 
-            child_play_full( hooman, function( child )
+            pen.child_play_full( hooman, function( child )
                 local info_comp = EntityGetFirstComponentIncludingDisabled( child, "UIIconComponent" )
                 if( info_comp ~= nil and ComponentGetValue2( info_comp, "display_in_hud" )) then
                     local icon_info = {
@@ -352,7 +352,7 @@ if( #ctrl_bodies > 0 ) then
                     }
                     local is_perk = ComponentGetValue2( info_comp, "is_perk" )
                     if( is_perk ) then
-                        local _, true_id = from_tbl_with_id( perk_tbl, icon_info.pic, nil, "pic" )
+                        local _, true_id = pen.t.get( perk_tbl, icon_info.pic, nil, "pic" )
                         if( true_id == nil ) then
                             if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
                                 icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."@"..icon_info.tip
@@ -375,15 +375,15 @@ if( #ctrl_bodies > 0 ) then
                             perk_tbl[true_id].count = perk_tbl[true_id].count + 1
                         end
                     else
-                        local _, true_id = from_tbl_with_id( effect_tbl.misc, icon_info.pic, nil, "pic" )
+                        local _, true_id = pen.t.get( effect_tbl.misc, icon_info.pic, nil, "pic" )
 
                         icon_info.amount = -2
                         if( #simple_effects > 0 and EntityGetParent( child ) == hooman ) then
-                            local effect = from_tbl_with_id( simple_effects, child ) or {}
+                            local effect = pen.t.get( simple_effects, child ) or {}
                             if( #effect > 0 ) then
                                 icon_info.amount = ComponentGetValue2( effect[2], "frames" )
                                 if( true_id == nil ) then
-                                    local effect_info = get_thresholded_effect( from_tbl_with_id( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
+                                    local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
                                     if( effect_info.id ~= nil ) then
                                         icon_info.main_info = effect_info
                                         -- icon_info.pic = effect_info.ui_icon
@@ -482,7 +482,7 @@ if( #ctrl_bodies > 0 ) then
             frame_num = current_frame,
             pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png",
             nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png",
-            global_mode = ComponentGetValue2( get_storage( controller_id, "global_mode" ), "value_int" ),
+            global_mode = pen.magic_storage( controller_id, "global_mode", "value_int" ),
 
             gmod = {},
             xys = pos_tbl,
@@ -497,14 +497,14 @@ if( #ctrl_bodies > 0 ) then
             icon_data = effect_tbl,
             perk_data = perk_tbl,
 
-            active_item = get_active_item( hooman ),
+            active_item = pen.get_active_item( hooman ),
             active_info = {},
             just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
             no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
             can_tinker = false,
             sampo = 0,
 
-            inventories_player = { get_hooman_child( hooman, "inventory_quick" ), get_hooman_child( hooman, "inventory_full" )},
+            inventories_player = { pen.get_child( hooman, "inventory_quick" ), pen.get_child( hooman, "inventory_full" )},
             inventories = {},
             inventories_init = {},
             inventories_extra = {},
@@ -513,10 +513,10 @@ if( #ctrl_bodies > 0 ) then
             item_list = {},
 
             dragger = {
-                swap_now = ComponentGetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool" ),
-                item_id = ComponentGetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int" ),
-                inv_type = ComponentGetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float" ),
-                is_quickest = ComponentGetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool" ),
+                swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
+                item_id = pen.magic_storage( controller_id, "dragger_item_id", "value_int" ),
+                inv_type = pen.magic_storage( controller_id, "dragger_inv_type", "value_float" ),
+                is_quickest = pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool" ),
             },
 
             player_core_off = global_settings.player_core_off,
@@ -570,7 +570,7 @@ if( #ctrl_bodies > 0 ) then
         }
 
         data.player_xy = { hooman_x, hooman_y + data.player_core_off }
-        data.can_tinker = get_tinker_state( data.player_id, data.player_xy[1], data.player_xy[2])
+        data.can_tinker = pen.get_tinker_state( data.player_id, data.player_xy[1], data.player_xy[2])
         if( ctrl_comp ~= nil ) then
             data.Controls = {
                 ctrl_comp,
@@ -637,7 +637,7 @@ if( #ctrl_bodies > 0 ) then
         
         data = get_items( hooman, data )
         if( data.active_item > 0 ) then
-            data.active_info = from_tbl_with_id( data.item_list, data.active_item ) or {}
+            data.active_info = pen.t.get( data.item_list, data.active_item ) or {}
             if( data.active_info.id ~= nil ) then
                 local abil_comp = data.active_info.AbilityC
                 if( abil_comp ~= nil ) then
@@ -657,13 +657,13 @@ if( #ctrl_bodies > 0 ) then
         for i,inv_info in pairs( data.inventories ) do
             if( inv_info.kind[1] == "quick" ) then
                 data.slot_state[inv_info.id] = {
-                    quickest = table_init( inv_info.size[1], false ),
-                    quick = table_init( inv_info.size[2], false ),
+                    quickest = pen.t.init( inv_info.size[1], false ),
+                    quick = pen.t.init( inv_info.size[2], false ),
                 }
             else
-                data.slot_state[inv_info.id] = table_init( inv_info.size[1], false )
+                data.slot_state[inv_info.id] = pen.t.init( inv_info.size[1], false )
                 for i,slot in ipairs( data.slot_state[inv_info.id]) do
-                    data.slot_state[inv_info.id][i] = table_init( inv_info.size[2], false )
+                    data.slot_state[inv_info.id][i] = pen.t.init( inv_info.size[2], false )
                 end
             end
         end
@@ -797,7 +797,7 @@ if( #ctrl_bodies > 0 ) then
             end
         end
         if( not( data.gmod.nuke_custom )) then
-            for cid,cfunc in magic_sorter( inv.custom ) do
+            for cid,cfunc in pen.t.order( inv.custom ) do
                 uid, data, pos_tbl[ cid ] = cfunc( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
             end
         end
@@ -838,7 +838,7 @@ if( #ctrl_bodies > 0 ) then
             elseif( data.dragger.item_id == 0 ) then
                 gonna_drop = false
             else
-                uid = new_font_vanilla_shadow( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
+                uid = new_shadowed_text( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
             end
         end
 
@@ -850,35 +850,33 @@ if( #ctrl_bodies > 0 ) then
         
         if( slot_going or data.dragger.item_id ~= 0 ) then
             if( data.dragger.swap_soon ) then
-                ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", true )
+                pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", true )
             else
                 if( not( slot_going ) or data.dragger.swap_now ) then
                     if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
-                        local storage_external = get_storage( controller_id, "dragger_done_externally" )
+                        local storage_external = pen.magic_storage( controller_id, "dragger_done_externally" )
                         if( ComponentGetValue2( storage_external, "value_bool" )) then
                             ComponentSetValue2( storage_external, "value_bool", false )
                         else
                             if( not( data.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                                 inv.drop( data.dragger.item_id, data )
-                            else
-                                play_sound( data, "error" )
-                            end
+                            else play_sound( data, "error" ) end
                         end
                     end
                     gonna_drop = false
                     slot_memo = nil
                     data.dragger = {}
                 end
-                ComponentSetValue2( get_storage( controller_id, "dragger_swap_now" ), "value_bool", false )
-                ComponentSetValue2( get_storage( controller_id, "dragger_item_id" ), "value_int", data.dragger.item_id or 0 )
-                ComponentSetValue2( get_storage( controller_id, "dragger_inv_type" ), "value_float", data.dragger.inv_type or 0 )
-                ComponentSetValue2( get_storage( controller_id, "dragger_is_quickest" ), "value_bool", data.dragger.is_quickest or false )
+                pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", false )
+                pen.magic_storage( controller_id, "dragger_item_id", "value_int", data.dragger.item_id or 0 )
+                pen.magic_storage( controller_id, "dragger_inv_type", "value_float", data.dragger.inv_type or 0 )
+                pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool", data.dragger.is_quickest or false )
             end
             slot_going = false
         end
     end
     
-    local storage_reset = get_storage( controller_id, "reset_settings" )
+    local storage_reset = pen.magic_storage( controller_id, "reset_settings" )
     if( ComponentGetValue2( storage_reset, "value_bool" )) then
         ComponentSetValue2( storage_reset, "value_bool", false )
         global_settings = nil

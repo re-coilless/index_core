@@ -1,11 +1,9 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
 local entity_id = GetUpdatedEntityID()
-if( not( ComponentGetValue2( get_storage( entity_id, "override_settings" ), "value_bool" ))) then
-    return
-end
+if( not( pen.magic_storage( entity_id, "override_settings", "value_bool" ))) then return end
 
-local storage_update = get_storage( entity_id, "update_settings" )
+local storage_update = pen.magic_storage( entity_id, "update_settings" )
 if( ComponentGetValue2( storage_update, "value_bool" )) then
     local type_tbl = { ["boolean"] = "value_bool", ["number"] = "value_int", ["string"] = "value_string" }
     local var_tbl = {
@@ -34,10 +32,10 @@ if( ComponentGetValue2( storage_update, "value_bool" )) then
     for name,var in pairs( var_tbl ) do
         local v = ModSettingGetNextValue( "index_core."..name )
         if( v ~= nil ) then
-            ComponentSetValue2( get_storage( entity_id, var ), type_tbl[ type( v )], v )
+            pen.magic_storage( entity_id, var, type_tbl[ type( v )], v )
         end
     end
 
     ComponentSetValue2( storage_update, "value_bool", false )
-    ComponentSetValue2( get_storage( entity_id, "reset_settings" ), "value_bool", true )
+    pen.magic_storage( entity_id, "reset_settings", "value_bool", true )
 end

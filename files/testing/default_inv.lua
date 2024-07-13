@@ -28,14 +28,10 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
                 end
             end
             
-            local pic = data.loot_marker
-            local storage_pic = get_storage( inv_id, "loot_marker" )
-            if( storage_pic ~= nil ) then
-                pic = ComponentGetValue2( storage_pic, "value_string" )
-            end
+            local pic = pen.magic_storage( inv_id, "loot_marker", "value_string" ) or data.loot_marker
             
             local alpha, clicked, is_hovered = 0.7, false, false
-            local w,h = get_pic_dim( pic )
+            local w, h = pen.get_pic_dims( pic )
             colourer( data.the_gui, {0,0,0})
             uid = new_image( data.the_gui, uid, pic_x - w/2, pic_y - w/2, zs.in_world_back + 0.0001, pic, nil, nil, 0.3, true )
             if( not( data.is_opened )) then
@@ -46,7 +42,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
                     data.inv_toggle = true
                     for i,gmod in ipairs( data.gmod.gmods ) do
                         if( gmod.allow_external_inventories ) then
-                            ComponentSetValue2( get_storage( data.main_id, "global_mode" ), "value_int", i )
+                            pen.magic_storage( data.main_id, "global_mode", "value_int", i )
                             break
                         end
                     end

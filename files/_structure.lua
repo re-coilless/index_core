@@ -184,7 +184,7 @@ local ITEM_CATS = {
         on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             if( data.gmod.allow_wand_editing and john_bool.is_quick and data.is_opened ) then
                 pic_x, pic_y = unpack( data.wand_inventory == nil and data.xys.full_inv or data.wand_inventory )
-                uid, w, h = data.wand_func( gui, uid, pic_x + 2*b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
+                uid, w, h = data.wand_func( gui, uid, pic_x + 2*pen.b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
                 data.wand_inventory = { pic_x, pic_y + h }
             end
             
@@ -193,7 +193,7 @@ local ITEM_CATS = {
         on_tooltip = new_vanilla_wtt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0,0
-            if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = get_pic_dim( data.slot_pic.bg ) end
+            if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = pen.get_pic_dims( data.slot_pic.bg ) end
             uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
@@ -207,7 +207,7 @@ local ITEM_CATS = {
                 for i,col in ipairs( slot_data ) do
                     for e,slot in ipairs( col ) do
                         if( slot ) then
-                            local slot_info = from_tbl_with_id( data.item_list, slot, nil, nil, {})
+                            local slot_info = pen.t.get( data.item_list, slot, nil, nil, {})
                             if( slot_info.is_spell ) then
                                 if( slot_info.charges > 0 ) then
                                     this_info.charges = slot_info.charges
@@ -309,11 +309,8 @@ local ITEM_CATS = {
             end
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
             
-            this_info.potion_cutout = 3 - b2n( this_info.matter_info[1] < this_info.matter_info[2][1])
-            local storage_cutout = get_storage( item_id, "potion_cutout" )
-            if( storage_cutout ~= nil ) then
-                this_info.potion_cutout = ComponentGetValue2( storage_cutout, "value_int" )
-            end
+            this_info.potion_cutout = pen.magic_storage( item_id, "potion_cutout", "value_int" )
+                or ( 3 - pen.b2n( this_info.matter_info[1] < this_info.matter_info[2][1]))
 
             return data, this_info
         end,
@@ -324,7 +321,7 @@ local ITEM_CATS = {
             local content_total = mtrs[1]
             local content_tbl = mtrs[2]
             
-            local w, h = get_pic_dim( data.slot_pic.bg )
+            local w, h = pen.get_pic_dims( data.slot_pic.bg )
             if( not( john_bool.is_full )) then
                 pic_x, pic_y = pic_x + w/2, pic_y + h/2
                 w, h = w - 4, h - 4
@@ -397,7 +394,7 @@ local ITEM_CATS = {
             local z = slot_z( data, this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
             uid, pic_x, pic_y = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
-            colourer( gui, uint2color( GameGetPotionColorUint( this_info.id )))
+            colourer( gui, pen.magic_uint( GameGetPotionColorUint( this_info.id )))
             uid = new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
             
             return uid, this_info, content_total ~= 0, true
@@ -469,7 +466,7 @@ local ITEM_CATS = {
                                                 local count = temp - content_total
                                                 content_total = temp
 
-                                                local _,pre_mtr = from_tbl_with_id( this_info.matter_info[2][2], mtr[1])
+                                                local _,pre_mtr = pen.t.get( this_info.matter_info[2][2], mtr[1])
                                                 pre_mtr = this_info.matter_info[2][2][ pre_mtr or -1 ] or {0,0}
                                                 AddMaterialInventoryMaterial( item_id, name, pre_mtr[2] + count )
                                                 
@@ -532,14 +529,14 @@ local ITEM_CATS = {
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
             
-            this_info.tip_name = capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
+            this_info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
             this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 221 )
             this_info.desc = full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
-                parent_id = from_tbl_with_id( item_list_wip, parent_id, nil, nil, {})
+                parent_id = pen.t.get( item_list_wip, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then
                     this_info.in_wand = parent_id.id
                 end
@@ -559,11 +556,11 @@ local ITEM_CATS = {
         end,
 
         on_inv_check = function( data, this_info, inv_info )
-            return from_tbl_with_id( inv_info.kind, "quickest" ) == 0
+            return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
         on_inv_swap = function( data, this_info, slot_data )
             if( data.active_item == this_info.id ) then
-                active_item_reset( data.player_id )
+                pen.reset_active_item( data.player_id )
             end
         end,
         on_tooltip = new_vanilla_stt,
