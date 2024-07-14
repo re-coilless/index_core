@@ -72,8 +72,9 @@ local APPLETS = {
             desc = "The complete user guide.",
 
             pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
-                uid = new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z, "data/ui_gfx/status_indicators/confusion.png", nil, nil, nil, true, angle )
-                local clicked,_,hovered = GuiGetPreviousWidgetInfo( gui )
+                local clicked, is_hovered = false, false
+                uid, clicked, _, is_hovered = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z,
+                    "data/ui_gfx/status_indicators/confusion.png", { can_click = true, angle = angle })
                 return uid, clicked, hovered
             end,
             toggle = function( data, state ) end,
@@ -267,7 +268,7 @@ local ITEM_CATS = {
             local v1, v2 = get_entity_name( item_id, item_comp )
             local name, cap = v1, ""
             if( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil ) then
-                name, cap = get_potion_info( item_id, v1, barrel_size, get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+                name, cap = get_potion_info( item_id, v1, barrel_size, pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" )))
             end
             return name..( cap or "" )
         end,
@@ -278,7 +279,7 @@ local ITEM_CATS = {
             this_info.MatterC = matter_comp
             this_info.matter_info = {
                 ComponentGetValue2( matter_comp, "max_capacity" ),
-                { get_matters( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
+                { pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
                 ComponentGetValue2( this_info.ItemC, "drinkable" ),
             }
 
@@ -332,16 +333,13 @@ local ITEM_CATS = {
                 local alpha = john_bool.is_dragged and 0.7 or 0.9
                 local delta = 0
                 for i,m in ipairs( content_tbl ) do
-                    local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
-                    colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
-                    delta = delta + sz
-                    uid = new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ), data.pixel, w, sz, alpha )
-                    if( delta >= h ) then
-                        break
-                    end
+                    local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
+                    uid = pen.new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ),
+                        data.pixel, { color = get_matter_colour( CellFactory_GetName( m[1])), s_x = w, s_y = sz, alpha = alpha })
+                    if( delta >= h ) then break end
                 end
                 if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
-                    uid = new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, w, 0.5 )
+                    uid = pen.new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, { s_x = w, s_y = 0.5 })
                 end
             end
 
@@ -394,8 +392,8 @@ local ITEM_CATS = {
             local z = slot_z( data, this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
             uid, pic_x, pic_y = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
-            colourer( gui, pen.magic_uint( GameGetPotionColorUint( this_info.id )))
-            uid = new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic, hov_scale, hov_scale, nil, nil, angle )
+            uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic,
+                { color = pen.magic_uint( GameGetPotionColorUint( this_info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
             return uid, this_info, content_total ~= 0, true
         end,
@@ -456,7 +454,7 @@ local ITEM_CATS = {
                             local do_sound = false
                             local mtr_comp = EntityGetFirstComponentIncludingDisabled( data.memo.john_pouring, "MaterialInventoryComponent" )
                             if( ComponentGetIsEnabled( mtr_comp )) then
-                                local total, mttrs = get_matters( ComponentGetValue2( mtr_comp, "count_per_material_type" ))
+                                local total, mttrs = pen.get_matter( ComponentGetValue2( mtr_comp, "count_per_material_type" ))
                                 if( total > 0 ) then
                                     for i,mtr in ipairs( mttrs ) do
                                         if( mtr[2] > 0 ) then
@@ -531,7 +529,7 @@ local ITEM_CATS = {
             
             this_info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
-            this_info.tip_name = font_liner( string.upper( this_info.tip_name ), 221 )
+            this_info.tip_name = string.upper( this_info.tip_name )
             this_info.desc = full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
@@ -571,7 +569,7 @@ local ITEM_CATS = {
             end
             local pic_z = slot_z( data, this_info.id, zs.icons )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
-            if( is_considered ) then colourer( gui, {185,220,223}) end
+            if( is_considered ) then pen.colourer( gui, {185,220,223}) end
             uid = new_spell_frame( gui, uid, pic_x, pic_y, zs.icons + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then

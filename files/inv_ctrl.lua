@@ -45,7 +45,7 @@ if( #ctrl_bodies > 0 ) then
         throw_force = pen.magic_storage( controller_id, "throw_force", "value_float" ),
 
         quickest_size = pen.magic_storage( controller_id, "quickest_size", "value_int" ),
-        inv_spacings = D_extractor( pen.magic_storage( controller_id, "inv_spacings", "value_string" ), true ),
+        inv_spacings = pen.t.pack( pen.magic_storage( controller_id, "inv_spacings", "value_string" ), true ),
         effect_icon_spacing = pen.magic_storage( controller_id, "effect_icon_spacing", "value_int" ),
         min_effect_duration = pen.magic_storage( controller_id, "min_effect_duration", "value_float" ),
         spell_anim_frames = pen.magic_storage( controller_id, "spell_anim_frames", "value_int" ),
@@ -68,15 +68,15 @@ if( #ctrl_bodies > 0 ) then
             locked = pen.magic_storage( controller_id, "slot_pic_locked", "value_string" ),
         },
         sfxes = {
-            click = D_extractor( pen.magic_storage( controller_id, "sfx_click", "value_string" )),
-            select = D_extractor( pen.magic_storage( controller_id, "sfx_select", "value_string" )),
-            hover = D_extractor( pen.magic_storage( controller_id, "sfx_hover", "value_string" )),
-            open = D_extractor( pen.magic_storage( controller_id, "sfx_open", "value_string" )),
-            close = D_extractor( pen.magic_storage( controller_id, "sfx_close", "value_string" )),
-            error = D_extractor( pen.magic_storage( controller_id, "sfx_error", "value_string" )),
-            reset = D_extractor( pen.magic_storage( controller_id, "sfx_reset", "value_string" )),
-            move_empty = D_extractor( pen.magic_storage( controller_id, "sfx_move_empty", "value_string" )),
-            move_item = D_extractor( pen.magic_storage( controller_id, "sfx_move_item", "value_string" )),
+            click = pen.t.pack( pen.magic_storage( controller_id, "sfx_click", "value_string" )),
+            select = pen.t.pack( pen.magic_storage( controller_id, "sfx_select", "value_string" )),
+            hover = pen.t.pack( pen.magic_storage( controller_id, "sfx_hover", "value_string" )),
+            open = pen.t.pack( pen.magic_storage( controller_id, "sfx_open", "value_string" )),
+            close = pen.t.pack( pen.magic_storage( controller_id, "sfx_close", "value_string" )),
+            error = pen.t.pack( pen.magic_storage( controller_id, "sfx_error", "value_string" )),
+            reset = pen.t.pack( pen.magic_storage( controller_id, "sfx_reset", "value_string" )),
+            move_empty = pen.t.pack( pen.magic_storage( controller_id, "sfx_move_empty", "value_string" )),
+            move_item = pen.t.pack( pen.magic_storage( controller_id, "sfx_move_item", "value_string" )),
         },
         
         always_show_full = pen.magic_storage( controller_id, "always_show_full", "value_bool" ),
@@ -705,8 +705,9 @@ if( #ctrl_bodies > 0 ) then
                 name = "CLOSE",
                 
                 pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
-                    uid = new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z, "data/ui_gfx/status_indicators/neutralized.png", nil, nil, nil, true, angle )
-                    local clicked,_,hovered = GuiGetPreviousWidgetInfo( gui )
+                    local clicked, is_hovered = false, false
+                    uid, clicked, _, is_hovered = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z,
+                        "data/ui_gfx/status_indicators/neutralized.png", { can_click = true, angle = angle })
                     return uid, clicked, hovered
                 end,
                 toggle = function( data, state )
@@ -808,8 +809,8 @@ if( #ctrl_bodies > 0 ) then
         if( data.gmod.allow_shooting ) then
             data.no_inv_shooting = false
         end
-        if( data.no_inv_shooting and data.is_opened ) then
-            uid = new_button( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png" )
+        if( data.no_inv_shooting and data.is_opened ) then --replace this with naked interface
+            uid = pen.new_image( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png", { can_click = true })
         end
 
         if( data.inv_toggle and not( data.gmod.no_inv_toggle or false )) then
@@ -892,7 +893,7 @@ if( fake_gui ~= nil ) then
         end
     end
 else
-    real_gui = gui_killer( real_gui )
+    real_gui = pen.gui_killer( real_gui )
     if( EntityGetIsAlive( mtr_probe )) then
        EntityKill( mtr_probe )
        mtr_probe_memo = nil

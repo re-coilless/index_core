@@ -7,12 +7,14 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.item_list
     if( this_data ~= nil ) then
         if( data.is_opened ) then
-            uid = new_image( gui, uid, 0, 0, zs.background, data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
+            uid = pen.new_image( gui, uid, 0, 0, zs.background,
+                data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
             
             if( not( data.gmod.can_see )) then
                 local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
-                uid = new_image( gui, uid, -2, -2, zs.background + 1, "data/ui_gfx/empty_black.png", screen_w + 4, screen_h + 4, alpha )
+                uid = pen.new_image( gui, uid, -2, -2, zs.background + 1,
+                    "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
             end
         end
         
@@ -119,7 +121,8 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
             local total_drift, allow_clicks = l - drift_target, true
             if( not( this_data[tbl[type][2]])) then
                 local clicked, r_clicked, is_hovered = false
-                uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { is_left and -1 or ( screen_w - 10 ), -1, 11, 19, }, zs.tips_front )
+                uid, clicked, r_clicked, is_hovered = pen.new_interface(
+                    data.the_gui, uid, is_left and -1 or ( screen_w - 10 ), -1, 11, 19, zs.tips_front )
                 uid = data.tip_func( gui, uid, nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
                 if( clicked ) then
                     play_sound( data, "click" )
@@ -178,11 +181,12 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( is_hovered ) then got_one = true end
                 end
             else
-                colourer( gui, {255,255,178})
+                pen.colourer( gui, {255,255,178})
             end
 
             if( is_left ) then pic_x = pic_x - ( l - 10 ) end
-            uid = new_image( gui, uid, pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
+            uid = pen.new_image( gui, uid, pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001,
+                "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
             uid = data.plate_func( gui, uid, pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
             if( is_left ) then
                 pic_x = pic_x + arrow_off + 11
@@ -215,8 +219,8 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             uid, length, height, max_hp, hp, red_shift = new_vanilla_hp( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, data, data.player_id, this_data )
 
             local max_hp_text, hp_text = get_short_num( max_hp ), get_short_num( hp )
-            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", {8,8})
-            uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, is_shadow = true, alpha = 0.9 })
+            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", { has_shadow = true })
+            uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
             
             local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
             uid = tipping( gui, uid, nil, nil, {
@@ -240,7 +244,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
-            uid = pen.new_text( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, is_shadow = true, alpha = 0.9 })
+            uid = pen.new_text( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
@@ -270,7 +274,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         local shake_frame = data.frame_num - ( data.memo.flight_shake or data.frame_num )
-        uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", {8,8})
+        uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
         uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
@@ -329,10 +333,12 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         if( value[1] >= 0 and value[2] > 0 ) then
             local ratio = math.min( value[1]/value[2], 1 )
-            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, potion_data[1] or "data/ui_gfx/hud/mana.png", {8,8})
+            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main,
+                potion_data[1] or "data/ui_gfx/hud/mana.png", { has_shadow = true })
             if( potion_data[3] ~= nil ) then
-                uid = new_image( gui, uid, pic_x - 40, pic_y + 1, zs.main + 0.001, potion_data[2], math.min( 40*ratio + 0.5, 40 ), 2 )
-                colourer( gui, potion_data[3])
+                uid = pen.new_image( gui, uid, pic_x - 40, pic_y + 1, zs.main + 0.001,
+                    potion_data[2], { s_x = math.min( 40*ratio + 0.5, 40 ), s_y = 2 })
+                pen.colourer( gui, potion_data[3])
             end
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
             
@@ -375,7 +381,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.reload_shake[data.active_item] or data.frame_num )
-            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", {8,8})
+            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", { has_shadow = true })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
@@ -417,7 +423,8 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.delay_shake[data.active_item] or data.frame_num )
-            uid = new_shaded_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/fire_rate_wait.png", {8,8})
+            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main,
+                "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
@@ -467,7 +474,7 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
                 end
 
                 local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
-                uid = new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value )), pic_y + 2.5, pic_zs[2] - 0.001, value )
+                uid = new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
 
                 return uid, length, step
             end
@@ -502,8 +509,8 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
 
         local v = get_short_num( god_i_love_money_holy_fuck )
         local dims = {}
-        uid = new_shaded_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", {8,8})
-        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, is_shadow = true, alpha = 0.9 })
+        uid = pen.new_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", { has_shadow = true })
+        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
@@ -527,8 +534,8 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 1
         
         local dims = {}
-        uid = new_shaded_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", {8,8})
-        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { is_huge = false, is_shadow = true, alpha = 0.9 })
+        uid = pen.new_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", { has_shadow = true })
+        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { is_huge = false, has_shadow = true, alpha = 0.9 })
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
@@ -553,7 +560,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         
         txt = pen.capitalizer( txt )
         if( is_right ) then
-            local w,h = pen.get_text_dims( txt )
+            local w,h = pen.get_text_dims( txt, true )
             offset_x = w + 1
             p_x = p_x - offset_x
         end
@@ -671,7 +678,8 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             pic_x, pic_y = unpack( xys.delay )
             local alphaer = function( offset_x )
                 local hovered = false
-                uid, _, _, hovered = new_interface( gui, uid, { pic_x + 2 - offset_x, pic_y - 1, offset_x, 8 }, zs.tips )
+                uid, _, _, hovered = pen.new_interface(
+                    gui, uid, pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, zs.tips )
                 if( hovered ) then data.memo.mtr_prb = { matter, data.frame_num + 300 } end
             end
             
@@ -755,7 +763,7 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
                     for i,pic in ipairs( v ) do
                         local drift_x = 14*(( i - 1 )%10 )
                         local drift_y = 14*math.floor(( i - 1 )/10 )
-                        uid = new_image( gui, uid, pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, nil, nil, alpha )
+                        uid = pen.new_image( gui, uid, pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, { alpha = alpha })
                     end
                     
                     return uid
@@ -1166,7 +1174,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
     local mode_data = data.gmod
     if( mode_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
         local check = true
-        local w,h = pen.get_text_dims( mode_data.name )
+        local w,h = pen.get_text_dims( mode_data.name, true )
         local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
         if( not( mode_data.show_full )) then
             pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
@@ -1182,7 +1190,8 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
             local arrow_hl_c = {255,255,178}
 
             local new_mode = data.global_mode
-            uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - ( 11 + w ), pic_y - 11, 15, 10 }, zs.tips )
+            uid, clicked, r_clicked, is_hovered = pen.new_interface(
+                data.the_gui, uid, pic_x - ( 11 + w ), pic_y - 11, 15, 10, zs.tips )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
             if( is_hovered ) then
@@ -1193,7 +1202,8 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 new_mode = new_mode - 1
                 arrow_left_a = 1
             end
-            uid, clicked, r_clicked, is_hovered = new_interface( data.the_gui, uid, { pic_x - 10, pic_y - 11, 15, 10 }, zs.tips )
+            uid, clicked, r_clicked, is_hovered = pen.new_interface(
+                data.the_gui, uid, pic_x - 10, pic_y - 11, 15, 10, zs.tips )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
             if( is_hovered ) then
@@ -1244,10 +1254,10 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = pen.new_text( gui, uid, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, { alpha = alpha })
             uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
             
-            colourer( gui, arrow_left_c )
-            uid = new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor_right.png", nil, nil, arrow_left_a )
-            colourer( gui, arrow_right_c )
-            uid = new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back, "data/ui_gfx/keyboard_cursor.png", nil, nil, arrow_right_a )
+            uid = pen.new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back,
+                "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
+            uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back,
+                "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
         end
     end
 

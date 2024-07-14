@@ -4,7 +4,7 @@ end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
---penman must be present internally
+--steal penman from mnee if no penman is installed
 --apparently magic numbers file is not appended
 --DO NOT forget to write special thanks to dextercd + thanks for nxml + thanks for wiki + thanks to ryyst for magic numbers + thanks to aarlvo for scroll container trick + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 

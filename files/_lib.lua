@@ -12,22 +12,6 @@ type2frame = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
 }
 
--- new_shadowed_text
-
--- D_extractor
--- D_packer
--- get_matters
--- pen.get_text_dims -> liner
--- font_liner
--- gui_killer
--- colourer
--- new_image
--- new_shaded_image
--- new_button
--- new_dragger
--- new_cutout
--- new_interface
-
 --core backend
 function get_button_state( ctrl_comp, btn, frame ) --port this to penman
 	return { ComponentGetValue2( ctrl_comp, "mButtonDown"..btn ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..btn ) == frame }
@@ -465,11 +449,11 @@ end
 
 function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func, sort_func )
 	local kind_data = pen.magic_storage( inv_id, "index_kind", "value_string" )
-	if( kind_data ~= nil ) then kind = D_extractor( kind_data ) end
+	if( kind_data ~= nil ) then kind = pen.t.pack( kind_data ) end
 	local kind_path = pen.magic_storage( inv_id, "index_kind_func", "value_string" )
 	if( kind_path ~= nil ) then kind_func = dofile( kind_path ) end
 	local size_data = pen.magic_storage( inv_id, "index_size", "value_string" )
-	if( size_data ~= nil ) then slot_count = D_extractor( size_data, true ) end
+	if( size_data ~= nil ) then slot_count = pen.t.pack( size_data, true ) end
 	local gui_path = pen.magic_storage( inv_id, "index_gui", "value_string" )
 	if( gui_path ~= nil ) then gui_func = dofile_once( gui_path ) end
 	local check_path = pen.magic_storage( inv_id, "index_check", "value_string" )
@@ -1304,11 +1288,11 @@ function register_item_pic( data, this_info, is_advanced )
 		end
 
 		local anim_data = pen.magic_storage( this_info.id, "index_pic_anim", "value_string" )
-		if( anim_data ~= nil ) then item_pic_data[ this_info.pic ].anim = D_extractor( anim_data ) end
+		if( anim_data ~= nil ) then item_pic_data[ this_info.pic ].anim = pen.t.pack( anim_data ) end
 		
 		local off_data = pen.magic_storage( this_info.id, "index_pic_offset", "value_string" )
 		if( off_data ~= nil ) then
-			item_pic_data[ this_info.pic ].xy = D_extractor( off_data, true )
+			item_pic_data[ this_info.pic ].xy = pen.t.pack( off_data, true )
 		elseif( not( is_xml )) then
 			if( is_advanced ) then
 				local pic_comp = EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "item" )
@@ -1354,7 +1338,7 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 	if( not( slot_going )) then
 		local will_do, will_force, will_update = check_dragger_buffer( data, id )
 		if( will_do ) then
-			local new_x, new_y, has_begun = 0, 0, true
+			local new_x, new_y, drag_state = 0, 0, 0
 			if( will_force or pen.check_bounds( data.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h}) or slot_memo[id]) then
 				if( dragger_buffer[1] == 0 ) then
 					dragger_buffer = { id, data.frame_num }
@@ -1364,8 +1348,9 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 					data.dragger.item_id = id
 				end
 				if( data.dragger.item_id == id ) then
-					new_x, new_y, has_begun, clicked, r_clicked, hovered = new_dragger( data.the_gui, pic_x, pic_y )
-					if( slot_memo[id] and not( has_begun )) then
+					uid, new_x, new_y, drag_state, clicked, r_clicked, hovered = pen.new_dragger(
+						data.the_gui, uid, id, pic_x, pic_y )
+					if( slot_memo[id] and drag_state > 0 ) then
 						data.dragger.swap_soon = true
 						table.insert( slot_anim, {
 							id = id,
@@ -1394,19 +1379,25 @@ function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 end
 
 function new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, text, data )
-	--check font_cancer
-	--if is_pixel, do no shadow but set to shadow font, else do shadow
+	local _,is_pixel = pen.font_cancer()
+	data = data or {}; data.has_shadow = not( is_pixel )
+	if( is_pixel ) then data.font = "data/fonts/font_pixel.xml" end
 	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
 end
 
 function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
 	alpha = alpha or 1
-	uid = new_image( gui, uid, pic_x, pic_y, pic_z, "mods/index_core/files/pics/vanilla_plate.xml", dims[1], dims[2], alpha )
+	uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
+		"mods/index_core/files/pics/vanilla_plate.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
 
-	uid = new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a1.xml", nil, nil, alpha )
-	uid = new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_a2.xml", nil, nil, alpha )
-	uid = new_image( gui, uid, pic_x + dims[1], pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a3.xml", nil, nil, alpha )
-	uid = new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_a4.xml", nil, nil, alpha )
+	uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z,
+		"mods/index_core/files/pics/vanilla_plate_a1.xml", { alpha = alpha })
+	uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z,
+		"mods/index_core/files/pics/vanilla_plate_a2.xml", { alpha = alpha })
+	uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y + dims[2], pic_z,
+		"mods/index_core/files/pics/vanilla_plate_a3.xml", { alpha = alpha })
+	uid = pen.new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z,
+		"mods/index_core/files/pics/vanilla_plate_a4.xml", { alpha = alpha })
 
 	local steps = {10,4,2,1}
 	local temp = 0
@@ -1419,8 +1410,10 @@ function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
 				break
 			end
 		end
-		uid = new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml", nil, nil, alpha )
-		uid = new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z, "mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml", nil, nil, alpha )
+		uid = pen.new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z,
+			"mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml", { alpha = alpha })
+		uid = pen.new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z,
+			"mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml", { alpha = alpha })
 		temp = temp + steps[pic_id]
 	end
 
@@ -1434,8 +1427,10 @@ function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
 				break
 			end
 		end
-		uid = new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml", nil, nil, alpha )
-		uid = new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z, "mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml", nil, nil, alpha )
+		uid = pen.new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z,
+			"mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml", { alpha = alpha })
+		uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z,
+			"mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml", { alpha = alpha })
 		temp = temp + steps[pic_id]
 	end
 
@@ -1453,20 +1448,21 @@ function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame
 	end
 	
 	local w, h = pen.get_pic_dims( bar_pic )
-	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[2], bar_pic, dims[3]/w, dims[2]/h, bar_alpha )
+	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[2], bar_pic, { s_x = dims[3]/w, s_y = dims[2]/h, alpha = bar_alpha })
 	
 	local pic = "mods/index_core/files/pics/vanilla_bar_bg_"
 	for i = 1,2 do
 		local new_z = zs[1] + ( i == 1 and 0.001 or 0 )
-		uid = new_image( gui, uid, pic_x, pic_y, new_z, pic..i..".xml", 1, dims[2] + 2 )
-		uid = new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, new_z, pic..i..".xml", 1, dims[2] + 2 )
-		uid = new_image( gui, uid, pic_x - dims[1], pic_y, new_z, pic..i..".xml", dims[1], 1 )
-		uid = new_image( gui, uid, pic_x - dims[1], pic_y + dims[2] + 1, new_z, pic..i..".xml", dims[1], 1 )
+		uid = pen.new_image( gui, uid, pic_x, pic_y, new_z, pic..i..".xml", { s_x = 1, s_y = dims[2] + 2 })
+		uid = pen.new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, new_z, pic..i..".xml", { s_x = 1, s_y = dims[2] + 2 })
+		uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y, new_z, pic..i..".xml", { s_x = dims[1], s_y = 1 })
+		uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + dims[2] + 1, new_z, pic..i..".xml", { s_x = dims[1], s_y = 1 })
 	end
 	if( will_shake ) then
-		uid = new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1] - 0.001, "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", dims[1]/2 + 1, dims[2]/2 + 1 )
+		uid = pen.new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1] - 0.001,
+			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = dims[1]/2 + 1, s_y = dims[2]/2 + 1 })
 	end
-	uid = new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", dims[1], dims[2])
+	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", { s_x = dims[1], s_y = dims[2]})
 
 	return uid
 end
@@ -1506,7 +1502,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			pic_x, pic_y = text[2] or ( pic_x + p_off_x ), text[3] or ( pic_y + p_off_y )
 			
 			local edge_spacing, dims = 3, {0,0}
-			if( text[1] ~= "" ) then text[1], dims = font_liner( text[1], w*0.9, h - 2 ) end
+			if( text[1] ~= "" ) then _,dims = pen.liner( text[1], w*0.9, h - 2 ) end
 			
 			local x_offset, y_offset = text[4] or ( dims[1] + edge_spacing ), text[5] or dims[2]
 			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
@@ -1537,7 +1533,7 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 			if( type( extra_func[1] ) == "function" ) then
 				uid = extra_func[1]( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha, extra_func[2])
 			else
-				uid = pen.new_text( gui, uid, pic_x + 3, pic_y + 1, z, text[1], { is_shadow = true, alpha = inter_alpha })
+				uid = pen.new_text( gui, uid, pic_x + 3, pic_y + 1, z, text[1], { has_shadow = true, alpha = inter_alpha })
 			end
 			
 			anim_frame = anim_frame + 1
@@ -1548,14 +1544,17 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 
 			is_fancy = is_fancy or false
 			local gui_core = "mods/index_core/files/pics/vanilla_tooltip_"
-			uid = new_image( gui, uid, pic_x, pic_y, z + 0.01, gui_core.."0.xml", x_offset, y_offset, 1.15*inter_alpha )
+			uid = pen.new_image( gui, uid, pic_x, pic_y, z + 0.01,
+				gui_core.."0.xml", { s_x = x_offset, s_y = y_offset, alpha = 1.15*inter_alpha })
 			local lines = {{0,-1,x_offset-1,1},{-1,0,1,y_offset-1},{1,y_offset,x_offset-1,1},{x_offset,1,1,y_offset-1}}
 			for i,line in ipairs( lines ) do
-				uid = new_image( gui, uid, pic_x + line[1], pic_y + line[2], z, gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), line[3], line[4], inter_alpha )
+				uid = pen.new_image( gui, uid, pic_x + line[1], pic_y + line[2], z,
+					gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), { s_x = line[3], s_y = line[4], alpha = inter_alpha })
 			end
 			local dots = {{-1,-1},{x_offset-1,-1},{x_offset,y_offset},{-1,y_offset-1}, {x_offset,0},{0,y_offset}}
 			for i,dot in ipairs( dots ) do
-				uid = new_image( gui, uid, pic_x + dot[1], pic_y + dot[2], z, gui_core..( is_fancy and "2_alt.xml" or "2.xml" ), 1, 1, inter_alpha )
+				uid = pen.new_image( gui, uid, pic_x + dot[1], pic_y + dot[2], z,
+					gui_core..( is_fancy and "2_alt.xml" or "2.xml" ), { alpha = inter_alpha })
 			end
 			local shadow_core = "mods/index_core/files/pics/tooltip_shadow_"
 			local shadows = {
@@ -1566,7 +1565,8 @@ function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, 
 				for e = 1,4 do
 					local i = e + ( k - 1 )*4
 					local name = e%2 == 0 and ( k > 1 and "B_alt.png" or "A_alt.png" ) or ( k > 1 and "B.png" or "A.png" )
-					uid = new_image( gui, uid, pic_x + dots[e][1] + shadows[i][1], pic_y + dots[e][2] + shadows[i][2], z + 0.011, shadow_core..name, 0.5*shadows[i][3], 0.5*shadows[i][4], inter_alpha )
+					uid = pen.new_image( gui, uid, pic_x + dots[e][1] + shadows[i][1], pic_y + dots[e][2] + shadows[i][2], z + 0.011,
+						shadow_core..name, { s_x = 0.5*shadows[i][3], s_y = 0.5*shadows[i][4], alpha = inter_alpha })
 				end
 			end
 		end
@@ -1616,17 +1616,17 @@ function new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_d
             data.memo.hp_flashing[ entity_id ][2] = data.memo.hp_flashing[ entity_id ][2] + 1
 
             if( red_shift > 0.5 ) then
-                uid = new_image( gui, uid, pic_x - ( length + 1 ), pic_y, pic_zs[1] - 0.001, params.pic_dmg or "data/ui_gfx/hud/colors_health_bar_bg_low_hp.png", ( length + 2 )/2, height/2 + 1 )
-            else
-                pic = params.pic_bg or "data/ui_gfx/hud/colors_health_bar_damage.png"
-            end
+                uid = pen.new_image( gui, uid, pic_x - ( length + 1 ), pic_y, pic_zs[1] - 0.001,
+					params.pic_dmg or "data/ui_gfx/hud/colors_health_bar_bg_low_hp.png", { s_x = ( length + 2 )/2, s_y = height/2 + 1 })
+			else pic = params.pic_bg or "data/ui_gfx/hud/colors_health_bar_damage.png" end
             red_shift = red_shift*perc
         end
 
 		local delay = 30 --params.damage_fading
         if( this_data[5] <= delay ) then
             local last_hp = math.min( math.max( this_data[4], 0 ), max_hp )
-            uid = new_image( gui, uid, pic_x - length, pic_y + 1, pic_zs[2] + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png", 0.5*length*last_hp/max_hp, height/2, ( delay - this_data[5])/delay )
+            uid = pen.new_image( gui, uid, pic_x - length, pic_y + 1, pic_zs[2] + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png",
+				{ s_x = 0.5*length*last_hp/max_hp, s_y = height/2, alpha = ( delay - this_data[5])/delay })
         end
         
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
@@ -1649,10 +1649,10 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 44 })
 			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
 			uid = pen.new_text( gui, uid, pic_x, pic_y, zs.in_world_ui, pickup_info.desc[1], {
-				is_centered_x = true, is_shadow = true, color = pickup_info.color[1] or clr })
+				is_centered_x = true, has_shadow = true, color = pickup_info.color[1] or clr })
 			if( is_elaborate ) then
 				uid = pen.new_text( gui, uid, pic_x, pic_y + 12, zs.in_world_ui, pickup_info.desc[2], {
-					is_centered_x = true, is_shadow = true, color = pickup_info.color[2] or {207,207,207}})
+					is_centered_x = true, has_shadow = true, color = pickup_info.color[2] or {207,207,207}})
 			end
 		end
 	end
@@ -1661,7 +1661,7 @@ function new_pickup_info( gui, uid, screen_h, screen_w, data, pickup_info, zs, x
 			local x, y = EntityGetTransform( pickup_info.id )
 			local pic_x, pic_y = pen.world2gui( x, y )
 			uid = pen.new_text( gui, uid, pic_x + 2, pic_y + 3, zs.in_world_front, pickup_info.txt, {
-				is_centered_x = true, is_shadow = true, color = {207,207,207}})
+				is_centered_x = true, has_shadow = true, color = {207,207,207}})
 		end
 	end
 
@@ -1673,9 +1673,11 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 		zs = {zs}
 	end
 	local clicked, r_clicked, is_hovered = false, false, false
-	uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, pos, zs[1], is_debugging )
+	uid, clicked, r_clicked, is_hovered = pen.new_interface(
+		gui, uid, pos[1], pos[2], pos[3], pos[4], zs[1], nil, is_debugging )
 	if( zs[2] ~= nil and is_hovered ) then
-		uid = new_image( gui, uid, pos[1], pos[2], zs[2], "data/ui_gfx/hud/colors_reload_bar_bg_flash.png", pos[3]/2, pos[4]/2, 0.5 )
+		uid = pen.new_image( gui, uid, pos[1], pos[2], zs[2],
+			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = pos[3]/2, s_y = pos[4]/2, alpha = 0.5 })
 	end
 
 	is_right = is_right or false
@@ -1749,7 +1751,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	end
 
 	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name )},
+		{ pen.get_text_dims( this_info.name, true )},
 		{ 71, 57, 0 },
 		{ 0, 0 },
 		{},
@@ -1758,7 +1760,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	}
 	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ) + 3
 	if( is_advanced and pen.vld( this_info.desc )) then
-		this_info.done_desc, this_info.tt_spacing[3] = font_liner( this_info.desc, math.floor( get_tip_width( this_info.desc )*0.5 ), -1 )
+		_,this_info.tt_spacing[3] = pen.liner( this_info.desc, math.floor( get_tip_width( this_info.desc )*0.5 ), -1 )
 		this_info.tt_spacing[3] = { this_info.tt_spacing[3][1] + 4, this_info.tt_spacing[3][2] - 1 }
 		if( this_info.tt_spacing[2][2] < this_info.tt_spacing[3][2]) then
 			this_info.tt_spacing[2][3] = ( this_info.tt_spacing[3][2] - this_info.tt_spacing[2][2])/2
@@ -1798,25 +1800,29 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[6][1] + 2, this_info.tt_spacing[6][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		if( not( is_advanced ) and this_info.is_frozen ) then
-			uid = new_shaded_image( gui, uid, pic_x - 4, pic_y - 4, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha )
+			uid = pen.new_image( gui, uid, pic_x - 4, pic_y - 4, pic_z - 0.1,
+				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha })
 		end
 
 		pic_x = pic_x + 2
 		if( this_info.wand_info.shuffle_deck_when_empty ) then
-			uid = new_image( gui, uid, pic_x - 1, pic_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
-			colourer( gui, {0,0,0})
-			uid = new_image( gui, uid, pic_x - 1, pic_y + 2, pic_z + 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
+			uid = pen.new_image( gui, uid, pic_x - 1, pic_y + 1, pic_z,
+				"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
+			uid = pen.new_image( gui, uid, pic_x - 1, pic_y + 2, pic_z + 0.01,
+				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = {0,0,0}, alpha = inter_alpha })
 		end
 		uid = pen.new_text( gui, uid, pic_x + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ), pic_y, pic_z, this_info.name, {
-			is_shadow = true, color = {255,255,178}, alpha = inter_alpha })
+			has_shadow = true, color = {255,255,178}, alpha = inter_alpha })
 		
 		local orig_y = pic_y
 		pic_y = pic_y + 13
-		uid = new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[6][1], 1, 0.5*inter_alpha )
-		if( this_info.done_desc ) then
-			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[2][1] - 2, pic_y - 2, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, this_info.tt_spacing[6][2] - 10, 0.5*inter_alpha )
-			uid = pen.new_text( gui, uid, pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.done_desc, {
-				is_shadow = true, alpha = inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[6][1], s_y = 1, alpha = 0.5*inter_alpha })
+		if( pen.vld( this_info.desc )) then
+			uid = pen.new_image( gui, uid, pic_x + this_info.tt_spacing[2][1] - 2, pic_y - 2, pic_z,
+				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = this_info.tt_spacing[6][2] - 10, alpha = 0.5*inter_alpha })
+			uid = pen.new_text( gui, uid, pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.desc, {
+				has_shadow = true, alpha = inter_alpha })
 		end
 
 		local function get_generic_stat( v, v_add, dft, allow_inf )
@@ -1853,9 +1859,8 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data )
 					local dims = {}
 					uid, dims = pen.new_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
-					colourer( gui, data.color )
-					uid = new_image( gui, uid, pic_x + dims[1], pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
-					return uid
+					return pen.new_image( gui, uid, pic_x + dims[1], pic_y, pic_z,
+						"mods/index_core/files/fonts/vanilla_shadow/degree.png", data )
 				end,
 				tip = 0,
 			},
@@ -1914,9 +1919,9 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			if( type( v ) ~= "string" ) then done_v, is_default = stat.value( v ) end
 
 			local alpha = ( is_default and 0.5 or 1 )*inter_alpha
-			uid = new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, nil, nil, alpha )
+			uid = pen.new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
 
-			local clr = {170,170,170,alpha}
+			local clr = {170,170,170}
 			if( data.active_item ~= item_id and data.active_info.wand_info ~= nil ) then
 				local is_better = nil
 				local old_v, old_is_special = stat.v( data.active_info.wand_info )
@@ -1934,37 +1939,42 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 					end
 				end
 				if( is_better ~= nil ) then
-					clr = is_better and {70,208,70,inter_alpha} or {208,70,70,inter_alpha}
+					clr, alpha = is_better and {70,208,70} or {208,70,70}, inter_alpha
 				end
 			end
 
 			stat.custom_func = stat.custom_func or pen.new_text
-			uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, done_v, { color = clr })
+			uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, done_v, { color = clr, alpha = alpha })
 			-- stat.desc or ""
 			
 			stat_y = stat_y + 8 + ( stat.extra_step or 0 )
 		end
 
 		if( #this_info.tt_spacing[4] > 0 ) then
-			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[4][1], pic_y + this_info.tt_spacing[4][2], pic_z + 0.001, this_info.pic, scale, scale, inter_alpha, false, -math.rad( 90 ))
+			uid = pen.new_image( gui, uid, pic_x + this_info.tt_spacing[4][1], pic_y + this_info.tt_spacing[4][2], pic_z + 0.001,
+				this_info.pic, { s_x = scale, s_y = scale, alpha = inter_alpha, angle = -math.rad( 90 )})
 		end
 
 		pic_y = pic_y + this_info.tt_spacing[2][2] + 5
 		if( got_spells ) then
-			uid = new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[2][1], 1, 0.5*inter_alpha )
+			uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 3, pic_z,
+				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[2][1], s_y = 1, alpha = 0.5*inter_alpha })
 
 			local spell_x = pic_x
 			for i = 0,1 do
 				local tbl, counter = spell_list[ i == 0 and "permas" or "normies" ], 0
 				if( i == 0 and #tbl > 0 ) then
-					uid = new_image( gui, uid, spell_x, pic_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_permanent_actions.png", nil, nil, inter_alpha )
+					uid = pen.new_image( gui, uid, spell_x, pic_y + 1, pic_z,
+						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { alpha = inter_alpha })
 					counter = counter + 1
 				end
+				local is_hovered = false
 				for k,spell in ipairs( tbl ) do
-					uid = new_image( gui, uid, spell_x + 9*counter, pic_y, pic_z, spell.pic, 0.5, 0.5, inter_alpha )
-					if( counter%2 == i ) then colourer( gui, {185,220,223}) end
-					uid = new_image( gui, uid, spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001, data.slot_pic.bg_alt, 0.5, 0.5, inter_alpha, true )
-					local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+					uid = pen.new_image( gui, uid, spell_x + 9*counter, pic_y, pic_z,
+						spell.pic, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha })
+					if( counter%2 == i ) then pen.colourer( gui, {185,220,223}) end
+					uid,_,_,is_hovered = pen.new_image( gui, uid, spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001,
+						data.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
 					if( is_hovered ) then
 						uid = cat_callback( data, spell, "on_tooltip", {
 							gui, uid, "wtt_spell", spell.id, data, spell, spell_x + 9*counter - 2, pic_y + 10, pic_z - 1
@@ -2009,14 +2019,14 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	end
 
 	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name )},
+		{ pen.get_text_dims( this_info.name, true )},
 		{},
 		{ pen.get_pic_dims( this_info.pic )},
 		{ 0, 0 },
 		{},
 	}
-	this_info.done_desc, this_info.tt_spacing[2] = font_liner( new_desc, get_tip_width( new_desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
-	if( extra_desc ~= "" ) then extra_desc, this_info.tt_spacing[4] = font_liner( extra_desc, 999, -1 ) end
+	_,this_info.tt_spacing[2] = pen.liner( new_desc, get_tip_width( new_desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
+	if( extra_desc ~= "" ) then _,this_info.tt_spacing[4] = pen.liner( extra_desc, 999, -1 ) end
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = scale*this_info.tt_spacing[3][1], scale*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1], this_info.tt_spacing[4][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + this_info.tt_spacing[4][2] + ( extra_desc ~= "" and 11 or 5 ), this_info.tt_spacing[3][2] + 3 )
@@ -2025,34 +2035,33 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[5][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[5][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
 		uid = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc, { alpha = inter_alpha })
+		uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, new_desc, { alpha = inter_alpha })
 		uid = new_shadowed_text( gui, uid, pic_x + 1, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 9, pic_z, extra_desc, { alpha = inter_alpha })
 		
 		local icon_x, icon_y = pic_x + this_info.tt_spacing[5][1], pic_y + ( this_info.tt_spacing[5][2] - this_info.tt_spacing[3][2])/2
 		if( total_cap > 0 ) then
-			local _,line_dims = font_liner( "\t", 999 )
+			local _,line_dims = pen.liner( "\t", 999 )
 			local line_w, line_h = line_dims[1] - 3, line_dims[2]
 			for i,m in ipairs( this_info.matter_info[2][2]) do
 				local t_x, t_y = pic_x + 1 + line_w, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + line_h*(i-1) + 9
 				local perc = math.max( line_w*m[2]/total_cap, 1 )
-				colourer( gui, get_matter_colour( CellFactory_GetName( m[1])))
-				uid = new_image( gui, uid, t_x, t_y, pic_z + tonumber( "0.0001"..i ), data.pixel, -perc, line_h, inter_alpha )
+				uid = pen.new_image( gui, uid, t_x, t_y, pic_z + tonumber( "0.0001"..i ),
+					data.pixel, { color = get_matter_colour( CellFactory_GetName( m[1])), s_x = -perc, s_y = line_h, alpha = inter_alpha })
 				if( line_w - perc > 0.25 ) then
-					uid = new_image( gui, uid, t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), data.pixel, -0.5, line_h, 0.75*inter_alpha )
+					uid = pen.new_image( gui, uid, t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ),
+						data.pixel, { s_x = -0.5, s_y = line_h, alpha = 0.75*inter_alpha })
 				end
 			end
 			uid = new_vanilla_plate( gui, uid, pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
 			
 			local cut = scale*this_info.potion_cutout
 			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
-			uid = new_cutout( gui, uid, icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] - cut, function( gui, uid, v )
-				colourer( gui, get_matter_colour( v[6]))
-				return new_image( gui, uid, 0, -step, v[1], v[2], v[3], v[4], v[5])
+			uid = pen.new_cutout( gui, uid, icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] - cut, function( gui, uid, v )
+				return pen.new_image( gui, uid, 0, -step, v[1],
+					v[2], { color = get_matter_colour( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
 			end, { pic_z - 1, this_info.pic, scale, scale, 0.8*inter_alpha, CellFactory_GetName( this_info.matter_info[2][2][1][1])})
 		end
-		uid = new_image( gui, uid, icon_x, icon_y, pic_z, this_info.pic, scale, scale, inter_alpha )
-
-		return uid
+		return pen.new_image( gui, uid, icon_x, icon_y, pic_z, this_info.pic, { s_x = scale, s_y = scale, alpha = inter_alpha })
 	end, this_info }, true, in_world )
 
 	return uid
@@ -2148,24 +2157,23 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		c_proj.lightning.ray_energy
 	]]
 	
-	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.tip_name )},
-		{},
-	}
+	this_info.tt_spacing = {{}, {}}
+	this_info.tip_name,this_info.tt_spacing[1] = pen.liner( this_info.tip_name, 221 )
 	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges >= 0 and 33 or 0 )
-	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1]), -1 )
+	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1]), -1 )
 	local size_x = math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 )
 	local size_y = this_info.tt_spacing[2][2] + 60
 	this_info.tt_spacing[3] = { size_x, size_y }
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
-		colourer( gui, type2frame[ this_info.spell_info.type ][2])
-		uid = new_image( gui, uid, pic_x, pic_y, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, 0.75*inter_alpha )
-		uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
-		colourer( gui, {0,0,0})
-		uid = new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001, "data/ui_gfx/inventory/icon_action_type.png", nil, nil, inter_alpha )
-		uid = new_shadowed_text( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name, { color = {255,255,178}, alpha = inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001,
+			"data/ui_gfx/inventory/icon_action_type.png", { color = type2frame[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
+			"data/ui_gfx/inventory/icon_action_type.png", { alpha = inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001,
+			"data/ui_gfx/inventory/icon_action_type.png", { color = {0,0,0}, alpha = inter_alpha })
+		uid = new_shadowed_text( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name[1], { color = {255,255,178}, alpha = inter_alpha })
 		
 		--inventory_actiontype
 		-- inventory_actiontype_projectile
@@ -2180,16 +2188,20 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		-- inventory_usesremaining
 
 		if( this_info.charges >= 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
-			uid = new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z, "data/ui_gfx/inventory/icon_action_max_uses.png", nil, nil, inter_alpha )
+			uid = pen.new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z,
+				"data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
 			local charges = get_tiny_num( this_info.charges )
-			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
+			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
 		end
 
-		uid = new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y + 11, pic_z, this_info.done_desc, { alpha = inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
+		uid = new_shadowed_text( gui, uid, pic_x, pic_y + 11, pic_z, this_info.desc, { alpha = inter_alpha })
 		pic_y = pic_y + 13 + this_info.tt_spacing[2][2]
-		uid = new_image( gui, uid, pic_x - 2, pic_y, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", this_info.tt_spacing[3][1] - 2, 1, 0.5*inter_alpha )
-		uid = new_image( gui, uid, pic_x - 3 + math.floor( this_info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, 43, 0.5*inter_alpha )
+		uid = pen.new_image( gui, uid, pic_x - 2, pic_y, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
+		uid = pen.new_image( gui, uid, pic_x - 3 + math.floor( this_info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = 43, alpha = 0.5*inter_alpha })
 
 		local function get_generic_stat( v, v_add, dft, allow_inf )
 			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
@@ -2244,11 +2256,11 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 					
 					v = c.spread_degrees,
 					value = function( v ) return get_generic_stat( nil, v, 0 ) end,
-					custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, color )
+					custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data )
 						local dims = {}
-						uid, dims = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, txt, { color = color })
-						colourer( gui, color )
-						uid = new_image( gui, uid, pic_x + dims[1], pic_y, pic_z, "mods/index_core/files/fonts/vanilla_shadow/degree.png", nil, nil, color[4])
+						uid, dims = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
+						uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y, pic_z,
+							"mods/index_core/files/fonts/vanilla_shadow/degree.png", data )
 						return uid
 					end,
 					tip = 0,
@@ -2313,7 +2325,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				local v, is_default = stat.v, false
 				if( type( v or 0 ) ~= "string" ) then v, is_default = stat.value( v ) end
 				local alpha = ( is_default and 0.5 or 1 )*inter_alpha
-				uid = new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, nil, nil, alpha )
+				uid = pen.new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
 				stat.custom_func = stat.custom_func or new_shadowed_text
 				uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, v, { color = {170,170,170}, alpha = alpha })
 				-- stat.desc or ""
@@ -2328,7 +2340,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		end
 		if( this_info.spell_info.price > 0 ) then
 			local price = get_short_num( this_info.spell_info.price )
-			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
+			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
 			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", { alpha = inter_alpha })
 		end
 
@@ -2348,12 +2360,12 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	end
 	
 	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name )},
+		{ pen.get_text_dims( this_info.name, true )},
 		{},
 		{ pen.get_pic_dims( this_info.pic )},
 		{},
 	}
-	this_info.done_desc, this_info.tt_spacing[2] = font_liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
+	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
@@ -2374,18 +2386,19 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			local runic_state = ComponentGetValue2( storage_rune, "value_float" )
 			if( runic_state ~= 1 ) then
 				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z,
-					table.concat({ "{>runic>{", this_info.done_desc, "}<runic<}" }), {
+					table.concat({ "{>runic>{", this_info.desc, "}<runic<}" }), {
 					fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state )})
 			end
 			if( runic_state >= 0 ) then
 				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001,
-					this_info.done_desc, { fully_featured = true, is_shadow = true, alpha = inter_alpha*runic_state })
+					this_info.desc, { fully_featured = true, has_shadow = true, alpha = inter_alpha*runic_state })
 				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
-			uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.done_desc, { alpha = inter_alpha })
+			uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.desc, { alpha = inter_alpha })
 		end
-		uid = new_image( gui, uid, pic_x + this_info.tt_spacing[4][1], pic_y + ( this_info.tt_spacing[4][2] - this_info.tt_spacing[3][2])/2, pic_z, this_info.pic, 1.5, 1.5, inter_alpha )
+		pic_x, pic_y = pic_x + this_info.tt_spacing[4][1], pic_y + ( this_info.tt_spacing[4][2] - this_info.tt_spacing[3][2])/2
+		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, this_info.pic, { s_x = 1.5, s_y = 1.5, alpha = inter_alpha })
 		
 		return uid
 	end, this_info }, true, in_world )
@@ -2419,15 +2432,16 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 	
 	local extra_scale = hov_scale or 1
 	pic_x, pic_y = pic_x - extra_scale*off_x, pic_y - extra_scale*off_y
-	uid = new_image( gui, uid, pic_x, pic_y, z - 0.002, pic, extra_scale, extra_scale, alpha, false, angle )
+	uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.002,
+		pic, { s_x = extra_scale, s_y = extra_scale, alpha = alpha, angle = angle })
 
 	if( fancy_shadow ~= false ) then
 		fancy_shadow = fancy_shadow or false
 		local sign = fancy_shadow and 1 or -1
 		local scale_x, scale_y = 1/w + 1, 1/h + 1
-		colourer( gui, {0,0,0})
 		off_x, off_y = pen.rotate_offset( sign*0.5, sign*0.5, angle )
-		uid = new_image( gui, uid, pic_x + extra_scale*off_x, pic_y + extra_scale*off_y, z, pic, extra_scale*scale_x, extra_scale*scale_y, 0.25, false, angle )
+		uid = pen.new_image( gui, uid, pic_x + extra_scale*off_x, pic_y + extra_scale*off_y, z,
+			pic, { color = {0,0,0}, s_x = extra_scale*scale_x, s_y = extra_scale*scale_y, alpha = 0.25, angle = angle })
 	end
 	
 	return uid, pic_x, pic_y
@@ -2435,7 +2449,7 @@ end
 
 function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angle )
 	local off_x, off_y = pen.rotate_offset( 10, 10, angle or 0 )
-	return new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, type2frame[ spell_type ][1], nil, nil, alpha, nil, angle )
+	return pen.new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, type2frame[ spell_type ][1], { alpha = alpha, angle = angle })
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
@@ -2450,30 +2464,35 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 		pic_off_x, pic_off_y = -2.5, 0
 	end
 
+	local is_hovered = false
     local w, h = pen.get_pic_dims( icon_info.pic )
 	-- if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
-	uid = new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, nil, nil, 1, true )
-	local _, _, is_hovered = GuiGetPreviousWidgetInfo( gui )
+	uid,_,_,is_hovered = pen.new_image( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, { can_click = true })
 
 	if( kind == 2 and icon_info.amount > 0 ) then
 		-- local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
-		-- uid = new_cutout( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( gui, uid, v )
-		-- 	return new_image( gui, uid, 0, -step, v[1], v[2])
+		-- uid = pen.new_cutout( gui, uid, pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( gui, uid, v )
+		-- 	return pen.new_image( gui, uid, 0, -step, v[1], v[2])
 		-- end, { pic_z - 0.002, icon_info.pic })
 		
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
 		local pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png"
 		GuiColorSetForNextWidget( gui, 0.7, 0.7, 0.7, 1 )
-		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, pixel, 10, pos, 0.15 )
-		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 10, scale, 0.25 )
+		uid = pen.new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001,
+			pixel, { s_x = 10, s_y = pos, alpha = 0.15 })
+		uid = pen.new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004,
+			pixel, { s_x = 10, s_y = scale, alpha = 0.25 })
 
 		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
-		uid = new_image( gui, uid, pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 1, scale, 0.15 )
+		uid = pen.new_image( gui, uid, pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004,
+			pixel, { s_x = 1, s_y = scale, alpha = 0.15 })
 		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
-		uid = new_image( gui, uid, pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pixel, 1, scale, 0.15 )
+		uid = pen.new_image( gui, uid, pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004,
+			pixel, { s_x = 1, s_y = scale, alpha = 0.15 })
 		GuiColorSetForNextWidget( gui, 0, 0, 0, 1 )
-		uid = new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pixel, 10, 1, 0.15 )
+		uid = pen.new_image( gui, uid, pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004,
+			pixel, { s_x = 10, s_y = 1, alpha = 0.15 })
 	end
 
 	local txt_off_x, txt_off_y = 0, 0
@@ -2486,7 +2505,7 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 	local tip_x, tip_y = pic_x - 3, pic_y
 	if( icon_info.txt ~= "" ) then
 		icon_info.txt = pen.despacer( icon_info.txt )
-		local t_x, t_h = pen.get_text_dims( icon_info.txt )
+		local t_x, t_h = pen.get_text_dims( icon_info.txt, true )
 		t_x = t_x - txt_off_x
 		uid = new_shadowed_text( gui, uid, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt, { alpha = is_hovered and 1 or 0.5 })
 		tip_x = tip_x - t_x
@@ -2500,7 +2519,7 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 	if( icon_info.desc ~= "" and is_hovered and tip_anim["generic"][1] > 0 ) then
 		icon_info.desc = pen.despacer( icon_info.desc )
 		local anim = math.sin( math.min( tip_anim["generic"][3], 10 )*math.pi/20 )
-		local dims = { pen.get_text_dims( icon_info.desc )}
+		local dims = { pen.get_text_dims( icon_info.desc, true )}
 		uid = new_shadowed_text( gui, uid, pic_x - dims[1] + w, pic_y + h + 3, pic_z, icon_info.desc, { color = icon_info.is_danger and {224,96,96} or {255,255,255}, alpha = anim })
 		
 		local bg_x = pic_x - ( dims[1] + 2 ) + w
@@ -2519,11 +2538,12 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 	end
 
 	if( kind == 1 ) then
-		uid = new_image( gui, uid, pic_x, pic_y, pic_z + 0.002, "data/ui_gfx/status_indicators/bg_ingestion.png" )
+		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z + 0.002, "data/ui_gfx/status_indicators/bg_ingestion.png" )
 		
 		local d_frame = icon_info.digestion_delay
 		if( icon_info.is_stomach and d_frame > 0 ) then
-			uid = new_image( gui, uid, pic_x + 1, pic_y + 1 + 10*( 1 - d_frame ), pic_z + 0.001, "mods/index_core/files/pics/vanilla_stomach_bg.xml", 10, math.ceil( 20*d_frame )/2, 0.3 )
+			uid = pen.new_image( gui, uid, pic_x + 1, pic_y + 1 + 10*( 1 - d_frame ), pic_z + 0.001,
+				"mods/index_core/files/pics/vanilla_stomach_bg.xml", { s_x = 10, s_y = math.ceil( 20*d_frame )/2, alpha = 0.3 })
 		end
 	end
 
@@ -2556,12 +2576,13 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 	end
 
 	if( this_info.id > 0 and data.dragger.item_id == this_info.id ) then
-		colourer( data.the_gui, {150,150,150})
+		pen.colourer( data.the_gui, {150,150,150})
 	end
-	local pic_bg, clicked, r_clicked, is_hovered = ( is_full == true ) and data.slot_pic.bg_alt or data.slot_pic.bg, false, false, false
+	local pic_bg = ( is_full == true ) and data.slot_pic.bg_alt or data.slot_pic.bg
+	local clicked, r_clicked, is_hovered = false, false, false
 	local w, h = pen.get_pic_dims( pic_bg )
-	uid = new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back, pic_bg, nil, nil, nil, true )
-	clicked, r_clicked, is_hovered = GuiGetPreviousWidgetInfo( data.the_gui )
+	uid, clicked, r_clicked, is_hovered = pen.new_image( data.the_gui, uid, pic_x, pic_y, zs.main_far_back,
+		pic_bg, { can_click = true })
 	local might_swap = not( data.is_opened ) and is_quick and is_hovered
 	if(( clicked or slot_data.force_equip ) and this_info.id > 0 ) then
 		local do_default = might_swap or slot_data.force_equip
@@ -2581,7 +2602,8 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 	local no_action, dragger_hovered = cat_tbl.on_drag == nil, false
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if(( is_full ~= true ) and is_active ) then
-		uid = new_image( gui, uid, pic_x, pic_y, zs[( not( data.is_opened ) or can_drag ) and "main_front" or "icons_front" ] + 0.0001, data.slot_pic.active )
+		uid = pen.new_image( gui, uid, pic_x, pic_y,
+			zs[( not( data.is_opened ) or can_drag ) and "main_front" or "icons_front" ] + 0.0001, data.slot_pic.active )
 	end
 	if( data.dragger.item_id > 0 ) then
 		local no_hov_for_ya = true
@@ -2606,7 +2628,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 					end
 					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= this_info.id ) then
 						dragger_hovered = true
-						uid = new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.main_front + 0.001, data.slot_pic.hl )
+						uid = pen.new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.main_front + 0.001, data.slot_pic.hl )
 					end
 				end
 			end
@@ -2631,11 +2653,9 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 		end
 	elseif( data.is_opened ) then
 		if( is_full == true ) then
-			colourer( gui, {150,150,150})
-			uid = new_image( gui, uid, slot_x - 0.5, slot_y - 0.5, zs.icons_front + 0.001, data.slot_pic.bg_alt, 21/20, 21/20, 0.75 )
-		else
-			uid = new_image( gui, uid, slot_x, slot_y, zs.icons_front + 0.001, data.slot_pic.locked )
-		end
+			uid = pen.new_image( gui, uid, slot_x - 0.5, slot_y - 0.5, zs.icons_front + 0.001,
+				data.slot_pic.bg_alt, { color = {150,150,150}, s_x = 21/20, s_y = 21/20, alpha = 0.75 })
+		else uid = pen.new_image( gui, uid, slot_x, slot_y, zs.icons_front + 0.001, data.slot_pic.locked ) end
 	end
 	
 	if( this_info.id > 0 ) then
@@ -2677,9 +2697,10 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 						EntityKill( this_info.id )
 					else
 						local cross_x, cross_y = slot_x - 2*shift, slot_y - 2*shift
-						uid = new_image( gui, uid, cross_x, cross_y, zs.icons_front, "mods/index_core/files/pics/vanilla_no_cards.xml" )
-						colourer( gui, {0,0,0})
-						uid = new_image( gui, uid, cross_x + 0.5, cross_y + 0.5, zs.icons_front + 0.001, "mods/index_core/files/pics/vanilla_no_cards.xml", nil, nil, 0.75 )
+						uid = pen.new_image( gui, uid, cross_x, cross_y, zs.icons_front,
+							"mods/index_core/files/pics/vanilla_no_cards.xml" )
+						uid = pen.new_image( gui, uid, cross_x + 0.5, cross_y + 0.5, zs.icons_front + 0.001,
+							"mods/index_core/files/pics/vanilla_no_cards.xml", { color = {0,0,0}, alpha = 0.75 })
 					end
 				else
 					uid = pen.new_text( gui, uid, slot_x + ( 1 - shift ), slot_y, zs.icons_front,
@@ -2771,29 +2792,33 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 		local is_shuffle, is_multi = this_info.wand_info.shuffle_deck_when_empty, this_info.wand_info.actions_per_round > 1
 		if( is_shuffle or is_multi ) then
 			if( is_shuffle ) then
-				uid = new_image( gui, uid, pic_x, pic_y, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha )
-				colourer( gui, pen.PALETTE.B )
-				uid = new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_shuffle.png", nil, nil, inter_alpha*0.75 )
+				uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
+					"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
+				uid = pen.new_image( gui, uid, pic_x + 0.5, pic_y + 0.5, pic_z + 0.001,
+					"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
 			end
 			if( is_multi ) then
 				local multi_y = pic_y + this_info.w_spacing[4]
-				uid = new_image( gui, uid, pic_x, multi_y + 11, pic_z, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha )
-				colourer( gui, pen.PALETTE.B )
-				uid = new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, pic_z + 0.001, "data/ui_gfx/inventory/icon_gun_actions_per_round.png", nil, nil, inter_alpha*0.75 )
-				uid = pen.new_text( gui, uid, pic_x + 9, multi_y + 10, pic_z, this_info.wand_info.actions_per_round, {
-					color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
-				uid = pen.new_text( gui, uid, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001, this_info.wand_info.actions_per_round, {
-					color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
+				uid = pen.new_image( gui, uid, pic_x, multi_y + 11, pic_z,
+					"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { alpha = inter_alpha })
+				uid = pen.new_image( gui, uid, pic_x + 0.5, multi_y + 10.5, pic_z + 0.001,
+					"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
+				uid = pen.new_text( gui, uid, pic_x + 9, multi_y + 10, pic_z,
+					this_info.wand_info.actions_per_round, { color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
+				uid = pen.new_text( gui, uid, pic_x + 9.5, multi_y + 9.5, pic_z + 0.001,
+					this_info.wand_info.actions_per_round, { color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
 			end
 		end
 
 		local drift, section_off = this_info.w_spacing[1], this_info.w_spacing[2]
 		uid = new_slot_pic( gui, uid, pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, pic_z + 0.005, this_info.pic, inter_alpha, 0, scale, true )
 		local clicked, r_clicked, is_hovered = false, false, false
-		uid, clicked, r_clicked, is_hovered = new_interface( gui, uid, { pic_x, pic_y, section_off, 18 + this_info.w_spacing[4]}, pic_z - 0.001 )
+		uid, clicked, r_clicked, is_hovered = pen.new_interface(
+			gui, uid, pic_x, pic_y, section_off, 18 + this_info.w_spacing[4], pic_z - 0.001 )
 		pic_x = pic_x + section_off
 		if( this_info.is_frozen ) then
-			uid = new_shaded_image( gui, uid, pic_x - 5, pic_y + step_y - 7, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png", {9,9}, nil, nil, inter_alpha, true )
+			uid = pen.new_image( gui, uid, pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
+				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
 			uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ))
 		end
 		if( is_hovered ) then
@@ -2801,7 +2826,8 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 				gui, uid, nil, this_info.id, data, this_info, pic_x + 1, pic_y - 2, zs.tips, false, true
 			}, { uid })
 		end
-		uid = new_image( gui, uid, pic_x, pic_y - 1, pic_z, "mods/index_core/files/pics/vanilla_tooltip_1.xml", 1, step_y + 1, 0.5*inter_alpha )
+		uid = pen.new_image( gui, uid, pic_x, pic_y - 1, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })
 		
 		local slot_count = this_info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
@@ -2825,13 +2851,14 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 				if( slot ) then
 					idata = pen.t.get( data.item_list, slot )
 					if( idata.is_permanent ) then
-						uid = new_image( gui, uid, slot_x + 1, slot_y + 12, zs.icons_front, "data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
-						colourer( gui, {0,0,0})
-						uid = new_image( gui, uid, slot_x + 1.5, slot_y + 11.5, zs.icons_front + 0.0001, "data/ui_gfx/inventory/icon_gun_permanent_actions.png", nil, nil, 0.75 )
+						uid = pen.new_image( gui, uid, slot_x + 1, slot_y + 12, zs.icons_front,
+							"data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
+						uid = pen.new_image( gui, uid, slot_x + 1.5, slot_y + 11.5, zs.icons_front + 0.0001,
+							"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { color = {0,0,0}, alpha = 0.75 })
 					end
 				end
 				
-				if( counter%2 == 0 and slot_count > 2 ) then colourer( data.the_gui, {185,220,223}) end
+				if( counter%2 == 0 and slot_count > 2 ) then pen.colourer( data.the_gui, {185,220,223}) end
 				uid, data, w, h = slot_setup( gui, uid, slot_x, slot_y, zs, data, {
 					inv_id = this_info.id,
 					id = slot,
