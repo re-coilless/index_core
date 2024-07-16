@@ -19,9 +19,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         
         local function check_shortcut( id, is_quickest )
-            if( id < 5 ) then
-                return get_input({( is_quickest and 29 or 33 ) + id, "Key" }, ( is_quickest and "za_quickest_" or "zb_quick_" )..id, false, true )
-            end
+            if( id <= 4 ) then return index.get_input(( is_quickest and "za_quickest_" or "zb_quick_" )..id ) end
         end
         local w, h, step = 0, 0, 1
         xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
@@ -218,7 +216,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
         if( max_hp > 0 ) then
             uid, length, height, max_hp, hp, red_shift = new_vanilla_hp( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, data, data.player_id, this_data )
 
-            local max_hp_text, hp_text = get_short_num( max_hp ), get_short_num( hp )
+            local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
             uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", { has_shadow = true })
             uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
             
@@ -507,7 +505,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
             god_i_love_money_holy_fuck = data.memo.money
         end
 
-        local v = get_short_num( god_i_love_money_holy_fuck )
+        local v = pen.get_short_num( god_i_love_money_holy_fuck )
         local dims = {}
         uid = pen.new_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", { has_shadow = true })
         uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
@@ -964,7 +962,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                         
                         local info_dump = false
                         if( cost_check ) then
-                            local will_pause = cat_callback( data, item_data[10], "on_gui_pause" ) ~= nil
+                            local will_pause = index.cat_callback( item_data[10], "on_gui_pause" ) ~= nil
                             ComponentSetValue2( item_data[1][2], "inventory_slot", -5, -5 )
                             local new_data = (( will_pause or i == 1 or EntityHasTag( item_data[1][1], "index_slotless" )) and {inv_slot=0} or set_to_slot( item_data[10], data, true ))
                             if( new_data.inv_slot ~= nil ) then
@@ -1053,11 +1051,11 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     pickup_data.id = -1
                     pickup_data.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_data.this_info.name ), true }
                 else
-                    local guiing = cat_callback( data, pickup_data.this_info, "on_gui_world" ) --this should be able to nuke the info_func
+                    local guiing = index.cat_callback( pickup_data.this_info, "on_gui_world" ) --this should be able to nuke the info_func
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = pen.world2gui( i_x, i_y )
-                        uid, ignore_default = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, cat_callback( data, pickup_data.this_info, "on_tooltip" ))
+                        uid, ignore_default = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, index.cat_callback( pickup_data.this_info, "on_tooltip" ))
                     end
                 end
                 
@@ -1133,7 +1131,7 @@ function new_generic_drop( this_item, data )
         local do_default = true
         local this_info = pen.t.get( data.item_list, this_item )
         local inv_data = data.inventories[ this_info.inv_id ] or {}
-        local callback = cat_callback( data, this_info, "on_drop" )
+        local callback = index.cat_callback( this_info, "on_drop" )
         if( callback ~= nil ) then
             do_default = callback( this_item, data, this_info, false )
         end
@@ -1198,7 +1196,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 arrow_left_c = arrow_hl_c
                 arrow_left_a = 1
             end
-            if( clicked or get_input({ 86--[["keypad_-"]], "Key" }, "bb_invmode_previous", false, true )) then
+            if( clicked or index.get_input( "bb_invmode_previous" )) then
                 new_mode = new_mode - 1
                 arrow_left_a = 1
             end
@@ -1210,7 +1208,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 arrow_right_c = arrow_hl_c
                 arrow_right_a = 1
             end
-            if( clicked or get_input({ 87--[["keypad_+"]], "Key" }, "ba_invmode_next", false, true )) then
+            if( clicked or index.get_input( "ba_invmode_next" )) then
                 new_mode = new_mode + 1
                 arrow_right_a = 1
             end

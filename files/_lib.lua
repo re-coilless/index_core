@@ -1,7 +1,11 @@
-dofile_once( "mods/penman/_penman.lua" )
+--terminate mod if no mnee
+
+dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
-type2frame = {
+index = index or {}
+
+index.T2F = { --make the colors be custom
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", {90,35,35}}, --ACTION_TYPE_PROJECTILE
 	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", {141,63,24}}, --ACTION_TYPE_STATIC_PROJECTILE
 	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", {45,58,114}}, --ACTION_TYPE_MODIFIER
@@ -12,420 +16,356 @@ type2frame = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
 }
 
+--get_tip_width
+--data table must be index._DATA
+--data.memo -> index._MEMO
+
 --core backend
-function get_button_state( ctrl_comp, btn, frame ) --port this to penman
-	return { ComponentGetValue2( ctrl_comp, "mButtonDown"..btn ), ComponentGetValue2( ctrl_comp, "mButtonFrame"..btn ) == frame }
+function index.get_input( mnee_id, is_continuous, is_clean )
+	return mnee.mnin( "bind", { "index", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
 end
 
-function get_discrete_button( entity_id, comp, btn ) --kinda sus
-	local id = entity_id..btn
-	local state = false
-	if( ComponentGetValue2( comp, btn )) then
-		if( not( dscrt_btn[id])) then
-			state = true
-		end
-		dscrt_btn[id] = true
-	else
-		dscrt_btn[id] = false
-	end
-	
-	return state
-end
+function index.self_destruct()
+	local controller_id = ( EntityGetWithTag( "index_ctrl" ) or {})[1]
+	if( not( pen.vld( controller_id, true ))) then return end
 
-function get_input( vanilla_id, mnee_id, is_continuous, is_dirty ) --definitely replace with mnee
-	is_dirty = is_dirty or false
-	is_continuous = is_continuous or false
-	
-	local state = false
-	if( ModIsEnabled( "mnee" )) then
-		dofile_once( "mods/mnee/lib.lua" )
-		state = mnee.mnin_bind( "index_core", mnee_id, is_dirty, not( is_continuous ))
-	else
-		local kind = ""
-		if( type( vanilla_id ) == "table" ) then
-			kind = vanilla_id[2]
-			vanilla_id = vanilla_id[1]
-		end
-		state = _G[ "InputIs"..kind..( is_continuous and "Down" or "JustDown" )]( vanilla_id )
-	end
-	return state
-end
+	local hooman = EntityGetRootEntity( controller_id )
+	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" ), true )
+	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" ), true )
 
-function self_destruct()
-	local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
-	if( #ctrl_bodies > 0 ) then
-		local controller_id = ctrl_bodies[1]
-		local hooman = EntityGetRootEntity( controller_id )
-		
-		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-		local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
-		EntitySetComponentIsEnabled( hooman, iui_comp, true )
-		EntitySetComponentIsEnabled( hooman, pick_comp, true )
-
-		EntityKill( pen.get_child( hooman, "index_ctrl" ))
-		EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
-	end
+	EntityKill( pen.get_child( hooman, "index_ctrl" ))
+	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 end
 
 --ESC backend
-function cat_callback( data, this_info, name, input, sos )
-	do_default_callback = false
-
+function index.cat_callback( this_info, name, input, fallback, do_default )
 	local func_local = this_info[ name ]
-	if( input == nil ) then
-		local func_main = data.item_cats[ this_info.cat ]
-		if( func_main ~= nil ) then
-			return func_local == nil and func_main[ name ] or func_local
+	if( input ~= nil ) then
+		local out = func_local == nil and fallback or { func_local( unpack( input ))}
+		if( func_local == nil or do_default ) then
+			local func_main = index._DATA.item_cats[ this_info.cat ][ name ]
+			if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
 		end
-	else
-		local out = nil
-		if( func_local ~= nil ) then
-			out = { func_local( unpack( input ))}
-		else
-			do_default_callback = true
-		end
-		if( do_default_callback ) then
-			local func_main = data.item_cats[ this_info.cat ][ name ]
-			if( func_main ~= nil ) then
-				out = { func_main( unpack( input ))}
-			end
-		end
-
-		out = ( out == nil ) and sos or out
-		if( out ) then
-			return unpack( out )
-		end
-	end
+		return unpack( out )
+	else return func_local or index._DATA.item_cats[ this_info.cat ] end
 end
 
-function play_sound( data, sfx, x, y )
-	if( x == nil or y == nil ) then
-		x, y = unpack( data.player_xy )
-	end
-	local sound = type( sfx ) == "table" and sfx or data.sfxes[ sfx ]
-	GamePlaySound( sound[1], sound[2], x, y )
+function index.play_sound( sfx, x, y )
+	if( x == nil ) then x, y = unpack( index._DATA.player_xy ) end
+	pen.play_sound( type( sfx ) == "table" and sfx or index._DATA.sfxes[ sfx ], x, y )
 end
 
-function clean_my_gun()
-	ACTION_DRAW_RELOAD_TIME_INCREASE = 0
+function index.clean_my_gun()
 	ACTION_MANA_DRAIN_DEFAULT = 10
+	ACTION_DRAW_RELOAD_TIME_INCREASE = 0
 	ACTION_UNIDENTIFIED_SPRITE_DEFAULT = "data/ui_gfx/gun_actions/unidentified.png"
 
 	reflecting = false
 	current_action = nil
+	state_from_game = nil
 
-	first_shot   = true
-	reloading    = false
+	reloading = false
+	first_shot = true
 	start_reload = false
 	got_projectiles = false
 
-	state_from_game = nil
+	deck = {}
+	hand = {}
+	discarded = {}
 
-	discarded       	= { }
-	deck 				= { }
-	hand 				= { }
+	c = {}
+	shot_effects = {}
+	current_reload_time = 0
+	current_projectile = nil
+	active_extra_modifiers = {}
 
-	c                   = { }
-	current_projectile  = nil
-	current_reload_time =  0
-	shot_effects        = { }
-
-	active_extra_modifiers	= { }
-
-	mana = 0.0
-
-	state_shuffled         = false
-	state_cards_drawn      = 0
+	mana = 0
+	state_cards_drawn = 0
+	state_shuffled = false
 	state_discarded_action = false
 	state_destroyed_action = false
-
 	playing_permanent_card = false
 
-	use_game_log = false
-
 	gun = {}
+	use_game_log = false
 	ConfigGun_Init( gun )
 	current_reload_time = 0
 
-	dont_draw_actions = false
-	force_stop_draws = false
 	shot_structure = {}
 	recursion_limit = 2
+	force_stop_draws = false
+	dont_draw_actions = false
 
 	root_shot = nil
 end
 
-function get_action_data( data, spell_id )
-	data.memo.spell_data = data.memo.spell_data or {}
-	if( data.memo.spell_data[ spell_id ] == nil or data.memo.spell_data[ spell_id ].hold_up ) then
-		dofile_once( "data/scripts/gun/gun.lua" )
-		dofile_once( "data/scripts/gun/gun_enums.lua" )
-		dofile_once( "data/scripts/gun/gun_actions.lua" )
-		clean_my_gun()
+function index.get_action_data( spell_id )
+	dofile_once( "data/scripts/gun/gun.lua" )
+	dofile_once( "data/scripts/gun/gun_enums.lua" )
+	dofile_once( "data/scripts/gun/gun_actions.lua" )
+	return pen.cache({ "index_spell_data", spell_id }, function()
+		index.clean_my_gun()
 
-		local spell_info = pen.t.get( actions, spell_id )
-		data.memo.spell_data[ spell_id ] = pen.t.clone( spell_info )
-		if( spell_info.action ~= nil ) then
-			add_projectile_old = add_projectile
-			add_projectile = function( path )
-				table.insert( c.projs, { 1, path })
-			end
-			add_projectile_trigger_timer_old = add_projectile_trigger_timer
-			add_projectile_trigger_timer = function( path, delay, draw_count )
-				c.draw_many = c.draw_many + draw_count
-				table.insert( c.projs, { 2, path, draw_count, delay })
-			end
-			add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
-			add_projectile_trigger_hit_world = function( path, draw_count )
-				c.draw_many = c.draw_many + draw_count
-				table.insert( c.projs, { 3, path, draw_count })
-			end
-			add_projectile_trigger_death_old = add_projectile_trigger_death
-			add_projectile_trigger_death = function( path, draw_count )
-				c.draw_many = c.draw_many + draw_count
-				table.insert( c.projs, { 4, path, draw_count })
-			end
-			draw_actions_old = draw_actions
-			draw_actions = function( draw_count )
-				c.draw_many = c.draw_many + draw_count
-			end
-			dont_draw_actions, reflecting = true, true
-			current_reload_time, shot_effects = 0, {}
-			ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
+		local spell_data = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}))
+		if( spell_data.action == nil ) then return spell_data end
+		
+		add_projectile_old = add_projectile
+		add_projectile = function( path )
+			table.insert( c.projs, { 1, path })
+		end
+		add_projectile_trigger_timer_old = add_projectile_trigger_timer
+		add_projectile_trigger_timer = function( path, delay, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 2, path, draw_count, delay })
+		end
+		add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
+		add_projectile_trigger_hit_world = function( path, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 3, path, draw_count })
+		end
+		add_projectile_trigger_death_old = add_projectile_trigger_death
+		add_projectile_trigger_death = function( path, draw_count )
+			c.draw_many = c.draw_many + draw_count
+			table.insert( c.projs, { 4, path, draw_count })
+		end
+		draw_actions_old = draw_actions
+		draw_actions = function( draw_count )
+			c.draw_many = c.draw_many + draw_count
+		end
 
-			SetRandomSeed( 0, 0 )
-			ConfigGunShotEffects_Init( shot_effects )
-			local metadata = create_shot()
-			c, metadata.state_proj = metadata.state, {damage={},explosion={},crit={},lightning={}}
-			set_current_action( spell_info )
-			c.draw_many = 0
-			c.projs = {}
-			
-			pcall( spell_info.action )
-			if( spell_info.tip_data ~= nil ) then spell_info.tip_data() end
-			if( math.abs( current_reload_time ) > 1e6 ) then
-				data.memo.spell_data[ spell_id ].is_chainsaw = true
-				current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE
+		ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
+		current_reload_time, shot_effects = 0, {}
+		dont_draw_actions, reflecting = true, true
+
+		SetRandomSeed( 0, 0 )
+		ConfigGunShotEffects_Init( shot_effects )
+		local metadata = create_shot()
+		c, metadata.state_proj = metadata.state, {damage={},explosion={},crit={},lightning={}}
+		set_current_action( spell_data )
+		c.draw_many = 0
+		c.projs = {}
+		
+		pcall( spell_data.action )
+		if( spell_data.tip_data ~= nil ) then spell_data.tip_data() end
+		if( math.abs( current_reload_time ) > 1e6 ) then
+			spell_data.is_chainsaw = true
+			current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE
+		end
+		metadata.state.reload_time, metadata.shot_effects = current_reload_time, pen.t.clone( shot_effects )
+		
+		local total_dmg_add, dmg_tbl = 0, {
+			"damage_projectile_add", "damage_curse_add", "damage_explosion_add", "damage_slice_add", "damage_poison_add",
+			"damage_melee_add", "damage_ice_add", "damage_electricity_add", "damage_drill_add", "damage_radioactive_add",
+			"damage_healing_add", "damage_fire_add", "damage_holy_add", "damage_physics_add", "damage_explosion",
+		}
+		for i,dmg in ipairs( dmg_tbl ) do
+			total_dmg_add = total_dmg_add + ( c[dmg] or 0 )
+		end
+		c.damage_total_add = total_dmg_add
+		
+		local is_gonna = false
+		c.proj_count = #c.projs
+		if( c.proj_count > 0 ) then
+			local nxml = dofile_once( "mods/index_core/nxml.lua" )
+			local xml = nxml.parse( ModTextFileGetContent( c.projs[1][2]))
+			local xml_kid = xml:first_of( "ProjectileComponent" )
+			if( xml_kid == nil ) then
+				xml_kid = xml:first_of( "Base" )
+				if( xml_kid ~= nil ) then
+					xml_kid = xml_kid:first_of( "ProjectileComponent" )
+				end
 			end
-			metadata.state.reload_time, metadata.shot_effects = current_reload_time, pen.t.clone( shot_effects )
-			
-			local total_dmg_add, dmg_tbl = 0, {
-				"damage_projectile_add", "damage_curse_add", "damage_explosion_add", "damage_slice_add", "damage_poison_add",
-				"damage_melee_add", "damage_ice_add", "damage_electricity_add", "damage_drill_add", "damage_radioactive_add",
-				"damage_healing_add", "damage_fire_add", "damage_holy_add", "damage_physics_add", "damage_explosion",
-			}
-			for i,dmg in ipairs( dmg_tbl ) do
-				total_dmg_add = total_dmg_add + ( c[dmg] or 0 )
-			end
-			c.damage_total_add = total_dmg_add
-			
-			local is_gonna = false
-			c.proj_count = #c.projs
-			if( c.proj_count > 0 ) then
-				local nxml = dofile_once( "mods/index_core/nxml.lua" )
-				local xml = nxml.parse( ModTextFileGetContent( c.projs[1][2]))
-				local xml_kid = xml:first_of( "ProjectileComponent" )
+			if( xml_kid ) then
+				metadata.state_proj = {
+					damage = {
+						curse = 0,
+						drill = 0,
+						electricity = 0,
+						explosion = 0,
+						fire = 0,
+						healing = 0,
+						ice = 0,
+						melee = 0,
+						overeating = 0,
+						physics_hit = 0,
+						poison = 0,
+						projectile = tonumber( xml_kid.attr.damage or 0 ),
+						radioactive = 0,
+						slice = 0,
+						holy = 0,
+					},
+					explosion = {},
+					crit = {},
+					lightning = {},
+					laser = {},
+					damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
+					damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
+					
+					lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
+
+					speed = math.floor((
+						tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 )
+						+ tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 )
+					)/2 + 0.5 ),
+
+					inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
+					bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
+					
+					on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
+					on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
+					on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
+					on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
+
+					collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
+					penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
+					dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
+					never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
+					friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
+					explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
+
+					collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
+					penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
+					go_through_this_material = xml_kid.attr.go_through_this_material or "",
+					ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
+					ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
+				}
+
+				local dmg_kid = xml_kid:first_of( "damage_by_type" )
+				if( dmg_kid ) then
+					metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
+					metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
+					metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
+					metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
+					metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
+					metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
+					metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
+					metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
+					metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
+					metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
+					metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
+					metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile
+						+ tonumber( dmg_kid.attr.projectile or 0 )
+					metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
+					metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
+					metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
+				end
+				local exp_kid = xml_kid:first_of( "config_explosion" )
+				if( exp_kid ) then
+					metadata.state_proj.explosion = {
+						damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
+						damage = tonumber( exp_kid.attr.damage or 0 ),
+						is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
+						explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
+						max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
+						ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
+					}
+				end
+				local crit_kid = xml_kid:first_of( "damage_critical" )
+				if( crit_kid ) then
+					metadata.state_proj.crit = {
+						chance = tonumber( crit_kid.attr.chance or 0 ),
+						damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
+					}
+				end
+
+				xml_kid = xml:first_of( "LightningComponent" )
 				if( xml_kid == nil ) then
 					xml_kid = xml:first_of( "Base" )
 					if( xml_kid ~= nil ) then
-						xml_kid = xml_kid:first_of( "ProjectileComponent" )
+						xml_kid = xml_kid:first_of( "LightningComponent" )
 					end
 				end
 				if( xml_kid ) then
-					metadata.state_proj = {
-						damage = {
-							curse = 0,
-							drill = 0,
-							electricity = 0,
-							explosion = 0,
-							fire = 0,
-							healing = 0,
-							ice = 0,
-							melee = 0,
-							overeating = 0,
-							physics_hit = 0,
-							poison = 0,
-							projectile = tonumber( xml_kid.attr.damage or 0 ),
-							radioactive = 0,
-							slice = 0,
-							holy = 0,
-						},
-						explosion = {},
-						crit = {},
-						lightning = {},
-						laser = {},
-						damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
-						damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
-						
-						lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
-
-						speed = math.floor(( tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 ) + tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 ))/2 + 0.5 ),
-
-						inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
-						bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
-						
-						on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
-						on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
-						on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
-						on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
-
-						collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
-						penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
-						dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
-						never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
-						friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
-						explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
-
-						collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
-						penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
-						go_through_this_material = xml_kid.attr.go_through_this_material or "",
-						ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
-						ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
-					}
-
-					local dmg_kid = xml_kid:first_of( "damage_by_type" )
-					if( dmg_kid ) then
-						metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
-						metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
-						metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
-						metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
-						metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
-						metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
-						metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
-						metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
-						metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
-						metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
-						metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
-						metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile + tonumber( dmg_kid.attr.projectile or 0 )
-						metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
-						metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
-						metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
-					end
-					local exp_kid = xml_kid:first_of( "config_explosion" )
-					if( exp_kid ) then
-						metadata.state_proj.explosion = {
-							damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
-							damage = tonumber( exp_kid.attr.damage or 0 ),
-							is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
-							explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
-							max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
-							ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
+					local lght_kid = xml_kid:first_of( "config_explosion" )
+					if( lght_kid ) then
+						metadata.state_proj.lightning = {
+							damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
+							damage = tonumber( lght_kid.attr.damage or 0 ),
+							is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
+							explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
+							max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
+							ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
 						}
 					end
-					local crit_kid = xml_kid:first_of( "damage_critical" )
-					if( crit_kid ) then
-						metadata.state_proj.crit = {
-							chance = tonumber( crit_kid.attr.chance or 0 ),
-							damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
-						}
-					end
-
-					xml_kid = xml:first_of( "LightningComponent" )
-					if( xml_kid == nil ) then
-						xml_kid = xml:first_of( "Base" )
-						if( xml_kid ~= nil ) then
-							xml_kid = xml_kid:first_of( "LightningComponent" )
-						end
-					end
-					if( xml_kid ) then
-						local lght_kid = xml_kid:first_of( "config_explosion" )
-						if( lght_kid ) then
-							metadata.state_proj.lightning = {
-								damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
-								damage = tonumber( lght_kid.attr.damage or 0 ),
-								is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
-								explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
-								max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
-								ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
-							}
-						end
-					end
-
-					xml_kid = xml:first_of( "LaserEmitterComponent" )
-					if( xml_kid == nil ) then
-						xml_kid = xml:first_of( "Base" )
-						if( xml_kid ~= nil ) then
-							xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
-						end
-					end
-					if( xml_kid ) then
-						local laser_kid = xml_kid:first_of( "laser" )
-						if( laser_kid ) then
-							metadata.state_proj.laser = {
-								max_length = tonumber( laser_kid.attr.max_length or 0 ),
-								beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
-								damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
-								damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
-								max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
-							}
-						end
-					end
-					
-					local total_dmg = 0
-					for field,dmg in pairs( metadata.state_proj.damage ) do
-						total_dmg = total_dmg + dmg
-					end
-					if( metadata.state_proj.explosion.damage_mortals ) then
-						total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
-					end
-					if( metadata.state_proj.lightning.damage_mortals ) then
-						total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
-					end
-					metadata.state_proj.damage["total"] = total_dmg
 				end
+
+				xml_kid = xml:first_of( "LaserEmitterComponent" )
+				if( xml_kid == nil ) then
+					xml_kid = xml:first_of( "Base" )
+					if( xml_kid ~= nil ) then
+						xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
+					end
+				end
+				if( xml_kid ) then
+					local laser_kid = xml_kid:first_of( "laser" )
+					if( laser_kid ) then
+						metadata.state_proj.laser = {
+							max_length = tonumber( laser_kid.attr.max_length or 0 ),
+							beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
+							damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
+							damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
+							max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
+						}
+					end
+				end
+				
+				local total_dmg = 0
+				for field,dmg in pairs( metadata.state_proj.damage ) do
+					total_dmg = total_dmg + dmg
+				end
+				if( metadata.state_proj.explosion.damage_mortals ) then
+					total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
+				end
+				if( metadata.state_proj.lightning.damage_mortals ) then
+					total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
+				end
+				metadata.state_proj.damage["total"] = total_dmg
 			end
-
-			ACTION_DRAW_RELOAD_TIME_INCREASE, c = 0, nil
-			add_projectile = add_projectile_old
-			add_projectile_trigger_timer = add_projectile_trigger_timer_old
-			add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
-			add_projectile_trigger_death = add_projectile_trigger_death_old
-			draw_actions = draw_actions_old
-			clean_my_gun()
-
-			data.memo.spell_data[ spell_id ].meta = pen.t.clone( metadata )
-			data.memo.spell_data[ spell_id ].hold_up = is_gonna
 		end
-	end
-	return data, data.memo.spell_data[ spell_id ]
+
+		ACTION_DRAW_RELOAD_TIME_INCREASE, c = 0, nil
+		add_projectile = add_projectile_old
+		add_projectile_trigger_timer = add_projectile_trigger_timer_old
+		add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
+		add_projectile_trigger_death = add_projectile_trigger_death_old
+		draw_actions = draw_actions_old
+		index.clean_my_gun()
+
+		spell_data.meta = pen.t.clone( metadata )
+		return spell_data
+	end, { reset_count = 0 })
 end
 
-function chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc ) --kinda sus
-	perc = perc or 0.1
-	
+function index.chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
+	if( not( pen.vld( mtr_list ))) then return end
+
 	local gonna_pour = type( mouth_id ) == "table"
 	if( gonna_pour ) then
 		perc = 9/total_vol
-	end
+	else perc = perc or 0.1 end
 	
 	local to_drink = total_vol*perc
 	local min_vol = math.ceil( to_drink*perc )
-	if( #mtr_list > 0 ) then
-		for i = #mtr_list,1,-1 do
-			local mtr = mtr_list[i]
-			if( mtr[2] > 0 ) then
-				local count = math.floor( mtr[2]*perc )
-				if( i == 1 ) then count = to_drink end
-				count = math.min( math.max( count, min_vol ), mtr[2])
+	for i = #mtr_list,1,-1 do
+		local mtr = mtr_list[i]
+		if( mtr[2] > 0 ) then
+			local count = math.floor( mtr[2]*perc )
+			if( i == 1 ) then count = to_drink end
+			count = math.min( math.max( count, min_vol ), mtr[2])
 
-				local name = CellFactory_GetName( mtr[1])
-				if( gonna_pour ) then
-					local temp = to_drink - 1
-					for i = 1,count do
-						local off_x, off_y = -1.5 + temp%3, -1.5 + math.floor( temp/3 )%4
-						GameCreateParticle( name, mouth_id[1] + off_x, mouth_id[2] + off_y, 1, 0, 0, false, false, false )
-						temp = temp - 1
-					end
-				else
-					EntityIngestMaterial( mouth_id, mtr[1], count )
+			local name = CellFactory_GetName( mtr[1])
+			if( gonna_pour ) then
+				local temp = to_drink - 1
+				for i = 1,count do
+					local off_x, off_y = -1.5 + temp%3, -1.5 + math.floor( temp/3 )%4
+					GameCreateParticle( name, mouth_id[1] + off_x, mouth_id[2] + off_y, 1, 0, 0, false, false, false )
+					temp = temp - 1
 				end
-				AddMaterialInventoryMaterial( cup_id, name, math.floor( mtr[2] - count + 0.5 ))
+			else EntityIngestMaterial( mouth_id, mtr[1], count ) end
+			AddMaterialInventoryMaterial( cup_id, name, math.floor( mtr[2] - count + 0.5 ))
 
-				to_drink = to_drink - count
-				if( to_drink <= 0 ) then
-					break
-				end
-			end
+			to_drink = to_drink - count
+			if( to_drink <= 0 ) then break end
 		end
 	end
 end
@@ -507,9 +447,7 @@ function inv_check( data, this_info, inv_info )
 	
 	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
 	if( val ) then
-		val = cat_callback( data, this_info, "on_inv_check", {
-			data, this_info, inv_info
-		}, { val })
+		val = index.cat_callback( this_info, "on_inv_check", { data, this_info, inv_info }, { val })
 	end
 	
 	inv_info.kind = kind_memo
@@ -566,7 +504,7 @@ function inventory_man( item_id, data, this_info, in_hand, force_full )
 	end, { data, this_info, in_hand })
 end
 
-function set_to_slot( this_info, data, is_player )
+function set_to_slot( this_info, data, is_player ) --damn
 	if( is_player == nil ) then
 		local parent_id = EntityGetParent( this_info.id )
 		is_player = data.inventories_player[1] == parent_id or data.inventories_player[2] == parent_id
@@ -691,7 +629,7 @@ function slot_swap( data, item_in, slot_data )
 	for i = 1,2 do
 		local this_info = idata[i]
 		if(( this_info.id or 0 ) > 0 ) then
-			cat_callback( data, this_info, "on_inv_swap", { data, this_info, slot_data })
+			index.cat_callback( this_info, "on_inv_swap", { data, this_info, slot_data })
 		end
 	end
 	for i,deadman in pairs( reset ) do
@@ -871,7 +809,7 @@ function get_item_data( item_id, data, inventory_data, item_list )
 	dofile_once( "data/scripts/gun/gun.lua" )
 	dofile_once( "data/scripts/gun/gun_enums.lua" )
 	dofile_once( "data/scripts/gun/gun_actions.lua" )
-	data, this_info = cat_callback( data, this_info, "on_data", {
+	data, this_info = index.cat_callback( this_info, "on_data", {
 		item_id, data, this_info, item_list or {}
 	}, { data, this_info })
 	
@@ -895,12 +833,12 @@ function get_items( hooman, data )
 				data, new_info = get_item_data( child, data, inv_info, item_tbl )
 				if( new_info.id ~= nil ) then
 					if( not( EntityHasTag( new_info.id, "index_processed" ))) then
-						cat_callback( data, new_info, "on_processed", { new_info.id, data, new_info })
+						index.cat_callback( new_info, "on_processed", { new_info.id, data, new_info })
 						
 						ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 						EntityAddTag( new_info.id, "index_processed" )
 					end
-					cat_callback( data, new_info, "on_processed_forced", { new_info.id, data, new_info })
+					index.cat_callback( new_info, "on_processed_forced", { new_info.id, data, new_info })
 
 					new_info.pic = register_item_pic( data, new_info, new_info.advanced_pic )
 					table.insert( item_tbl, new_info )
@@ -926,7 +864,7 @@ function pick_up_item( hooman, data, this_info, do_the_sound, is_silent )
 	local entity_id = this_info.id
 	local gonna_pause, is_shopping = 0, this_info.cost ~= nil
 
-	local callback = cat_callback( data, this_info, "on_pickup" )
+	local callback = index.cat_callback( this_info, "on_pickup" )
 	if( callback ~= nil ) then
 		gonna_pause = callback( entity_id, data, this_info, false )
 	end
@@ -1098,15 +1036,6 @@ function hud_num_fix( a, b, zeros )
 	return a.."/"..b
 end
 
-function get_tip_width( text, min_width, max_width, k ) --port to penman
-	min_width, max_width, k = min_width or 121, max_width or 251, k or 1
-	if( string.find( text, "[\n@]" ) ~= nil ) then k = 2*k end
-
-	local l = math.min( k*#text, 500 )
-	local w = math.min( math.max( math.floor( 6.5*l^0.6 + 0.5 ), math.max( min_width, 121 )), max_width )
-	return 2*math.floor(( w + 1 )/2 + 0.5 ) - 1
-end
-
 function get_stain_perc( perc )
 	local some_cancer = 14/99
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
@@ -1154,68 +1083,6 @@ function simple_anim( data, name, target, speed, min_delta ) --kidna sus
 	local delta = target - data.memo[name]
 	data.memo[name] = data.memo[name] + pen.limiter( pen.limiter( speed*delta, min_delta, true ), delta )
 	return data.memo[name]
-end
-
-function get_short_num( num, no_subzero, force_sign ) --port to penman
-	no_subzero = no_subzero or false
-	force_sign = force_sign or false
-
-	if( num < 0 and not( no_subzero )) then
-		return "∞"
-	elseif( no_subzero ~= 1 ) then
-		num = math.max( num, 0 )
-	end
-	local real_num = num
-	num = math.abs( num )
-	if( num < 999e12 ) then
-		if( num < 10 ) then
-			num = string.gsub( string.format( "%.3f", real_num ), "%.*0+$", "" )
-		else
-			local sstr = string.format( "%.0f", real_num )
-
-			local ender = { 12, "T" }
-			if( num < 10^4 ) then
-				ender = { 0, "" }
-			elseif( num < 10^6 ) then
-				ender = { 3, "K" }
-			elseif( num < 10^9 ) then
-				ender = { 6, "M" }
-			elseif( num < 10^12 ) then
-				ender = { 9, "B" }
-			end
-
-			num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
-		end
-	elseif( num < 9e99 ) then
-		num = tostring( string.format("%e", real_num ))
-		local _, pos = string.find( num, "+", 1, true )
-		num = string.sub( num, string.find( num, "^%-*%d" )).."e"..string.sub( 100 + tonumber( string.sub( num, pos+1, #num )), 2 )
-	else
-		return "∞"
-	end
-
-	if( force_sign ) then num = ( real_num > 0 and "+" or "" )..num end
-	return num
-end
-
-function get_tiny_num( num, no_subzero ) --port to penman
-	no_subzero = no_subzero or false
-	
-	if( num < 0 and not( no_subzero )) then
-		return "∞"
-	else
-		num = math.max( num, 0 )
-	end
-	if( num < 100000 ) then
-		local sstr = string.format( "%.0f", num )
-		
-		local ender = { 3, "K" }
-		if( num < 10^3 ) then ender = { 0, "" } end
-		num = string.sub( sstr, 1, #sstr - ender[1])..ender[2]
-	else
-		num = "∞"
-	end
-	return num
 end
 
 function get_effect_duration( duration, effect_info, eps )
@@ -1828,7 +1695,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		local function get_generic_stat( v, v_add, dft, allow_inf )
 			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
 			local is_dft = v == dft
-			return get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
+			return pen.get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
 		end
 		local stats_tbl = {
 			{
@@ -1976,7 +1843,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 					uid,_,_,is_hovered = pen.new_image( gui, uid, spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001,
 						data.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
 					if( is_hovered ) then
-						uid = cat_callback( data, spell, "on_tooltip", {
+						uid = index.cat_callback( spell, "on_tooltip", {
 							gui, uid, "wtt_spell", spell.id, data, spell, spell_x + 9*counter - 2, pic_y + 10, pic_z - 1
 						}, { uid })
 					end
@@ -2168,7 +2035,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
 		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001,
-			"data/ui_gfx/inventory/icon_action_type.png", { color = type2frame[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
+			"data/ui_gfx/inventory/icon_action_type.png", { color = index.T2F[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
 		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
 			"data/ui_gfx/inventory/icon_action_type.png", { alpha = inter_alpha })
 		uid = pen.new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001,
@@ -2190,7 +2057,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		if( this_info.charges >= 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
 			uid = pen.new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z,
 				"data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
-			local charges = get_tiny_num( this_info.charges )
+			local charges = pen.get_tiny_num( this_info.charges )
 			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
 		end
 
@@ -2206,7 +2073,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		local function get_generic_stat( v, v_add, dft, allow_inf )
 			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
 			local is_dft = v == dft
-			return get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
+			return pen.get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
 		end
 		local c, c_proj = this_info.spell_info.meta.state, this_info.spell_info.meta.state_proj
 		local no_draw = ( c.draw_many or 0 ) == 0
@@ -2295,7 +2162,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 						local v_add = c.speed_multiplier
 						v, v_add, allow_inf = v or 0, v_add or 1
 						local is_dft = v == 0
-						return ( is_dft and "x" or "" )..get_short_num( is_dft and v_add or ( v*v_add )), is_dft and ( v_add == 1 )
+						return ( is_dft and "x" or "" )..pen.get_short_num( is_dft and v_add or ( v*v_add )), is_dft and ( v_add == 1 )
 					end,
 					tip = 0,
 				},
@@ -2339,7 +2206,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			-- uid = new_shadowed_text( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
 		end
 		if( this_info.spell_info.price > 0 ) then
-			local price = get_short_num( this_info.spell_info.price )
+			local price = pen.get_short_num( this_info.spell_info.price )
 			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
 			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", { alpha = inter_alpha })
 		end
@@ -2449,7 +2316,7 @@ end
 
 function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angle )
 	local off_x, off_y = pen.rotate_offset( 10, 10, angle or 0 )
-	return pen.new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, type2frame[ spell_type ][1], { alpha = alpha, angle = angle })
+	return pen.new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, index.T2F[ spell_type ][1], { alpha = alpha, angle = angle })
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
@@ -2565,10 +2432,10 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 		hover = slot_data.sfx_hover or data.sfxes.hover,
 	}
 	local cat_tbl = {
-		on_equip = cat_callback( data, this_info, "on_equip" ),
-		on_action = cat_callback( data, this_info, "on_action" ),
-		on_slot = cat_callback( data, this_info, "on_slot" ),
-		on_tooltip = cat_callback( data, this_info, "on_tooltip" ),
+		on_equip = index.cat_callback( this_info, "on_equip" ),
+		on_action = index.cat_callback( this_info, "on_action" ),
+		on_slot = index.cat_callback( this_info, "on_slot" ),
+		on_tooltip = index.cat_callback( this_info, "on_tooltip" ),
 	}
 	if( cat_tbl.on_action ~= nil ) then
 		cat_tbl.on_rmb = cat_tbl.on_action( 1 )
@@ -2739,7 +2606,7 @@ function slot_setup( gui, uid, pic_x, pic_y, zs, data, slot_data, can_drag, is_f
 	local w, h, clicked, r_clicked, is_hovered = false, false, false
 	uid, data, w, h, clicked, r_clicked, is_hovered = data.slot_func( gui, uid, pic_x, pic_y, zs, data, slot_data, this_info, this_info.in_hand > 0, can_drag, is_full, is_quick )
 	if( this_info.cat ~= nil ) then
-		uid, data = cat_callback( data, this_info, "on_inventory", {
+		uid, data = index.cat_callback( this_info, "on_inventory", {
 			gui, uid, this_info.id, data, this_info, pic_x, pic_y, zs, {
 				can_drag = can_drag,
 				is_dragged = data.dragger.item_id > 0 and data.dragger.item_id == this_info.id,
@@ -2822,7 +2689,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 			uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ))
 		end
 		if( is_hovered ) then
-			uid = cat_callback( data, this_info, "on_tooltip", {
+			uid = index.cat_callback( this_info, "on_tooltip", {
 				gui, uid, nil, this_info.id, data, this_info, pic_x + 1, pic_y - 2, zs.tips, false, true
 			}, { uid })
 		end

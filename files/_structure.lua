@@ -523,7 +523,7 @@ local ITEM_CATS = {
             this_info.ActionC = action_comp
 
             local spell_id = ComponentGetValue2( action_comp, "action_id" )
-            data, this_info.spell_info = get_action_data( data, spell_id )
+            this_info.spell_info = index.get_action_data( spell_id )
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
             

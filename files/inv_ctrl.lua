@@ -1,6 +1,6 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 if( not( ModIsEnabled( "index_core" ))) then
-    self_destruct()
+    index.self_destruct()
     return
 end
 
@@ -146,7 +146,7 @@ if( #ctrl_bodies > 0 ) then
         local muid_x, muid_y = mui_x - ( mouse_memo[1] or mui_x ), mui_y - ( mouse_memo[2] or mui_y )
         mouse_memo = { mui_x, mui_y }
         
-        local mtr_action = not( global_settings.info_mtr_hotkeyed ) or get_input( { 53--[["`"]], "Key" }, "ad_matter_action", true, true )
+        local mtr_action = not( global_settings.info_mtr_hotkeyed ) or index.get_input( "ad_matter_action", true )
         local pointer_mtr = 0
         if( mtr_action ) then
             if( not( EntityGetIsAlive( mtr_probe ))) then
@@ -446,7 +446,7 @@ if( #ctrl_bodies > 0 ) then
             end)
         end
 
-        local dragger_action = get_input( { 2--[["mouse_right"]], "MouseButton" }, "ab_drag_action", true, true )
+        local dragger_action = index.get_input( "ab_drag_action", true )
 
         local uid = 0
         local pos_tbl = {}
@@ -467,9 +467,9 @@ if( #ctrl_bodies > 0 ) then
             pointer_delta_world = {md_x,md_y,math.sqrt( md_x^2 + md_y^2 )},
             pointer_matter = pointer_mtr,
 
-            shift_action = get_input( { 225--[["left_shift"]], "Key" }, "aa_shift_action", true, true ),
+            shift_action = index.get_input( "aa_shift_action", true ),
             drag_action = dragger_action,
-            tip_action = get_input( { 226--[["left_alt"]], "Key" }, "ac_tip_action", true, true ),
+            tip_action = index.get_input( "ac_tip_action", true ),
             matter_action = mtr_action,
 
             is_opened = ComponentGetValue2( iui_comp, "mActive" ),
@@ -499,7 +499,7 @@ if( #ctrl_bodies > 0 ) then
 
             active_item = pen.get_active_item( hooman ),
             active_info = {},
-            just_fired = get_discrete_button( hooman, ctrl_comp, "mButtonDownFire" ),
+            just_fired = mnee.vanilla_input( "Fire", hooman ),
             no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
             can_tinker = false,
             sampo = 0,
@@ -575,11 +575,11 @@ if( #ctrl_bodies > 0 ) then
             data.Controls = {
                 ctrl_comp,
 
-                get_button_state( ctrl_comp, "Inventory", current_frame ),
-                get_button_state( ctrl_comp, "Interact", current_frame ),
-                get_button_state( ctrl_comp, "Fly", current_frame ),
-                get_button_state( ctrl_comp, "RightClick", current_frame ),
-                get_button_state( ctrl_comp, "LeftClick", current_frame ),
+                mnee.vanilla_input( "Inventory" ),
+                mnee.vanilla_input( "Interact" ),
+                mnee.vanilla_input( "Fly" ),
+                mnee.vanilla_input( "RightClick" ),
+                mnee.vanilla_input( "LeftClick" ),
             }
         end
         if( dmg_comp ~= nil ) then
@@ -675,7 +675,7 @@ if( #ctrl_bodies > 0 ) then
                 table.insert( nuke_em, i )
             end
 
-            local ctrl_func = cat_callback( data, this_info, "ctrl_script" )
+            local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
             if( ctrl_func ~= nil ) then
                 ctrl_func( this_info.id, data, this_info )
             else
