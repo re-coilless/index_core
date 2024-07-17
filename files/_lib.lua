@@ -371,8 +371,9 @@ function index.chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
 end
 
 --Inventory pipeline
-function get_valid_inventories( inv_type, is_quickest )
+function index.get_valid_inventories( inv_type, is_quickest )
 	local inv_ids = {}
+
 	if( math.floor( inv_type ) == 0 ) then
 		table.insert( inv_ids, "full" )
 	end
@@ -387,7 +388,7 @@ function get_valid_inventories( inv_type, is_quickest )
 	return inv_ids
 end
 
-function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func, sort_func )
+function index.get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func, sort_func )
 	local kind_data = pen.magic_storage( inv_id, "index_kind", "value_string" )
 	if( kind_data ~= nil ) then kind = pen.t.pack( kind_data ) end
 	local kind_path = pen.magic_storage( inv_id, "index_kind_func", "value_string" )
@@ -419,50 +420,41 @@ function get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_f
 	}
 end
 
-function is_inv_empty( slot_state )
-	local is_empty = true
+function index.is_inv_empty( slot_state )
 	for i,col in pairs( slot_state ) do
 		for e,slot in ipairs( col ) do
-			if( slot ) then
-				is_empty = false
-				break
-			end
+			if( slot ) then return false end
 		end
 	end
-
-	return is_empty
+	return true
 end
 
-function inv_check( data, this_info, inv_info )
-	if(( this_info.id or 0 ) < 0 ) then
-		return true
-	end
-	if( this_info.id == inv_info.inv_id ) then
-		return false
-	end
+function index.inv_check( this_info, inv_info )
+	if(( this_info.id or 0 ) < 0 ) then return true end
+	if( this_info.id == inv_info.inv_id ) then return false end
 
 	local kind_memo = inv_info.kind
-	local inv_data = inv_info.full or data.inventories[ inv_info.inv_id ]
+	local inv_data = inv_info.full or index._DATA.inventories[ inv_info.inv_id ]
 	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
 	
-	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
+	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( index.get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
 	if( val ) then
-		val = index.cat_callback( this_info, "on_inv_check", { data, this_info, inv_info }, { val })
+		val = index.cat_callback( this_info, "on_inv_check", { this_info, inv_info }, { val })
 	end
 	
 	inv_info.kind = kind_memo
 	return val
 end
 
-function slot_swap_check( data, item_in, item_out, slot_data )
+function index.slot_swap_check( item_in, item_out, slot_data )
 	local inv_memo, slot_memo = item_out.inv_id, item_out.inv_slot
 	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_data.inv_id, item_out.inv_slot or slot_data.inv_slot
-	local val = inv_check( data, item_in, item_out ) and inv_check( data, item_out, item_in )
+	local val = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
 	item_out.inv_id, item_out.inv_slot = inv_memo, slot_memo
 	return val
 end
 
-function inventory_boy( item_id, data, this_info, in_hand )
+function index.inventory_boy( item_id, this_info, in_hand )
 	local in_wand = ( this_info.in_wand or 0 ) > 0
 	if( in_wand or in_hand == nil ) then
 		local wand_id = in_wand and this_info.in_wand or item_id
@@ -471,37 +463,32 @@ function inventory_boy( item_id, data, this_info, in_hand )
 	
 	local hooman = EntityGetRootEntity( item_id )
 	local is_free = hooman == item_id
-	local comps = EntityGetAllComponents( item_id ) or {}
-	if( #comps > 0 ) then
-		for i,comp in ipairs( comps ) do
-			local world_check, inv_check, hand_check = false, false, false
-			if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
-				world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
-				inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
-				hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
-			end
-			EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
+	pen.t.loop( EntityGetAllComponents( item_id ), function( i, comp )
+		local world_check, inv_check, hand_check = false, false, false
+		if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
+			world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
+			inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
+			hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
 		end
-	end
+		EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
+	end)
 
-	if( not( is_free )) then
-		if( not( in_hand ) or pen.get_active_item( pen.get_item_owner( item_id )) ~= item_id ) then
-			if( in_hand ) then hooman = EntityGetParent( item_id ) end
-			local x, y = EntityGetTransform( hooman )
-			EntitySetTransform( item_id, x, y )
-			EntityApplyTransform( item_id, x, y )
-		end
+	if( is_free ) then return end
+	if( not( in_hand ) or pen.get_active_item( pen.get_item_owner( item_id )) ~= item_id ) then
+		if( in_hand ) then hooman = EntityGetParent( item_id ) end
+		local x, y = EntityGetTransform( hooman )
+		EntitySetTransform( item_id, x, y )
+		EntityApplyTransform( item_id, x, y )
 	end
 end
 
-function inventory_man( item_id, data, this_info, in_hand, force_full )
-	force_full = force_full or false
+function index.inventory_man( item_id, this_info, in_hand, force_full )
 	pen.child_play_full( item_id, function( child, params )
-		inventory_boy( child, unpack( params ))
-		if( not( force_full ) and data.inventories[ child ] ~= nil ) then
+		index.inventory_boy( child, unpack( params ))
+		if( not( force_full ) and index._DATA.inventories[ child ] ~= nil ) then
 			return true
 		end
-	end, { data, this_info, in_hand })
+	end, { this_info, in_hand })
 end
 
 function set_to_slot( this_info, data, is_player ) --damn
@@ -510,7 +497,7 @@ function set_to_slot( this_info, data, is_player ) --damn
 		is_player = data.inventories_player[1] == parent_id or data.inventories_player[2] == parent_id
 	end
 	
-	local valid_invs = get_valid_inventories( this_info.inv_type, this_info.is_quickest )
+	local valid_invs = index.get_valid_inventories( this_info.inv_type, this_info.is_quickest )
 	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
 	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
 	if( not( is_hidden )) then
@@ -533,7 +520,7 @@ function set_to_slot( this_info, data, is_player ) --damn
 									local is_fancy = type( i ) == "string"
 									if( not( is_fancy and pen.t.get( valid_invs, i ) == 0 )) then
 										local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
-										if( inv_check( data, this_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt, })) then
+										if( index.inv_check( this_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt, })) then
 											if( temp_slot[2] < 0 ) then
 												temp_slot[2] = temp_slot[2] + 1
 											end
@@ -585,22 +572,22 @@ function set_to_slot( this_info, data, is_player ) --damn
 	return this_info
 end
 
-function slot_swap( data, item_in, slot_data )
+function index.slot_swap( item_in, slot_data )
 	local reset = { 0, 0 }
 
 	local parent1 = EntityGetParent( item_in )
 	local parent2 = slot_data.inv_id
 	local tbl = { parent1, parent2 }
 	local idata = {
-		pen.t.get( data.item_list, item_in, nil, nil, {}),
-		pen.t.get( data.item_list, slot_data.id, nil, nil, {}),
+		pen.t.get( index._DATA.item_list, item_in, nil, nil, {}),
+		pen.t.get( index._DATA.item_list, slot_data.id, nil, nil, {}),
 	}
 	for i = 1,2 do
 		local p = tbl[i]
 		if( p > 0 ) then
-			local p_info = data.inventories[p] or {}
+			local p_info = index._DATA.inventories[p] or {}
 			if( p_info.update ~= nil ) then
-				if( p_info.update( data, pen.t.get( data.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
+				if( p_info.update( pen.t.get( index._DATA.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
 					table.insert( reset, pen.get_item_owner( p, true ))
 				end
 			end
@@ -629,7 +616,7 @@ function slot_swap( data, item_in, slot_data )
 	for i = 1,2 do
 		local this_info = idata[i]
 		if(( this_info.id or 0 ) > 0 ) then
-			index.cat_callback( this_info, "on_inv_swap", { data, this_info, slot_data })
+			index.cat_callback( this_info, "on_inv_swap", { this_info, slot_data })
 		end
 	end
 	for i,deadman in pairs( reset ) do
@@ -639,34 +626,34 @@ function slot_swap( data, item_in, slot_data )
 	end
 end
 
-function check_item_name( name )
+function index.check_item_name( name )
 	return pen.vld( name ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
 end
 
-function get_entity_name( entity_id, item_comp, abil_comp )
+function index.get_entity_name( entity_id, item_comp, abil_comp )
 	local name = item_comp == nil and "" or ComponentGetValue2( item_comp, "item_name" )
 
 	local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
 	if( info_comp ~= nil ) then
 		local temp = ComponentGetValue2( info_comp, "name" )
-		name = check_item_name( temp ) and temp or name
+		name = index.check_item_name( temp ) and temp or name
 	elseif( abil_comp ~= nil ) then
 		local temp = ComponentGetValue2( abil_comp, "ui_name" )
-		name = check_item_name( temp ) and temp or name
+		name = index.check_item_name( temp ) and temp or name
 	end
-	if( not( check_item_name( name ))) then
+	if( not( index.check_item_name( name ))) then
 		local temp = EntityGetName( entity_id )
-		name = check_item_name( temp ) and temp or name
+		name = index.check_item_name( temp ) and temp or name
 	end
 
-	return check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
+	return index.check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
 function get_potion_info( entity_id, name, max_count, total_count, matters )
 	local info = ""
 	
 	local cnt = 1
-	for i,mtr in ipairs( matters ) do
+	for i,mtr in ipairs( matters ) do --pen.t.loop_concat
 		if( i == 1 or mtr[2] > 5 ) then
 			info = info..( i == 1 and "" or "+" )..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
 			cnt = cnt + 1
@@ -679,25 +666,21 @@ function get_potion_info( entity_id, name, max_count, total_count, matters )
 		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*total_count/max_count + 0.5 )))
 	end
 
-	if( string.sub(name,1,1) == "$" ) then
+	if( string.sub( name, 1, 1 ) == "$" ) then
 		name = pen.capitalizer( GameTextGet( name, ( info == "" and GameTextGetTranslatedOrNot( "$item_potion_empty" ) or info )))
-	else
-		name = string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" )
-	end
+	else name = string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" ) end
 	return info..( info == "" and info or " " )..name, v
 end
 
-function get_item_data( item_id, data, inventory_data, item_list )
-	local this_info = { id = item_id, }
+function index.get_item_data( item_id, inventory_data, item_list )
+	local this_info = { id = item_id }
 	if( inventory_data ~= nil ) then
 		this_info.inv_id = inventory_data.id
 		this_info.inv_kind = inventory_data.kind
 	end
 	
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
-	if( item_comp == nil ) then
-		return data, {}
-	end
+	if( item_comp == nil ) then return {} end
 	
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
 	if( abil_comp ~= nil ) then
@@ -710,32 +693,27 @@ function get_item_data( item_id, data, inventory_data, item_list )
 		this_info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
 		this_info.is_throwing = ComponentGetValue2( abil_comp, "throw_as_item" )
 		if( this_info.is_throwing ) then
-			local comps = EntityGetComponentIncludingDisabled( item_id, "LuaComponent" ) or {}
-			if( #comps > 0 ) then
-				for i,comp in ipairs( comps ) do
-					local path = ComponentGetValue2( comp, "script_kick" ) or ""
-					if( path ~= "" ) then
-						this_info.is_kicking = true
-						break
-					end
+			pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "LuaComponent" ), function( i, comp )
+				local path = ComponentGetValue2( comp, "script_kick" ) or ""
+				if( path ~= "" ) then
+					this_info.is_kicking = true
+					return true
 				end
-			end
+			end)
 		end
 		this_info.uses_rmb = EntityHasTag( item_id, "index_has_rbm" ) or this_info.is_throwing
 	end
 	if( item_comp ~= nil ) then
 		this_info.ItemC = item_comp
 
-		local invs = { QUICK=-1, TRUE_QUICK=-0.5, ANY=0, FULL=0.5, }
+		local invs = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
 		local inv_name = pen.magic_storage( item_id, "preferred_inventory", "value_string" )
 			or ComponentGetValue2( item_comp, "preferred_inventory" )
 		this_info.inv_type = invs[inv_name] or 0
 		
-		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" ) or ""
-		if( ui_pic ~= "" ) then
-			this_info.pic = ui_pic
-		end
-
+		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
+		if( pen.vld( ui_pic )) then this_info.pic = ui_pic end
+		
 		this_info.desc = full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
 		-- this_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
 		this_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
@@ -774,18 +752,18 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			"on_gui_pause",
 			"on_gui_world",
 		}
-		data.memo.cbk_tbl = data.memo.cbk_tbl or {}
-		data.memo.cbk_tbl[ item_id ] = data.memo.cbk_tbl[ item_id ] or {}
+		index._MEMO.cbk_tbl = index._MEMO.cbk_tbl or {} --cache this
+		index._MEMO.cbk_tbl[ item_id ] = index._MEMO.cbk_tbl[ item_id ] or {}
 		for k,callback in ipairs( callback_list ) do
-			if( data.memo.cbk_tbl[ item_id ][ callback ] == nil ) then
+			if( index._MEMO.cbk_tbl[ item_id ][ callback ] == nil ) then
 				local func_path = pen.magic_storage( item_id, callback, "value_string" )
-				if( func_path ~= nil ) then data.memo.cbk_tbl[ item_id ][ callback ] = dofile_once( func_path ) end
+				if( func_path ~= nil ) then index._MEMO.cbk_tbl[ item_id ][ callback ] = dofile_once( func_path ) end
 			end
-			this_info[ callback ] = data.memo.cbk_tbl[ item_id ][ callback ]
+			this_info[ callback ] = index._MEMO.cbk_tbl[ item_id ][ callback ]
 		end
 	end
 	
-	for k,cat in ipairs( data.item_cats ) do
+	for k,cat in ipairs( index._DATA.item_cats ) do
 		if( cat.on_check( item_id )) then
 			this_info.cat = k
 			this_info.is_wand = cat.is_wand or false
@@ -798,60 +776,54 @@ function get_item_data( item_id, data, inventory_data, item_list )
 			break
 		end
 	end
-	this_info.name, this_info.raw_name = get_entity_name( item_id, item_comp, abil_comp )
+	this_info.name, this_info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
 	if( this_info.cat == nil ) then
-		return data, {}
+		return {}
 	elseif(( this_info.name or "" ) == "" ) then
-		this_info.name = data.item_cats[ this_info.cat ].name
+		this_info.name = index._DATA.item_cats[ this_info.cat ].name
 	end
 	this_info.name = pen.capitalizer( this_info.name )
 	
 	dofile_once( "data/scripts/gun/gun.lua" )
 	dofile_once( "data/scripts/gun/gun_enums.lua" )
 	dofile_once( "data/scripts/gun/gun_actions.lua" )
-	data, this_info = index.cat_callback( this_info, "on_data", {
-		item_id, data, this_info, item_list or {}
-	}, { data, this_info })
+	this_info = index.cat_callback( this_info, "on_data", {
+		item_id, this_info, item_list or {}
+	}, { this_info })
 	
 	local wand_id = ( this_info.in_wand or false ) and this_info.in_wand or item_id
 	this_info.in_hand = pen.get_item_owner( wand_id )
-	
-	return data, this_info
+	return this_info
 end
 
-function get_items( hooman, data )
+function index.get_items( hooman )
 	local item_tbl = {}
 	for k = 1,2 do
 		local tbl = { "inventories", "inventories_init" }
-		for i,inv_info in pairs( data[ tbl[k]]) do
-			if( k == 2 ) then
-				data.inventories[i] = inv_info
-			end
-			
+		for i,inv_info in pairs( index._DATA[ tbl[k]]) do
+			if( k == 2 ) then index._DATA.inventories[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child, j )
-				local new_info = nil
-				data, new_info = get_item_data( child, data, inv_info, item_tbl )
+				local new_info = index.get_item_data( child, inv_info, item_tbl )
 				if( new_info.id ~= nil ) then
 					if( not( EntityHasTag( new_info.id, "index_processed" ))) then
-						index.cat_callback( new_info, "on_processed", { new_info.id, data, new_info })
+						index.cat_callback( new_info, "on_processed", { new_info.id, new_info })
 						
 						ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 						EntityAddTag( new_info.id, "index_processed" )
 					end
-					index.cat_callback( new_info, "on_processed_forced", { new_info.id, data, new_info })
+					index.cat_callback( new_info, "on_processed_forced", { new_info.id, new_info })
 
-					new_info.pic = register_item_pic( data, new_info, new_info.advanced_pic )
+					new_info.pic = register_item_pic( new_info, new_info.advanced_pic )
 					table.insert( item_tbl, new_info )
 				end
 			end, inv_info.sort )
 		end
 	end
 
-	data.item_list = item_tbl
-	return data
+	index._DATA.item_list = item_tbl
 end
 
-function vanilla_pick_up( hooman, item_id )
+function index.vanilla_pick_up( hooman, item_id )
 	local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
 	if( pick_comp ~= nil ) then
 		EntitySetComponentIsEnabled( hooman, pick_comp, true )
@@ -860,59 +832,54 @@ function vanilla_pick_up( hooman, item_id )
 	end
 end
 
-function pick_up_item( hooman, data, this_info, do_the_sound, is_silent )
+function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
 	local entity_id = this_info.id
 	local gonna_pause, is_shopping = 0, this_info.cost ~= nil
 
 	local callback = index.cat_callback( this_info, "on_pickup" )
 	if( callback ~= nil ) then
-		gonna_pause = callback( entity_id, data, this_info, false )
+		gonna_pause = callback( entity_id, this_info, false )
 	end
 	if( gonna_pause == 0 ) then
 		if( not( is_silent or false )) then
 			this_info.name = this_info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_info.ItemC, "item_name" ))
 			GamePrint( GameTextGet( "$log_pickedup", this_info.name ))
 			if( do_the_sound or is_shopping ) then
-				play_sound( data, { "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
+				play_sound({ "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
 			end
 		end
 
 		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
-		EntityAddChild( data.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
+		EntityAddChild( index._DATA.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
 
 		if( is_shopping ) then
-			if( not( data.Wallet[2])) then
-				data.Wallet[3] = data.Wallet[3] - this_info.cost
-				ComponentSetValue2( data.Wallet[1], "money", data.Wallet[3])
+			if( not( index._DATA.Wallet[2])) then
+				index._DATA.Wallet[3] = index._DATA.Wallet[3] - this_info.cost
+				ComponentSetValue2( index._DATA.Wallet[1], "money", index._DATA.Wallet[3])
 			end
-
-			local comps = EntityGetAllComponents( entity_id ) or {}
-			if( #comps > 0 ) then
-				for i,comp in ipairs( comps ) do
-					if( ComponentHasTag( comp, "shop_cost" )) then
-						EntityRemoveComponent( entity_id, comp )
-					end
-				end
-			end
+			
+			pen.t.loop( EntityGetAllComponents( entity_id ), function( i, comp )
+				if( ComponentHasTag( comp, "shop_cost" )) then EntityRemoveComponent( entity_id, comp ) end
+			end)
 		end
 
 		this_info.xy = { EntityGetTransform( entity_id )}
 		pen.lua_callback( entity_id, { "script_item_picked_up", "item_pickup" }, { entity_id, hooman, this_info.name })
 		if( callback ~= nil ) then
-			callback( entity_id, data, this_info, true )
+			callback( entity_id, this_info, true )
 		end
 		if( EntityGetIsAlive( entity_id )) then
 			ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-			ComponentSetValue2( this_info.ItemC, "mFramePickedUp", data.frame_num )
+			ComponentSetValue2( this_info.ItemC, "mFramePickedUp", index._DATA.frame_num )
 
-			inventory_man( entity_id, data, this_info, false )
+			index.inventory_man( entity_id, this_info, false )
 		end
 	elseif( gonna_pause == 1 ) then
 		--engage the pause
 	end
 end
 
-function drop_item( h_x, h_y, this_info, data, throw_force, do_action )
+function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 	local this_item = this_info.id
 	local has_no_cancer = not( this_info.is_kicking or false )
 	if( not( has_no_cancer )) then
@@ -921,14 +888,12 @@ function drop_item( h_x, h_y, this_info, data, throw_force, do_action )
 		if( ctrl_comp ~= nil ) then
 			local inv_comp = pen.reset_active_item( owner_id )
 			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", pen.get_item_num( this_info.inv_id, this_item ))
-			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", data.frame_num + 1 )
-		else
-			has_no_cancer = true
-		end
+			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", index._DATA.frame_num + 1 )
+		else has_no_cancer = true end
 	end
 	if( has_no_cancer ) then EntityRemoveFromParent( this_item ) end
 
-	local p_d_x, p_d_y = data.pointer_world[1] - h_x, data.pointer_world[2] - h_y
+	local p_d_x, p_d_y = index._DATA.pointer_world[1] - h_x, index._DATA.pointer_world[2] - h_y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
 	local from_x, from_y = 0, 0
@@ -936,12 +901,12 @@ function drop_item( h_x, h_y, this_info, data, throw_force, do_action )
 		from_x, from_y = EntityGetTransform( this_item )
 		pen.reset_active_item( this_info.in_hand )
 	else
-		data.throw_pos_rad = data.throw_pos_rad + data.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
+		index._DATA.throw_pos_rad = index._DATA.throw_pos_rad + index._DATA.throw_pos_size
+		from_x, from_y = h_x + math.cos( angle )*index._DATA.throw_pos_rad, h_y + math.sin( angle )*index._DATA.throw_pos_rad
 		local is_hit, hit_x, hit_y = RaytraceSurfaces( h_x, h_y, from_x, from_y )
-		if( is_hit ) then data.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
-		data.throw_pos_rad = data.throw_pos_rad - data.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*data.throw_pos_rad, h_y + math.sin( angle )*data.throw_pos_rad
+		if( is_hit ) then index._DATA.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
+		index._DATA.throw_pos_rad = index._DATA.throw_pos_rad - index._DATA.throw_pos_size
+		from_x, from_y = h_x + math.cos( angle )*index._DATA.throw_pos_rad, h_y + math.sin( angle )*index._DATA.throw_pos_rad
 	end
 	local extra_v_force = 0
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
@@ -955,19 +920,17 @@ function drop_item( h_x, h_y, this_info, data, throw_force, do_action )
 
 	EntitySetTransform( this_item, from_x, from_y, nil, 1, 1 )
 	-- EntityApplyTransform( this_item, from_x, from_y )
-	if( has_no_cancer ) then inventory_man( this_item, data, this_info, false ) end
+	if( has_no_cancer ) then index.inventory_man( this_item, this_info, false ) end
 	
-	local pic_comps = EntityGetComponentIncludingDisabled( this_item, "SpriteComponent", "enabled_in_world" ) or {}
-	if( #pic_comps > 0 ) then
-		for i,comp in ipairs( pic_comps ) do
-			ComponentSetValue2( comp, "z_index", -1 + ( i - 1 )*0.0001 )
-			EntityRefreshSprite( this_item, comp )
-		end
-	end
+	pen.t.loop( EntityGetComponentIncludingDisabled( this_item, "SpriteComponent", "enabled_in_world" ), function( i, comp )
+		ComponentSetValue2( comp, "z_index", -1 + ( i - 1 )*0.0001 )
+		EntityRefreshSprite( this_item, comp )
+	end)
+	
 	ComponentSetValue2( this_info.ItemC, "inventory_slot", -5, -5 )
 	ComponentSetValue2( this_info.ItemC, "play_hover_animation", false )
 	ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-	ComponentSetValue2( this_info.ItemC, "next_frame_pickable", data.frame_num + 30 )
+	ComponentSetValue2( this_info.ItemC, "next_frame_pickable", index._DATA.frame_num + 30 )
 
 	if( p_delta > 2 ) then
 		local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
@@ -1595,9 +1558,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		if( #spells > 0 ) then
 			for i,spell in ipairs( spells ) do
 				local kid_info = pen.t.get( data.item_list, spell, nil, nil, {})
-				if( kid_info.id == nil ) then
-					_,kid_info = get_item_data( spell, data, data.this_info, data.item_list )
-				end
+				if( kid_info.id == nil ) then kid_info = index.get_item_data( spell, data.this_info, data.item_list ) end
 				if( kid_info.id ~= nil ) then
 					got_spells = true
 					table.insert( spell_list[ kid_info.is_permanent and "permas" or "normies" ], kid_info )
@@ -2478,7 +2439,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 			data.dragger.wont_drop = true
 			if( can_drag ) then
 				local dragged_data = pen.t.get( data.item_list, data.dragger.item_id )
-				if( slot_swap_check( data, dragged_data, this_info, slot_data )) then
+				if( index.slot_swap_check( dragged_data, this_info, slot_data )) then
 					no_hov_for_ya = false
 					if( data.dragger.swap_now ) then
 						if( this_info.id > 0 ) then
@@ -2490,7 +2451,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 							})
 						end
 						play_sound( data, slot_sfxes[ this_info.id > 0 and "move_item" or "move_empty" ])
-						slot_swap( data, data.dragger.item_id, slot_data )
+						index.slot_swap( data.dragger.item_id, slot_data )
 						data.dragger.item_id = -1
 					end
 					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= this_info.id ) then

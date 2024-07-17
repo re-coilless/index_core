@@ -454,7 +454,7 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
     if( #bosses > 0 ) then
         for i,boss in ipairs( bosses ) do
             local step, bar_func = 0, function( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
-                local name, length, step, max_hp, hp = get_entity_name( entity_id ), 0, 0, 0, 0
+                local name, length, step, max_hp, hp = index.get_entity_name( entity_id ), 0, 0, 0, 0
                 uid, length, step, max_hp, hp = new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
                 
                 local num_width, rounding = 35, 10
@@ -584,11 +584,11 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( info_comp ~= nil ) then
                         name = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
                     end
-                    if( check_item_name( name )) then
+                    if( index.check_item_name( name )) then
                         kind = { 0, name }
                     elseif( item_comp ~= nil and ComponentGetValue2( item_comp, "is_pickable" )) then
                         local name_func = function( item_id, item_comp, default_name )
-                            local name = get_entity_name( item_id, item_comp )
+                            local name = index.get_entity_name( item_id, item_comp )
                             return name == "" and default_name or name
                         end
                         for k,cat in ipairs( data.item_cats ) do
@@ -599,8 +599,8 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                             end
                         end
                     elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
-                        name = get_entity_name( entity_id )
-                        if( check_item_name( name )) then
+                        name = index.get_entity_name( entity_id )
+                        if( index.check_item_name( name )) then
                             kind = { 0, GameTextGetTranslatedOrNot( name )}
                         end
                     end
@@ -622,7 +622,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         
         local fading = 1
-        if( check_item_name( info )) then
+        if( index.check_item_name( info )) then
             data.memo.ui_info = { info, math.max( data.memo.ui_info[2], data.frame_num )}
         elseif( data.memo.ui_info[1] ~= 0 ) then
             info = data.memo.ui_info[1]
@@ -913,8 +913,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
                                 if( this_data[3] == 0 or ent == this_data[3]) then
-                                    local this_info = nil
-                                    data, this_info = get_item_data( ent, data )
+                                    local this_info = index.get_item_data( ent )
                                     if( this_info.id ~= nil ) then
                                         table.insert( item_data, this_info )
 
@@ -979,7 +978,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                                     button_time = false
                                     break
                                 else
-                                    pick_up_item( data.player_id, data, item_data[10], item_data[6])
+                                    index.pick_up_item( data.player_id, item_data[10], item_data[6])
                                 end
                             elseif( not( got_info )) then
                                 no_space = true
@@ -1076,7 +1075,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     if( pickup_data.this_info.fullness ~= nil ) then
                         pickup_data.this_info.name = pickup_data.this_info.name..pickup_data.this_info.fullness
                     end
-                    pick_up_item( data.player_id, data, pickup_data.this_info, pickup_data.do_sound )
+                    index.pick_up_item( data.player_id, pickup_data.this_info, pickup_data.do_sound )
                     pickup_data.this_info.name = orig_name
                 end
             end
@@ -1145,7 +1144,7 @@ function new_generic_drop( this_item, data )
         end
         if( do_default ) then
             local x, y = unpack( data.player_xy )
-            drop_item( x, y, this_info, data, data.throw_force, not( data.no_action_on_drop ))
+            index.drop_item( x, y, this_info, data.throw_force, not( data.no_action_on_drop ))
         end
         if( callback ~= nil ) then
             callback( this_item, data, this_info, true )

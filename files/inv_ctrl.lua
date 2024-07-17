@@ -625,17 +625,17 @@ if( #ctrl_bodies > 0 ) then
             }
         end
         
-        data.inventories[ data.inventories_player[1]] = get_inv_info( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end )
-        data.inventories[ data.inventories_player[2]] = get_inv_info( data.inventories_player[2], data.inv_count_full )
+        data.inventories[ data.inventories_player[1]] = index.get_inv_info( data.inventories_player[1], { data.inv_count_quickest, data.inv_count_quick }, nil, function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end )
+        data.inventories[ data.inventories_player[2]] = index.get_inv_info( data.inventories_player[2], data.inv_count_full )
         local more_invs = EntityGetWithTag( "index_inventory" ) or {}
         if( #more_invs > 0 ) then
             for k,i in ipairs( more_invs ) do
-                data.inventories[i] = get_inv_info( i )
+                data.inventories[i] = index.get_inv_info( i )
                 table.insert( data.inventories_extra, i )
             end
         end
         
-        data = get_items( hooman, data )
+        index.get_items( hooman )
         if( data.active_item > 0 ) then
             data.active_info = pen.t.get( data.item_list, data.active_item ) or {}
             if( data.active_info.id ~= nil ) then
@@ -679,7 +679,7 @@ if( #ctrl_bodies > 0 ) then
             if( ctrl_func ~= nil ) then
                 ctrl_func( this_info.id, data, this_info )
             else
-                inventory_man( this_info.id, data, this_info, ( this_info.in_hand or 0 ) > 0 )
+                index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
             end
         end
         if( #nuke_em > 0 ) then

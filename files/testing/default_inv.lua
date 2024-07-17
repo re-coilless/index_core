@@ -36,7 +36,7 @@ return function( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, slot_func )
             uid, clicked, _, is_hovered = pen.new_image( data.the_gui, uid, pic_x - w/2, pic_y - w/2, zs.in_world_back + 0.0001,
                 pic, { color = {0,0,0}, alpha = 0.3, can_click = true })
             if( not( data.is_opened )) then
-                uid = data.tip_func( gui, uid, nil, zs.tips, { is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
+                uid = data.tip_func( gui, uid, nil, zs.tips, { index.is_inv_empty( data.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]" }, nil, is_hovered )
                 if( is_hovered ) then alpha = 1 end
                 if( clicked ) then
                     data.inv_toggle = true

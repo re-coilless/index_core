@@ -95,7 +95,7 @@ local ITEM_CATS = {
             return abil_comp ~= nil and ComponentGetValue2( abil_comp, "use_gun_script" )
         end,
         on_info_name = function( item_id, item_comp, default_name )
-            local name = get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
+            local name = index.get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
             return name == "" and default_name or name
         end,
         on_data = function( item_id, data, this_info, item_list_wip )
@@ -128,7 +128,7 @@ local ITEM_CATS = {
                 damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            data.inventories_init[ item_id ] = get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
+            data.inventories_init[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( data, inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
                 local is_perma, inv_slot = {false,false}, {0,0}
                 for k = 1,2 do
                     local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
@@ -265,7 +265,7 @@ local ITEM_CATS = {
             local barrel_size = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
             barrel_size = barrel_size == nil and ComponentGetValue2( matter_comp, "max_capacity" ) or ComponentGetValue2( barrel_size, "barrel_size" )
             
-            local v1, v2 = get_entity_name( item_id, item_comp )
+            local v1, v2 = index.get_entity_name( item_id, item_comp )
             local name, cap = v1, ""
             if( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil ) then
                 name, cap = get_potion_info( item_id, v1, barrel_size, pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" )))
@@ -553,7 +553,7 @@ local ITEM_CATS = {
             if( pic_comp ~= nil ) then EntityRemoveComponent( item_id, pic_comp ) end
         end,
 
-        on_inv_check = function( data, this_info, inv_info )
+        on_inv_check = function( this_info, inv_info )
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
         on_inv_swap = function( data, this_info, slot_data )
@@ -636,10 +636,8 @@ local ITEM_CATS = {
             local func_tbl = {
                 function( item_id, data, this_info )
                     if( EntityGetFirstComponentIncludingDisabled( item_id, "OrbComponent" ) ~= nil ) then
-                        vanilla_pick_up( data.player_id, item_id )
-                    else
-                        return 0
-                    end
+                        index.vanilla_pick_up( data.player_id, item_id )
+                    else return 0 end
                 end,
                 function() end,
             }
