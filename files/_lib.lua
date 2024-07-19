@@ -17,6 +17,7 @@ index.T2F = { --make the colors be custom
 }
 
 --get_tip_width
+--simple_anim
 --data table must be index._DATA
 --data.memo -> index._MEMO
 
@@ -714,7 +715,7 @@ function index.get_item_data( item_id, inventory_data, item_list )
 		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
 		if( pen.vld( ui_pic )) then this_info.pic = ui_pic end
 		
-		this_info.desc = full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
+		this_info.desc = index.full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
 		-- this_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
 		this_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
 		
@@ -813,7 +814,7 @@ function index.get_items( hooman )
 					end
 					index.cat_callback( new_info, "on_processed_forced", { new_info.id, new_info })
 
-					new_info.pic = register_item_pic( new_info, new_info.advanced_pic )
+					index.register_item_pic( new_info, new_info.advanced_pic )
 					table.insert( item_tbl, new_info )
 				end
 			end, inv_info.sort )
@@ -953,129 +954,86 @@ function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 end
 
 --GUI backend
-function slot_z( data, id, z, state )
-	if( state == nil ) then state = data.dragger.item_id == id end
-	return state and z-2 or z
+function index.slot_z( id, z )
+	return index._DATA.dragger.item_id == id and z-2 or z
 end
 
-function full_stopper( text )
+function index.full_stopper( text )
 	if( not( pen.vld( text ))) then return "" end
-	
 	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
 	return text
 end
 
-function check_dragger_buffer( data, id )
-	if( data.frame_num - dragger_buffer[2] > 2 ) then
-		dragger_buffer = {0,0}
+function index.check_dragger_buffer( id ) --kinda sus
+	index._MEMO.dragger_buffer = index._MEMO.dragger_buffer or {0,0}
+	if( GameGetFrameNum() - index._MEMO.dragger_buffer[2] > 2 ) then
+		index._MEMO.dragger_buffer = {0,0}
 	end
 	
 	local will_do = true
 	local will_force = false
 	local will_update = true
-	if( dragger_buffer[1] ~= 0 ) then
-		will_do = dragger_buffer[1] == id
-		will_update = will_do
-		if( will_do ) then
-			will_force = true
-		end
+	if( index._MEMO.dragger_buffer[1] ~= 0 ) then
+		will_do = index._MEMO.dragger_buffer[1] == id
+		will_update, will_force = will_do, will_do
 	end
 	return will_do, will_force, will_update
 end
 
-function hud_text_fix( key )
+function index.hud_text_fix( key )
 	local txt = tostring( GameTextGetTranslatedOrNot( key ))
 	local _, pos = string.find( txt, ":", 1, true )
-	if( pos ~= nil ) then
-		txt = string.sub( txt, 1, pos-1 )
-	end
+	if( pos ~= nil ) then txt = string.sub( txt, 1, pos-1 ) end
 	return txt..":@"
 end
 
-function hud_num_fix( a, b, zeros )
+function index.hud_num_fix( a, b, zeros )
 	zeros = zeros or 0
-	a = string.format( "%."..zeros.."f", a )
-	b = string.format( "%."..zeros.."f", b )
-	return a.."/"..b
+	return table.concat({
+		string.format( "%."..zeros.."f", a ),
+		"/",
+		string.format( "%."..zeros.."f", b ),
+	})
 end
 
-function get_stain_perc( perc )
+function index.get_stain_perc( perc )
 	local some_cancer = 14/99
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
 end
 
-function get_effect_timer( secs, no_units )
-	if(( secs or -1 ) < 0 ) then
-		return ""
-	else
+function index.get_effect_timer( secs, no_units )
+	if(( secs or -1 ) >= 0 ) then --maybe ignore 0?
 		local is_tiny = secs < 1
 		secs = string.format( "%."..pen.b2n( is_tiny ).."f", secs )
 		if( not( no_units or false )) then
 			secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" )
 		end
 		return is_tiny and string.sub( secs, 2 ) or secs
-	end
+	else return "" end
 end
 
-function get_matter_colour( matter )
-	local color_probe = EntityLoad( "mods/index_core/files/misc/matter_color.xml" )
-	AddMaterialInventoryMaterial( color_probe, matter, 1000 )
-	local color = pen.magic_uint( GameGetPotionColorUint( color_probe ))
-	EntityKill( color_probe )
-	return color
-end
-
---thanks to Nathan for The Math; port to penman
-function sine_anim( framecount, target_scale, delay, delay_scale, frame ) --y=c\sin x-\ln\left(e^{b\sin x+a}+f\right)+d [0.4;3.6;-0.2;3.2;2]
-    framecount, delay, frame = 2*framecount, delay > 0 and ( delay + 1 ) or 0, frame or GameGetFrameNum()
-    local i = frame%( framecount + delay )
-    if( delay > 0 and i > framecount ) then
-        delay_scale = 1 + ( target_scale < 1 and 1 or -1 )*( delay_scale or 0.05 )
-        frame = framecount > delay and frame%framecount or math.max(( frame - framecount ), 0 )%( 2*delay )
-        return sine_anim( delay/2, delay_scale, 0, nil, frame )
-    else
-        return 1 - ( 1 - target_scale )*math.abs( math.sin( i*math.pi/framecount ))
-    end
-end
-
-function simple_anim( data, name, target, speed, min_delta ) --kidna sus
-	speed = speed or 0.1
-	min_delta = min_delta or 1
-	
-	data.memo[name] = data.memo[name] or 0
-	local delta = target - data.memo[name]
-	data.memo[name] = data.memo[name] + pen.limiter( pen.limiter( speed*delta, min_delta, true ), delta )
-	return data.memo[name]
-end
-
-function get_effect_duration( duration, effect_info, eps )
-	effect_info = effect_info or {}
-	duration = duration - 60*( effect_info.ui_timer_offset_normalized or 0 )
-	if( math.abs( duration*60 ) <= eps ) then
-		duration = 0
-	end
+function index.get_effect_duration( duration, effect_info, eps )
+	duration = duration - 60*(( effect_info or {}).ui_timer_offset_normalized or 0 )
+	if( math.abs( duration*60 ) <= eps ) then duration = 0 end
 	return duration < 0 and -1 or duration
 end
 
-function get_thresholded_effect( effects, v )
-	if( #effects < 2 ) then
-		return effects[1] or {}
-	end
+function index.get_thresholded_effect( effects, v )
+	if( #effects < 2 ) then return effects[1] or {} end
 	table.sort( effects, function( a, b )
 		return ( a.min_threshold_normalized or 0 ) < ( b.min_threshold_normalized or 0 )
 	end)
-
+	
 	local final_id = #effects
 	for i,effect in ipairs( effects ) do
 		if( v < 60*( effect.min_threshold_normalized or 0 )) then
-			final_id = math.max( i-1, 1 )
-			break
+			final_id = math.max( i-1, 1 ); break
 		end
 	end
-	return effects[final_id]
+	return effects[ final_id ]
 end
 
-function swap_anim( item_id, end_x, end_y, data )
+function index.swap_anim( item_id, end_x, end_y, data ) --pen.animate
 	local anim_info, anim_id = pen.t.get( slot_anim, item_id )
 	if( anim_info ~= 0 and anim_info.id ~= nil ) then
 		local delta = data.frame_num - anim_info.frame
@@ -1089,21 +1047,15 @@ function swap_anim( item_id, end_x, end_y, data )
 			local d_x = v*( end_x - anim_info.x )
 			local d_y = v*( end_y - anim_info.y )
 			end_x, end_y = end_x - d_x, end_y - d_y
-		else
-			end_x, end_y = anim_info.x, anim_info.y
-		end
-		if( stop_it ) then
-			table.remove( slot_anim, anim_id )
-		end
+		else end_x, end_y = anim_info.x, anim_info.y end
+		if( stop_it ) then table.remove( slot_anim, anim_id ) end
 	end
 
 	return end_x, end_y
 end
 
-function register_item_pic( data, this_info, is_advanced )
-	if( this_info.pic == nil ) then
-		return
-	end
+function index.register_item_pic( this_info, is_advanced ) --cache it
+	if( this_info.pic == nil ) then return end
 	
 	local forced_update = EntityHasTag( this_info.id, "index_pic_update" )
 	item_pic_data[ this_info.pic ] = item_pic_data[ this_info.pic ] or {xy={0,0}, xml_xy={0,0}}
@@ -1113,9 +1065,7 @@ function register_item_pic( data, this_info, is_advanced )
 		local is_xml = false
 		if( not( forced_update )) then
 			is_xml = string.sub( this_info.pic, -4 ) == ".xml" and is_advanced
-		else
-			EntityRemoveTag( this_info.id, "index_update" )
-		end
+		else EntityRemoveTag( this_info.id, "index_update" ) end
 
 		local anim_data = pen.magic_storage( this_info.id, "index_pic_anim", "value_string" )
 		if( anim_data ~= nil ) then item_pic_data[ this_info.pic ].anim = pen.t.pack( anim_data ) end
@@ -1132,9 +1082,7 @@ function register_item_pic( data, this_info, is_advanced )
 				if( pic_comp ~= nil ) then
 					item_pic_data[ this_info.pic ].xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
 				end
-			else
-				item_pic_data[ this_info.pic ].xy = { item_pic_data[ this_info.pic ].dims[1]/2, item_pic_data[ this_info.pic ].dims[2]/2 }
-			end
+			else item_pic_data[ this_info.pic ].xy = { item_pic_data[ this_info.pic ].dims[1]/2, item_pic_data[ this_info.pic ].dims[2]/2 } end
 		end
 		
 		if( is_xml ) then
@@ -1143,9 +1091,8 @@ function register_item_pic( data, this_info, is_advanced )
 			local xml_kid = xml:first_of( "RectAnimation" )
 			if( xml_kid.attr.has_offset ) then
 				item_pic_data[ this_info.pic ].xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
-			else
-				item_pic_data[ this_info.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y }
-			end
+			else item_pic_data[ this_info.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y } end
+
 			item_pic_data[ this_info.pic ].dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
 			if( xml_kid.attr.shrink_by_one_pixel ) then
 				item_pic_data[ this_info.pic ].dims[1] = item_pic_data[ this_info.pic ].dims[1] + 1
@@ -1153,8 +1100,6 @@ function register_item_pic( data, this_info, is_advanced )
 			end
 		end
 	end
-
-	return this_info.pic
 end
 
 --GUI frontend
@@ -1166,7 +1111,7 @@ end
 function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 	local clicked, r_clicked, hovered = false, false, false
 	if( not( slot_going )) then
-		local will_do, will_force, will_update = check_dragger_buffer( data, id )
+		local will_do, will_force, will_update = index.check_dragger_buffer( id )
 		if( will_do ) then
 			local new_x, new_y, drag_state = 0, 0, 0
 			if( will_force or pen.check_bounds( data.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h}) or slot_memo[id]) then
@@ -1610,9 +1555,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		if( total_size > this_info.tt_spacing[2][1] - 1 ) then
 			this_info.tt_spacing[4][1] = this_info.tt_spacing[4][1] - ( total_size - this_info.tt_spacing[2][1] + 1 )
 		end
-	else
-		register_item_pic( data, this_info, this_info.advanced_pic )
-	end
+	else index.register_item_pic( this_info, this_info.advanced_pic ) end
 	if( got_spells ) then
 		local p_size, n_size = 0, 0
 		if( #spell_list.permas > 0 ) then
@@ -1874,7 +1817,7 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				local t_x, t_y = pic_x + 1 + line_w, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + line_h*(i-1) + 9
 				local perc = math.max( line_w*m[2]/total_cap, 1 )
 				uid = pen.new_image( gui, uid, t_x, t_y, pic_z + tonumber( "0.0001"..i ),
-					data.pixel, { color = get_matter_colour( CellFactory_GetName( m[1])), s_x = -perc, s_y = line_h, alpha = inter_alpha })
+					data.pixel, { color = pen.get_color_matter( CellFactory_GetName( m[1])), s_x = -perc, s_y = line_h, alpha = inter_alpha })
 				if( line_w - perc > 0.25 ) then
 					uid = pen.new_image( gui, uid, t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ),
 						data.pixel, { s_x = -0.5, s_y = line_h, alpha = 0.75*inter_alpha })
@@ -1886,7 +1829,7 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
 			uid = pen.new_cutout( gui, uid, icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] - cut, function( gui, uid, v )
 				return pen.new_image( gui, uid, 0, -step, v[1],
-					v[2], { color = get_matter_colour( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
+					v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
 			end, { pic_z - 1, this_info.pic, scale, scale, 0.8*inter_alpha, CellFactory_GetName( this_info.matter_info[2][2][1][1])})
 		end
 		return pen.new_image( gui, uid, icon_x, icon_y, pic_z, this_info.pic, { s_x = scale, s_y = scale, alpha = inter_alpha })
@@ -2494,7 +2437,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 				pic_x, pic_y = pic_x + 10, pic_y + 10
 			end
 			
-			pic_x, pic_y = swap_anim( this_info.id, pic_x, pic_y, data )
+			pic_x, pic_y = index.swap_anim( this_info.id, pic_x, pic_y, data )
 			uid, this_info, suppress_charges, suppress_action = cat_tbl.on_slot( gui, uid, this_info.id, data, this_info, pic_x, pic_y, zs, {
 				is_lmb = clicked,
 				is_rmb = r_clicked,

@@ -6,7 +6,6 @@ end
 
 ctrl_data = ctrl_data or {} --general global for custom metaframe values
 dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
-dragger_buffer = dragger_buffer or {0,0} --metaframe values that allow for responsive draggables
 item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
 spell_proj_data = spell_proj_data or {} --various info on the particular projectile filepath of a spell
 gonna_drop = gonna_drop or false --trigger for "drop on failure to swap"
@@ -235,8 +234,8 @@ if( #ctrl_bodies > 0 ) then
                 for i,duration in ipairs( ing_frame ) do
                     local effect_id = i
                     if( duration ~= 0 ) then
-                        local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
-                        local time = get_effect_duration( duration, effect_info, epsilon )
+                        local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
+                        local time = index.get_effect_duration( duration, effect_info, epsilon )
                         if( effect_info.id ~= nil and time ~= 0 ) then
                             local mtr = GameTextGetTranslatedOrNot( CellFactory_GetUIName( ing_matter[effect_id]))
                             mtr = mtr == "" and "???" or mtr
@@ -262,7 +261,7 @@ if( #ctrl_bodies > 0 ) then
                             if( time ~= 0 ) then
                                 local effect_data = {
                                     pic = effect_info.ui_icon,
-                                    txt = get_effect_timer( time ),
+                                    txt = index.get_effect_timer( time ),
                                     desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
                                     tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."@"..message,
 
@@ -303,9 +302,9 @@ if( #ctrl_bodies > 0 ) then
                 local stain_percs = ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" )
                 for i,duration in ipairs( stain_percs ) do
                     local effect_id = i
-                    local perc = get_stain_perc( duration )
+                    local perc = index.get_stain_perc( duration )
                     if( perc > 0 ) then
-                        local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
+                        local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect_id }, nil, "real_id" ) or {}, duration )
                         if( effect_info.id ~= nil ) then
                             local effect_data = {
                                 id = effect_id,
@@ -362,7 +361,7 @@ if( #ctrl_bodies > 0 ) then
                                 local fungal_timer = math.max( tonumber( 60*60*5 + GlobalsGetValue( "fungal_shift_last_frame", "0" )) - current_frame, 0 )
                                 if( fungal_timer > 0 ) then
                                     icon_info.amount = fungal_timer
-                                    icon_info.txt = get_effect_timer( icon_info.amount/60 )
+                                    icon_info.txt = index.get_effect_timer( icon_info.amount/60 )
                                     icon_info.tip = icon_info.tip.."@"..icon_info.txt.." until next Shift window."
                                 end
                                 
@@ -383,7 +382,7 @@ if( #ctrl_bodies > 0 ) then
                             if( #effect > 0 ) then
                                 icon_info.amount = ComponentGetValue2( effect[2], "frames" )
                                 if( true_id == nil ) then
-                                    local effect_info = get_thresholded_effect( pen.t.get( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
+                                    local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect[3]}, nil, "real_id" ) or {}, icon_info.amount )
                                     if( effect_info.id ~= nil ) then
                                         icon_info.main_info = effect_info
                                         -- icon_info.pic = effect_info.ui_icon
@@ -401,7 +400,7 @@ if( #ctrl_bodies > 0 ) then
                             end
                         end
                         if( icon_info.amount ~= -2 ) then
-                            icon_info.amount = get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
+                            icon_info.amount = index.get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
                         end
 
                         if( true_id == nil ) then
@@ -435,10 +434,10 @@ if( #ctrl_bodies > 0 ) then
                 table.sort( e.time_tbl, function( a, b )
                     return a > b
                 end)
-                effect_tbl.misc[1].txt = get_effect_timer( e.time_tbl[1])
+                effect_tbl.misc[1].txt = index.get_effect_timer( e.time_tbl[1])
                 if( #e.time_tbl > 1 ) then
                     local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
-                    effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", get_effect_timer( e.time_tbl[#e.time_tbl], true ))
+                    effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", index.get_effect_timer( e.time_tbl[#e.time_tbl], true ))
                 end
             end
             table.sort( effect_tbl.misc, function( a, b )

@@ -195,7 +195,7 @@ local ITEM_CATS = {
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = pen.get_pic_dims( data.slot_pic.bg ) end
-            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, slot_z( data, this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
+            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
@@ -335,14 +335,14 @@ local ITEM_CATS = {
                 for i,m in ipairs( content_tbl ) do
                     local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
                     uid = pen.new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ),
-                        data.pixel, { color = get_matter_colour( CellFactory_GetName( m[1])), s_x = w, s_y = sz, alpha = alpha })
+                        data.pixel, { color = pen.get_color_matter( CellFactory_GetName( m[1])), s_x = w, s_y = sz, alpha = alpha })
                     if( delta >= h ) then break end
                 end
                 if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
                     uid = pen.new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, { s_x = w, s_y = 0.5 })
                 end
             end
-
+            
             return uid, data
         end,
         on_tooltip = new_vanilla_ptt,
@@ -389,7 +389,7 @@ local ITEM_CATS = {
                 pic_y = pic_y + simple_anim( data, "sucking_drift", 0, 0.2 )
             end
             
-            local z = slot_z( data, this_info.id, zs.icons )
+            local z = index.slot_z( this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
             uid, pic_x, pic_y = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
             uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic,
@@ -530,7 +530,7 @@ local ITEM_CATS = {
             this_info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
             this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
             this_info.tip_name = string.upper( this_info.tip_name )
-            this_info.desc = full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
+            this_info.desc = index.full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
             if( parent_id > 0 and data.inventories[ parent_id ] ~= nil ) then
@@ -567,7 +567,7 @@ local ITEM_CATS = {
             if( john_bool.can_drag ) then
                 angle = -math.rad( 5 )*( is_considered and 1.5 or ( anim_speed == 0 and 0 or math.sin(( data.frame_num%anim_speed )*math.pi/anim_speed )))
             end
-            local pic_z = slot_z( data, this_info.id, zs.icons )
+            local pic_z = index.slot_z( this_info.id, zs.icons )
             uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
             if( is_considered ) then pen.colourer( gui, {185,220,223}) end
             uid = new_spell_frame( gui, uid, pic_x, pic_y, zs.icons + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
@@ -591,7 +591,7 @@ local ITEM_CATS = {
         
         on_tooltip = new_vanilla_ttt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
@@ -622,7 +622,7 @@ local ITEM_CATS = {
         
         on_tooltip = new_vanilla_itt,
         on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, slot_z( data, this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+            uid = new_slot_pic( gui, uid, pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10

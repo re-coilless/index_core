@@ -220,7 +220,7 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", { has_shadow = true })
             uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
             
-            local tip = hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
+            local tip = index.hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
             uid = tipping( gui, uid, nil, nil, {
                 pic_x - ( length + 2 ),
                 pic_y - 1,
@@ -246,7 +246,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
-            local tip = hud_text_fix( "$hud_air" )..hud_num_fix( this_data[8], this_data[7], 2 )
+            local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
             uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
@@ -276,7 +276,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
         uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = hud_text_fix( "$hud_jetpack" )..hud_num_fix( this_data[4], this_data[3], 2 )
+        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data[4], this_data[3], 2 )
         uid = tipping( gui, uid, nil, nil, {
             pic_x - 42,
             pic_y - 1,
@@ -343,9 +343,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             local tip = ""
             if( potion_data[3] ~= nil ) then
                 tip = this_data.name..( this_data.fullness ~= nil and "@"..this_data.fullness or "" )
-            else
-                tip = hud_text_fix( "$hud_wand_mana" )..hud_num_fix( value[1], value[2])
-            end
+            else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
 
             local tip_x, tip_y = unpack( xys.hp )
             uid = tipping( gui, uid, nil, nil, {
@@ -383,7 +381,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
-            local tip = hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
+            local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
             uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
@@ -426,7 +424,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
-            local tip = hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
+            local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
             uid = tipping( gui, uid, nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
@@ -511,7 +509,7 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
+        local tip = index.hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
         uid = tipping( gui, uid, nil, nil, {
             pic_x + 2.5,
             pic_y - 1,
@@ -1041,7 +1039,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     pickup_data.id = 0
                 else
                     pickup_data.id = -pickup_data.id
-                    pickup_data.desc = { full_stopper( GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name )), true }
+                    pickup_data.desc = { index.full_stopper( GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name )), true }
                 end
             end
             if( pickup_data.id ~= 0 ) then
