@@ -51,13 +51,13 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         if( data.is_opened ) then
-            uid = new_shadowed_text( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back,
+            uid = pen.new_shadowed_text( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            uid = new_shadowed_text( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back,
+            uid = pen.new_shadowed_text( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
 
             pic_x = pic_x + data.inv_spacings[2]
-            uid = new_shadowed_text( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back,
+            uid = pen.new_shadowed_text( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
         end
         if( data.gmod.show_full ) then
@@ -243,7 +243,7 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
             uid = pen.new_text( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
+            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
@@ -273,7 +273,7 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         local shake_frame = data.frame_num - ( data.memo.flight_shake or data.frame_num )
         uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
-        uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
+        uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data[4], this_data[3], 2 )
@@ -338,7 +338,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
                     potion_data[2], { s_x = math.min( 40*ratio + 0.5, 40 ), s_y = 2 })
                 pen.colourer( gui, potion_data[3])
             end
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
+            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
             
             local tip = ""
             if( potion_data[3] ~= nil ) then
@@ -378,7 +378,7 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             
             local shake_frame = data.frame_num - ( data.memo.reload_shake[data.active_item] or data.frame_num )
             uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
+            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
@@ -421,7 +421,7 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             local shake_frame = data.frame_num - ( data.memo.delay_shake[data.active_item] or data.frame_num )
             uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main,
                 "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
-            uid = new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
+            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
@@ -466,11 +466,11 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
 
                 if( length > num_width ) then
                     if( not( pen.vld( name ))) then name = "Boss" end
-                    uid = new_shadowed_text( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
+                    uid = pen.new_shadowed_text( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
                 end
 
                 local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
-                uid = new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
+                uid = pen.new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
 
                 return uid, length, step
             end
@@ -561,7 +561,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             p_x = p_x - offset_x
         end
         if( hover_func ~= nil ) then hover_func( offset_x ) end
-        uid = new_shadowed_text( gui, uid, p_x, p_y, zs.main, txt, { alpha = alpha })
+        uid = pen.new_shadowed_text( gui, uid, p_x, p_y, zs.main, txt, { alpha = alpha })
     end
     
     data.memo.ui_info = data.memo.ui_info or { 0, 0 }
@@ -1062,7 +1062,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 if( pickup_data.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
                     local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
-                    table.insert( slot_anim, {
+                    table.insert( index.G.slot_anim, {
                         id = pickup_data.id,
                         x = anim_x,
                         y = anim_y,

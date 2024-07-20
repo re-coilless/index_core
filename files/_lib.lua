@@ -4,6 +4,7 @@ dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
 index = index or {}
+index.G = index.G or {}
 
 index.T2F = { --make the colors be custom
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", {90,35,35}}, --ACTION_TYPE_PROJECTILE
@@ -18,8 +19,9 @@ index.T2F = { --make the colors be custom
 
 --get_tip_width
 --simple_anim
---data table must be index._DATA
---data.memo -> index._MEMO
+--tipping
+--data table must be index.D
+--data.memo -> index.M
 
 --core backend
 function index.get_input( mnee_id, is_continuous, is_clean )
@@ -44,16 +46,16 @@ function index.cat_callback( this_info, name, input, fallback, do_default )
 	if( input ~= nil ) then
 		local out = func_local == nil and fallback or { func_local( unpack( input ))}
 		if( func_local == nil or do_default ) then
-			local func_main = index._DATA.item_cats[ this_info.cat ][ name ]
+			local func_main = index.D.item_cats[ this_info.cat ][ name ]
 			if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
 		end
 		return unpack( out )
-	else return func_local or index._DATA.item_cats[ this_info.cat ] end
+	else return func_local or index.D.item_cats[ this_info.cat ] end
 end
 
 function index.play_sound( sfx, x, y )
-	if( x == nil ) then x, y = unpack( index._DATA.player_xy ) end
-	pen.play_sound( type( sfx ) == "table" and sfx or index._DATA.sfxes[ sfx ], x, y )
+	if( x == nil ) then x, y = unpack( index.D.player_xy ) end
+	pen.play_sound( type( sfx ) == "table" and sfx or index.D.sfxes[ sfx ], x, y )
 end
 
 function index.clean_my_gun()
@@ -435,7 +437,7 @@ function index.inv_check( this_info, inv_info )
 	if( this_info.id == inv_info.inv_id ) then return false end
 
 	local kind_memo = inv_info.kind
-	local inv_data = inv_info.full or index._DATA.inventories[ inv_info.inv_id ]
+	local inv_data = inv_info.full or index.D.inventories[ inv_info.inv_id ]
 	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
 	
 	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( index.get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
@@ -448,10 +450,10 @@ function index.inv_check( this_info, inv_info )
 end
 
 function index.slot_swap_check( item_in, item_out, slot_data )
-	local inv_memo, slot_memo = item_out.inv_id, item_out.inv_slot
+	local inv_memo, index.G.slot_memo = item_out.inv_id, item_out.inv_slot
 	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_data.inv_id, item_out.inv_slot or slot_data.inv_slot
 	local val = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
-	item_out.inv_id, item_out.inv_slot = inv_memo, slot_memo
+	item_out.inv_id, item_out.inv_slot = inv_memo, index.G.slot_memo
 	return val
 end
 
@@ -486,7 +488,7 @@ end
 function index.inventory_man( item_id, this_info, in_hand, force_full )
 	pen.child_play_full( item_id, function( child, params )
 		index.inventory_boy( child, unpack( params ))
-		if( not( force_full ) and index._DATA.inventories[ child ] ~= nil ) then
+		if( not( force_full ) and index.D.inventories[ child ] ~= nil ) then
 			return true
 		end
 	end, { this_info, in_hand })
@@ -580,15 +582,15 @@ function index.slot_swap( item_in, slot_data )
 	local parent2 = slot_data.inv_id
 	local tbl = { parent1, parent2 }
 	local idata = {
-		pen.t.get( index._DATA.item_list, item_in, nil, nil, {}),
-		pen.t.get( index._DATA.item_list, slot_data.id, nil, nil, {}),
+		pen.t.get( index.D.item_list, item_in, nil, nil, {}),
+		pen.t.get( index.D.item_list, slot_data.id, nil, nil, {}),
 	}
 	for i = 1,2 do
 		local p = tbl[i]
 		if( p > 0 ) then
-			local p_info = index._DATA.inventories[p] or {}
+			local p_info = index.D.inventories[p] or {}
 			if( p_info.update ~= nil ) then
-				if( p_info.update( pen.t.get( index._DATA.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
+				if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
 					table.insert( reset, pen.get_item_owner( p, true ))
 				end
 			end
@@ -753,18 +755,18 @@ function index.get_item_data( item_id, inventory_data, item_list )
 			"on_gui_pause",
 			"on_gui_world",
 		}
-		index._MEMO.cbk_tbl = index._MEMO.cbk_tbl or {} --cache this
-		index._MEMO.cbk_tbl[ item_id ] = index._MEMO.cbk_tbl[ item_id ] or {}
+		index.M.cbk_tbl = index.M.cbk_tbl or {} --cache this
+		index.M.cbk_tbl[ item_id ] = index.M.cbk_tbl[ item_id ] or {}
 		for k,callback in ipairs( callback_list ) do
-			if( index._MEMO.cbk_tbl[ item_id ][ callback ] == nil ) then
+			if( index.M.cbk_tbl[ item_id ][ callback ] == nil ) then
 				local func_path = pen.magic_storage( item_id, callback, "value_string" )
-				if( func_path ~= nil ) then index._MEMO.cbk_tbl[ item_id ][ callback ] = dofile_once( func_path ) end
+				if( func_path ~= nil ) then index.M.cbk_tbl[ item_id ][ callback ] = dofile_once( func_path ) end
 			end
-			this_info[ callback ] = index._MEMO.cbk_tbl[ item_id ][ callback ]
+			this_info[ callback ] = index.M.cbk_tbl[ item_id ][ callback ]
 		end
 	end
 	
-	for k,cat in ipairs( index._DATA.item_cats ) do
+	for k,cat in ipairs( index.D.item_cats ) do
 		if( cat.on_check( item_id )) then
 			this_info.cat = k
 			this_info.is_wand = cat.is_wand or false
@@ -781,7 +783,7 @@ function index.get_item_data( item_id, inventory_data, item_list )
 	if( this_info.cat == nil ) then
 		return {}
 	elseif(( this_info.name or "" ) == "" ) then
-		this_info.name = index._DATA.item_cats[ this_info.cat ].name
+		this_info.name = index.D.item_cats[ this_info.cat ].name
 	end
 	this_info.name = pen.capitalizer( this_info.name )
 	
@@ -801,8 +803,8 @@ function index.get_items( hooman )
 	local item_tbl = {}
 	for k = 1,2 do
 		local tbl = { "inventories", "inventories_init" }
-		for i,inv_info in pairs( index._DATA[ tbl[k]]) do
-			if( k == 2 ) then index._DATA.inventories[i] = inv_info end
+		for i,inv_info in pairs( index.D[ tbl[k]]) do
+			if( k == 2 ) then index.D.inventories[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child, j )
 				local new_info = index.get_item_data( child, inv_info, item_tbl )
 				if( new_info.id ~= nil ) then
@@ -821,7 +823,7 @@ function index.get_items( hooman )
 		end
 	end
 
-	index._DATA.item_list = item_tbl
+	index.D.item_list = item_tbl
 end
 
 function index.vanilla_pick_up( hooman, item_id )
@@ -851,12 +853,12 @@ function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
 		end
 
 		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
-		EntityAddChild( index._DATA.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
+		EntityAddChild( index.D.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
 
 		if( is_shopping ) then
-			if( not( index._DATA.Wallet[2])) then
-				index._DATA.Wallet[3] = index._DATA.Wallet[3] - this_info.cost
-				ComponentSetValue2( index._DATA.Wallet[1], "money", index._DATA.Wallet[3])
+			if( not( index.D.Wallet[2])) then
+				index.D.Wallet[3] = index.D.Wallet[3] - this_info.cost
+				ComponentSetValue2( index.D.Wallet[1], "money", index.D.Wallet[3])
 			end
 			
 			pen.t.loop( EntityGetAllComponents( entity_id ), function( i, comp )
@@ -871,7 +873,7 @@ function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
 		end
 		if( EntityGetIsAlive( entity_id )) then
 			ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-			ComponentSetValue2( this_info.ItemC, "mFramePickedUp", index._DATA.frame_num )
+			ComponentSetValue2( this_info.ItemC, "mFramePickedUp", index.D.frame_num )
 
 			index.inventory_man( entity_id, this_info, false )
 		end
@@ -889,12 +891,12 @@ function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 		if( ctrl_comp ~= nil ) then
 			local inv_comp = pen.reset_active_item( owner_id )
 			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", pen.get_item_num( this_info.inv_id, this_item ))
-			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", index._DATA.frame_num + 1 )
+			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", index.D.frame_num + 1 )
 		else has_no_cancer = true end
 	end
 	if( has_no_cancer ) then EntityRemoveFromParent( this_item ) end
 
-	local p_d_x, p_d_y = index._DATA.pointer_world[1] - h_x, index._DATA.pointer_world[2] - h_y
+	local p_d_x, p_d_y = index.D.pointer_world[1] - h_x, index.D.pointer_world[2] - h_y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
 	local from_x, from_y = 0, 0
@@ -902,12 +904,12 @@ function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 		from_x, from_y = EntityGetTransform( this_item )
 		pen.reset_active_item( this_info.in_hand )
 	else
-		index._DATA.throw_pos_rad = index._DATA.throw_pos_rad + index._DATA.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*index._DATA.throw_pos_rad, h_y + math.sin( angle )*index._DATA.throw_pos_rad
+		index.D.throw_pos_rad = index.D.throw_pos_rad + index.D.throw_pos_size
+		from_x, from_y = h_x + math.cos( angle )*index.D.throw_pos_rad, h_y + math.sin( angle )*index.D.throw_pos_rad
 		local is_hit, hit_x, hit_y = RaytraceSurfaces( h_x, h_y, from_x, from_y )
-		if( is_hit ) then index._DATA.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
-		index._DATA.throw_pos_rad = index._DATA.throw_pos_rad - index._DATA.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*index._DATA.throw_pos_rad, h_y + math.sin( angle )*index._DATA.throw_pos_rad
+		if( is_hit ) then index.D.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
+		index.D.throw_pos_rad = index.D.throw_pos_rad - index.D.throw_pos_size
+		from_x, from_y = h_x + math.cos( angle )*index.D.throw_pos_rad, h_y + math.sin( angle )*index.D.throw_pos_rad
 	end
 	local extra_v_force = 0
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
@@ -931,7 +933,7 @@ function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 	ComponentSetValue2( this_info.ItemC, "inventory_slot", -5, -5 )
 	ComponentSetValue2( this_info.ItemC, "play_hover_animation", false )
 	ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-	ComponentSetValue2( this_info.ItemC, "next_frame_pickable", index._DATA.frame_num + 30 )
+	ComponentSetValue2( this_info.ItemC, "next_frame_pickable", index.D.frame_num + 30 )
 
 	if( p_delta > 2 ) then
 		local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
@@ -955,7 +957,7 @@ end
 
 --GUI backend
 function index.slot_z( id, z )
-	return index._DATA.dragger.item_id == id and z-2 or z
+	return index.D.dragger.item_id == id and z-2 or z
 end
 
 function index.full_stopper( text )
@@ -965,16 +967,16 @@ function index.full_stopper( text )
 end
 
 function index.check_dragger_buffer( id ) --kinda sus
-	index._MEMO.dragger_buffer = index._MEMO.dragger_buffer or {0,0}
-	if( GameGetFrameNum() - index._MEMO.dragger_buffer[2] > 2 ) then
-		index._MEMO.dragger_buffer = {0,0}
+	index.M.dragger_buffer = index.M.dragger_buffer or {0,0}
+	if( GameGetFrameNum() - index.M.dragger_buffer[2] > 2 ) then
+		index.M.dragger_buffer = {0,0}
 	end
 	
 	local will_do = true
 	local will_force = false
 	local will_update = true
-	if( index._MEMO.dragger_buffer[1] ~= 0 ) then
-		will_do = index._MEMO.dragger_buffer[1] == id
+	if( index.M.dragger_buffer[1] ~= 0 ) then
+		will_do = index.M.dragger_buffer[1] == id
 		will_update, will_force = will_do, will_do
 	end
 	return will_do, will_force, will_update
@@ -1034,7 +1036,7 @@ function index.get_thresholded_effect( effects, v )
 end
 
 function index.swap_anim( item_id, end_x, end_y, data ) --pen.animate
-	local anim_info, anim_id = pen.t.get( slot_anim, item_id )
+	local anim_info, anim_id = pen.t.get( index.G.slot_anim, item_id )
 	if( anim_info ~= 0 and anim_info.id ~= nil ) then
 		local delta = data.frame_num - anim_info.frame
 		local stop_it = false
@@ -1048,123 +1050,96 @@ function index.swap_anim( item_id, end_x, end_y, data ) --pen.animate
 			local d_y = v*( end_y - anim_info.y )
 			end_x, end_y = end_x - d_x, end_y - d_y
 		else end_x, end_y = anim_info.x, anim_info.y end
-		if( stop_it ) then table.remove( slot_anim, anim_id ) end
+		if( stop_it ) then table.remove( index.G.slot_anim, anim_id ) end
 	end
 
 	return end_x, end_y
 end
 
-function index.register_item_pic( this_info, is_advanced ) --cache it
-	if( this_info.pic == nil ) then return end
+function index.register_item_pic( this_info, is_advanced )
+	if( pen.vld( this_info.pic )) then return end
 	
 	local forced_update = EntityHasTag( this_info.id, "index_pic_update" )
-	item_pic_data[ this_info.pic ] = item_pic_data[ this_info.pic ] or {xy={0,0}, xml_xy={0,0}}
-	if( item_pic_data[ this_info.pic ].dims == nil or forced_update ) then
-		item_pic_data[ this_info.pic ].dims = { pen.get_pic_dims( this_info.pic )}
+	pen.cache({ "index_pic_data", this_info.pic }, function()
+		local data = { xy = { 0, 0 }, xml_xy = { 0, 0 }}
 
-		local is_xml = false
-		if( not( forced_update )) then
-			is_xml = string.sub( this_info.pic, -4 ) == ".xml" and is_advanced
-		else EntityRemoveTag( this_info.id, "index_update" ) end
-
-		local anim_data = pen.magic_storage( this_info.id, "index_pic_anim", "value_string" )
-		if( anim_data ~= nil ) then item_pic_data[ this_info.pic ].anim = pen.t.pack( anim_data ) end
-		
-		local off_data = pen.magic_storage( this_info.id, "index_pic_offset", "value_string" )
-		if( off_data ~= nil ) then
-			item_pic_data[ this_info.pic ].xy = pen.t.pack( off_data, true )
-		elseif( not( is_xml )) then
-			if( is_advanced ) then
-				local pic_comp = EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "item" )
-				if( pic_comp == nil ) then
-					pic_comp = EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "enabled_in_hand" )
-				end
-				if( pic_comp ~= nil ) then
-					item_pic_data[ this_info.pic ].xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
-				end
-			else item_pic_data[ this_info.pic ].xy = { item_pic_data[ this_info.pic ].dims[1]/2, item_pic_data[ this_info.pic ].dims[2]/2 } end
-		end
+		local is_xml = string.find( this_info.pic, "%.xml$" ) ~= nil and is_advanced
+		if( forced_update ) then EntityRemoveTag( this_info.id, "index_update" ) end
+		local anim_data = pen.magic_storage( this_info.id, "index_pic_anim", "value_string" ) --this should contain the anim anme and nothing else
+		if( pen.vld( anim_data )) then data.anim = pen.t.pack( anim_data ) end
 		
 		if( is_xml ) then
 			local nxml = dofile_once( "mods/index_core/nxml.lua" )
 			local xml = nxml.parse( ModTextFileGetContent( this_info.pic ))
 			local xml_kid = xml:first_of( "RectAnimation" )
 			if( xml_kid.attr.has_offset ) then
-				item_pic_data[ this_info.pic ].xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
-			else item_pic_data[ this_info.pic ].xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y } end
-
-			item_pic_data[ this_info.pic ].dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
+				data.xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
+			else data.xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y } end
+			
+			data.dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
 			if( xml_kid.attr.shrink_by_one_pixel ) then
-				item_pic_data[ this_info.pic ].dims[1] = item_pic_data[ this_info.pic ].dims[1] + 1
-				item_pic_data[ this_info.pic ].dims[2] = item_pic_data[ this_info.pic ].dims[2] + 1
+				data.dims[1], data.dims[2] = data.dims[1] + 1, data.dims[2] + 1
 			end
+		else data.dims = { pen.get_pic_dims( this_info.pic )} end
+
+		local off_data = pen.magic_storage( this_info.id, "index_pic_offset", "value_string" )
+		if( pen.vld( off_data )) then
+			data.xy = pen.t.pack( off_data )
+		elseif( not( is_xml )) then
+			if( is_advanced ) then
+				local pic_comp = EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "item" )
+					or EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "enabled_in_hand" )
+				if( pen.vld( pic_comp, true )) then
+					data.xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
+				end
+			else data.xy = { data.dims[1]/2, data.dims[2]/2 } end
 		end
-	end
+	end, { reset_count = 0, reset_now = forced_update })
 end
 
 --GUI frontend
-function new_anim_looped( core_path, delay, duration )
-	local num = math.floor( GameGetFrameNum()/tonumber( delay ))%tonumber( duration ) + 1
-	return core_path..num..".png"
-end
+function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
+	if( index.G.is_slot_active ) then return pic_x, pic_y end
+	local will_do, will_force, will_update = index.check_dragger_buffer( id )
+	if( not( will_do )) then return pic_x, pic_y end
+	local is_within = pen.check_bounds( index.D.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h})
+	if( not( will_force or is_within or index.G.slot_memo[ id ])) then return pic_x, pic_y end
+	local new_x, new_y, drag_state = 0, 0, 0
+	if( dragger_buffer[1] == 0 ) then dragger_buffer = { id, index.D.frame_num } end
+	if( index.D.dragger.item_id == 0 ) then index.D.dragger.item_id = id end
 
-function new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h, data )
 	local clicked, r_clicked, hovered = false, false, false
-	if( not( slot_going )) then
-		local will_do, will_force, will_update = index.check_dragger_buffer( id )
-		if( will_do ) then
-			local new_x, new_y, drag_state = 0, 0, 0
-			if( will_force or pen.check_bounds( data.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h}) or slot_memo[id]) then
-				if( dragger_buffer[1] == 0 ) then
-					dragger_buffer = { id, data.frame_num }
-				end
-				
-				if( data.dragger.item_id == 0 ) then
-					data.dragger.item_id = id
-				end
-				if( data.dragger.item_id == id ) then
-					uid, new_x, new_y, drag_state, clicked, r_clicked, hovered = pen.new_dragger(
-						data.the_gui, uid, id, pic_x, pic_y )
-					if( slot_memo[id] and drag_state > 0 ) then
-						data.dragger.swap_soon = true
-						table.insert( slot_anim, {
-							id = id,
-							x = data.memo.dragger_x,
-							y = data.memo.dragger_y,
-							frame = data.frame_num,
-						})
-					end
-
-					data.memo.dragger_x, data.memo.dragger_y = new_x, new_y
-					data.dragger.inv_type = info.inv_type
-					data.dragger.is_quickest = info.is_quickest
-					pic_x, pic_y = new_x, new_y
-					
-					slot_memo[id] = hovered and has_begun
-					if( slot_memo[id]) then
-						dragger_buffer[2] = data.frame_num
-					end
-					slot_going = true
-				end
-			end
+	if( index.D.dragger.item_id == id ) then
+		uid, new_x, new_y, drag_state, clicked, r_clicked, hovered = pen.new_dragger(
+			index.D.the_gui, uid, id, pic_x, pic_y )
+		if( index.G.slot_memo[ id ] and drag_state > 0 ) then
+			index.D.dragger.swap_soon = true
+			table.insert( index.G.slot_anim, {
+				id = id,
+				x = index.D.memo.dragger_x,
+				y = index.D.memo.dragger_y,
+				frame = index.D.frame_num,
+			})
 		end
+
+		index.D.memo.dragger_x, index.D.memo.dragger_y = new_x, new_y
+		index.D.dragger.inv_type = info.inv_type
+		index.D.dragger.is_quickest = info.is_quickest
+		pic_x, pic_y = new_x, new_y
+		
+		index.G.slot_memo[ id ] = hovered and has_begun
+		if( index.G.slot_memo[ id ]) then dragger_buffer[2] = index.D.frame_num end
+		index.G.is_slot_active = true
 	end
-
-	return data, pic_x, pic_y, clicked, r_clicked, hovered
+	return pic_x, pic_y, clicked, r_clicked, hovered
 end
 
-function new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, text, data )
-	local _,is_pixel = pen.font_cancer()
-	data = data or {}; data.has_shadow = not( is_pixel )
-	if( is_pixel ) then data.font = "data/fonts/font_pixel.xml" end
-	return pen.new_text( gui, uid, pic_x, pic_y, pic_z, text, data )
-end
-
-function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
-	alpha = alpha or 1
+function index.new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
 	uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
 		"mods/index_core/files/pics/vanilla_plate.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
 
+	local temp = 0
+	local steps = { 10, 4, 2, 1 }
 	uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 2, pic_z,
 		"mods/index_core/files/pics/vanilla_plate_a1.xml", { alpha = alpha })
 	uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y - 2, pic_z,
@@ -1174,180 +1149,61 @@ function new_vanilla_plate( gui, uid, pic_x, pic_y, pic_z, dims, alpha )
 	uid = pen.new_image( gui, uid, pic_x - 2, pic_y + dims[2], pic_z,
 		"mods/index_core/files/pics/vanilla_plate_a4.xml", { alpha = alpha })
 
-	local steps = {10,4,2,1}
-	local temp = 0
 	while( temp < dims[1]) do
-		local delta = dims[1] - temp
 		local pic_id = 4
+		local delta = dims[1] - temp
 		for i,step in ipairs( steps ) do
-			if( delta >= step ) then
-				pic_id = i
-				break
-			end
+			if( delta >= step ) then pic_id = i; break end
 		end
 		uid = pen.new_image( gui, uid, pic_x + temp, pic_y - 2, pic_z,
 			"mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml", { alpha = alpha })
 		uid = pen.new_image( gui, uid, pic_x + temp, pic_y + dims[2], pic_z,
 			"mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml", { alpha = alpha })
-		temp = temp + steps[pic_id]
+		temp = temp + steps[ pic_id ]
 	end
-
 	temp = 0
 	while( temp < dims[2]) do
-		local delta = dims[2] - temp
 		local pic_id = 4
+		local delta = dims[2] - temp
 		for i,step in ipairs( steps ) do
-			if( delta >= step ) then
-				pic_id = i
-				break
-			end
+			if( delta >= step ) then pic_id = i; break end
 		end
 		uid = pen.new_image( gui, uid, pic_x - 2, pic_y + temp, pic_z,
 			"mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml", { alpha = alpha })
 		uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y + temp, pic_z,
 			"mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml", { alpha = alpha })
-		temp = temp + steps[pic_id]
+		temp = temp + steps[ pic_id ]
 	end
 
 	return uid
 end
 
-function new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
+function index.new_vanilla_bar( gui, uid, pic_x, pic_y, zs, dims, bar_pic, shake_frame, bar_alpha )
 	local will_shake = shake_frame ~= nil
 	if( will_shake ) then
 		if( shake_frame < 0 ) then
 			pic_x = pic_x - 20*math.sin( shake_frame*math.pi/6.666 )/shake_frame
-		else
-			pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 )
-		end
+		else pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 ) end
 	end
 	
 	local w, h = pen.get_pic_dims( bar_pic )
 	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[2], bar_pic, { s_x = dims[3]/w, s_y = dims[2]/h, alpha = bar_alpha })
 	
-	local pic = "mods/index_core/files/pics/vanilla_bar_bg_"
-	for i = 1,2 do
-		local new_z = zs[1] + ( i == 1 and 0.001 or 0 )
-		uid = pen.new_image( gui, uid, pic_x, pic_y, new_z, pic..i..".xml", { s_x = 1, s_y = dims[2] + 2 })
-		uid = pen.new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, new_z, pic..i..".xml", { s_x = 1, s_y = dims[2] + 2 })
-		uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y, new_z, pic..i..".xml", { s_x = dims[1], s_y = 1 })
-		uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + dims[2] + 1, new_z, pic..i..".xml", { s_x = dims[1], s_y = 1 })
-	end
+	uid = pen.new_image( gui, uid, pic_x, pic_y, zs[1],
+		index.D.pixel, { s_x = 1, s_y = dims[2] + 2, color = pen.PALETTE.VNL.BROWN, alpha = 0.75 })
+	uid = pen.new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1],
+		index.D.pixel, { s_x = 1, s_y = dims[2] + 2, color = pen.PALETTE.VNL.BROWN, alpha = 0.75 })
+	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y, zs[1],
+		index.D.pixel, { s_x = dims[1], s_y = 1, color = pen.PALETTE.VNL.BROWN, alpha = 0.75 })
+	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + dims[2] + 1, zs[1],
+		index.D.pixel, { s_x = dims[1], s_y = 1, color = pen.PALETTE.VNL.BROWN, alpha = 0.75 })
 	if( will_shake ) then
 		uid = pen.new_image( gui, uid, pic_x - ( dims[1] + 1 ), pic_y, zs[1] - 0.001,
 			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = dims[1]/2 + 1, s_y = dims[2]/2 + 1 })
 	end
-	uid = pen.new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1], pic.."0.xml", { s_x = dims[1], s_y = dims[2]})
 
-	return uid
-end
-
---ass
-function new_vanilla_tooltip( gui, uid, tid, z, text, extra_func, is_triggered, is_right, is_up, is_fancy )
-	tid = tid or "generic"
-
-	if( is_triggered == nil ) then
-		_, _, is_triggered = GuiGetPreviousWidgetInfo( gui )
-	end
-	if( is_triggered ) then
-		if( not( tip_going[tid] or false )) then
-			tip_going[tid] = true
-			tip_anim[tid] = tip_anim[tid] or {0,0,0}
-			
-			local frame_num = GameGetFrameNum()
-			tip_anim[tid][2] = frame_num
-			if( tip_anim[tid][1] == 0 ) then
-				tip_anim[tid][1] = frame_num
-				return uid
-			end
-			local anim_frame = tip_anim[tid][3]
-			
-			if( type( text ) ~= "table" ) then
-				text = { text }
-			end
-			extra_func = extra_func or ""
-			if( type( extra_func ) ~= "table" ) then
-				extra_func = { extra_func }
-			end
-			
-			local w, h = GuiGetScreenDimensions( gui )
-			local pic_x, pic_y = pen.get_mouse_pos()
-			local p_off_x = is_right and -5 or 5
-			local p_off_y = is_up and -5 or 5
-			pic_x, pic_y = text[2] or ( pic_x + p_off_x ), text[3] or ( pic_y + p_off_y )
-			
-			local edge_spacing, dims = 3, {0,0}
-			if( text[1] ~= "" ) then _,dims = pen.liner( text[1], w*0.9, h - 2 ) end
-			
-			local x_offset, y_offset = text[4] or ( dims[1] + edge_spacing ), text[5] or dims[2]
-			x_offset, y_offset = x_offset + edge_spacing - 1, y_offset + edge_spacing
-			if( is_right or is_up ) then
-				if( is_right ) then
-					pic_x = pic_x - x_offset - 1
-				end
-				if( is_up ) then
-					pic_y = pic_y - y_offset + 9 + edge_spacing
-				end
-			end
-			if( is_right ) then
-				if( pic_x < 0 ) then
-					pic_x = 1
-				end
-			elseif( w < pic_x + x_offset + 1 ) then
-				pic_x = w - x_offset - 1
-			end
-			if( is_up ) then
-				if( pic_y < 0 ) then
-					pic_y = 1
-				end
-			elseif( h < pic_y + y_offset + 1 ) then
-				pic_y = h - y_offset - 1
-			end
-
-			local inter_alpha = math.sin( math.min( anim_frame, 10 )*math.pi/20 )
-			if( type( extra_func[1] ) == "function" ) then
-				uid = extra_func[1]( gui, uid, pic_x + 2, pic_y + 2, z, inter_alpha, extra_func[2])
-			else
-				uid = pen.new_text( gui, uid, pic_x + 3, pic_y + 1, z, text[1], { has_shadow = true, alpha = inter_alpha })
-			end
-			
-			anim_frame = anim_frame + 1
-			local inter_size = 30*math.sin( anim_frame*0.3937 )/anim_frame
-			pic_x, pic_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
-			x_offset, y_offset = x_offset - inter_size, y_offset - inter_size
-			inter_alpha = math.max( 1 - inter_alpha/6, 0.1 )
-
-			is_fancy = is_fancy or false
-			local gui_core = "mods/index_core/files/pics/vanilla_tooltip_"
-			uid = pen.new_image( gui, uid, pic_x, pic_y, z + 0.01,
-				gui_core.."0.xml", { s_x = x_offset, s_y = y_offset, alpha = 1.15*inter_alpha })
-			local lines = {{0,-1,x_offset-1,1},{-1,0,1,y_offset-1},{1,y_offset,x_offset-1,1},{x_offset,1,1,y_offset-1}}
-			for i,line in ipairs( lines ) do
-				uid = pen.new_image( gui, uid, pic_x + line[1], pic_y + line[2], z,
-					gui_core..( is_fancy and "1_alt.xml" or "1.xml" ), { s_x = line[3], s_y = line[4], alpha = inter_alpha })
-			end
-			local dots = {{-1,-1},{x_offset-1,-1},{x_offset,y_offset},{-1,y_offset-1}, {x_offset,0},{0,y_offset}}
-			for i,dot in ipairs( dots ) do
-				uid = pen.new_image( gui, uid, pic_x + dot[1], pic_y + dot[2], z,
-					gui_core..( is_fancy and "2_alt.xml" or "2.xml" ), { alpha = inter_alpha })
-			end
-			local shadow_core = "mods/index_core/files/pics/tooltip_shadow_"
-			local shadows = {
-				{-2,-2,1,1},{4,-2,-1,1},{3,3,-1,-1},{-2,4,1,-1},
-				{1.5,-2,x_offset-1.5,1},{4,2,-1,y_offset-1.5},{-0.5,3,1.5-x_offset,-1},{-2,0,1,1.5-y_offset},
-			}
-			for k = 1,2 do
-				for e = 1,4 do
-					local i = e + ( k - 1 )*4
-					local name = e%2 == 0 and ( k > 1 and "B_alt.png" or "A_alt.png" ) or ( k > 1 and "B.png" or "A.png" )
-					uid = pen.new_image( gui, uid, pic_x + dots[e][1] + shadows[i][1], pic_y + dots[e][2] + shadows[i][2], z + 0.011,
-						shadow_core..name, { s_x = 0.5*shadows[i][3], s_y = 0.5*shadows[i][4], alpha = inter_alpha })
-				end
-			end
-		end
-	end
-	
-	return uid, is_triggered
+	return pen.new_image( gui, uid, pic_x - dims[1], pic_y + 1, zs[1] + 0.001,
+		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
 function new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
@@ -1406,7 +1262,7 @@ function new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_d
         
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
         hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
-        uid = new_vanilla_bar( gui, uid, pic_x, pic_y, pic_zs, { length, height, length*hp/max_hp }, pic )
+        uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, pic_zs, { length, height, length*hp/max_hp }, pic )
     end
 
     return uid, length, height, max_hp, hp, red_shift
@@ -1454,9 +1310,9 @@ function tipping( gui, uid, tid, tip_func, pos, tip, zs, is_right, is_up, is_deb
 		uid = pen.new_image( gui, uid, pos[1], pos[2], zs[2],
 			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = pos[3]/2, s_y = pos[4]/2, alpha = 0.5 })
 	end
-
+	
 	is_right = is_right or false
-	tip_func = tip_func or new_vanilla_tooltip
+	tip_func = tip_func or pen.new_tooltip
 	local out = { tip_func( gui, uid, tid, zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, is_hovered, is_right, is_up )}
 	table.insert( out, clicked )
 	table.insert( out, r_clicked )
@@ -1762,7 +1618,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		end
 
 		if( is_advanced ) then
-			-- uid = new_shadowed_text( gui, uid, pic_x - 3, orig_y + this_info.tt_spacing[6][2] + 3, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
+			-- uid = pen.new_shadowed_text( gui, uid, pic_x - 3, orig_y + this_info.tt_spacing[6][2] + 3, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
 		end
 
 		return uid
@@ -1805,9 +1661,9 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[5][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[5][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, new_desc, { alpha = inter_alpha })
-		uid = new_shadowed_text( gui, uid, pic_x + 1, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 9, pic_z, extra_desc, { alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, new_desc, { alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x + 1, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 9, pic_z, extra_desc, { alpha = inter_alpha })
 		
 		local icon_x, icon_y = pic_x + this_info.tt_spacing[5][1], pic_y + ( this_info.tt_spacing[5][2] - this_info.tt_spacing[3][2])/2
 		if( total_cap > 0 ) then
@@ -1823,7 +1679,7 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 						data.pixel, { s_x = -0.5, s_y = line_h, alpha = 0.75*inter_alpha })
 				end
 			end
-			uid = new_vanilla_plate( gui, uid, pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
+			uid = index.new_vanilla_plate( gui, uid, pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
 			
 			local cut = scale*this_info.potion_cutout
 			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
@@ -1944,7 +1800,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			"data/ui_gfx/inventory/icon_action_type.png", { alpha = inter_alpha })
 		uid = pen.new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001,
 			"data/ui_gfx/inventory/icon_action_type.png", { color = {0,0,0}, alpha = inter_alpha })
-		uid = new_shadowed_text( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name[1], { color = {255,255,178}, alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x + 9, pic_y - 1, pic_z, this_info.tip_name[1], { color = {255,255,178}, alpha = inter_alpha })
 		
 		--inventory_actiontype
 		-- inventory_actiontype_projectile
@@ -1962,12 +1818,12 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			uid = pen.new_image( gui, uid, pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z,
 				"data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
 			local charges = pen.get_tiny_num( this_info.charges )
-			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
+			uid = pen.new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
 		end
 
 		uid = pen.new_image( gui, uid, pic_x - 2, pic_y + 9, pic_z,
 			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y + 11, pic_z, this_info.desc, { alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y + 11, pic_z, this_info.desc, { alpha = inter_alpha })
 		pic_y = pic_y + 13 + this_info.tt_spacing[2][2]
 		uid = pen.new_image( gui, uid, pic_x - 2, pic_y, pic_z,
 			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
@@ -2029,7 +1885,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 					value = function( v ) return get_generic_stat( nil, v, 0 ) end,
 					custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data )
 						local dims = {}
-						uid, dims = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
+						uid, dims = pen.new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
 						uid = pen.new_image( gui, uid, pic_x + dims[1], pic_y, pic_z,
 							"mods/index_core/files/fonts/vanilla_shadow/degree.png", data )
 						return uid
@@ -2097,7 +1953,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				if( type( v or 0 ) ~= "string" ) then v, is_default = stat.value( v ) end
 				local alpha = ( is_default and 0.5 or 1 )*inter_alpha
 				uid = pen.new_image( gui, uid, stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
-				stat.custom_func = stat.custom_func or new_shadowed_text
+				stat.custom_func = stat.custom_func or pen.new_shadowed_text
 				uid = stat.custom_func( gui, uid, stat_x + 9, stat_y - 1, pic_z, v, { color = {170,170,170}, alpha = alpha })
 				-- stat.desc or ""
 
@@ -2107,12 +1963,12 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 		pic_y = pic_y - this_info.tt_spacing[2][2] + this_info.tt_spacing[3][2] - 13
 		if( not( in_world )) then
-			-- uid = new_shadowed_text( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
+			-- uid = pen.new_shadowed_text( gui, uid, pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
 		end
 		if( this_info.spell_info.price > 0 ) then
 			local price = pen.get_short_num( this_info.spell_info.price )
-			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
-			uid = new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", { alpha = inter_alpha })
+			uid = pen.new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
+			uid = pen.new_shadowed_text( gui, uid, pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", { alpha = inter_alpha })
 		end
 
 		return uid
@@ -2144,7 +2000,7 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[4][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[4][2] + 2 }, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x = pic_x + 2
-		uid = new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
+		uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
 		if( do_magic ) then
 			local storage_rune = pen.magic_storage( this_info.id, "runic_cypher" )
 			if( storage_rune == nil ) then
@@ -2166,7 +2022,7 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
-			uid = new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.desc, { alpha = inter_alpha })
+			uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.desc, { alpha = inter_alpha })
 		end
 		pic_x, pic_y = pic_x + this_info.tt_spacing[4][1], pic_y + ( this_info.tt_spacing[4][2] - this_info.tt_spacing[3][2])/2
 		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z, this_info.pic, { s_x = 1.5, s_y = 1.5, alpha = inter_alpha })
@@ -2197,13 +2053,10 @@ function new_slot_pic( gui, uid, pic_x, pic_y, z, pic, alpha, angle, hov_scale, 
 		angle = 0
 		off_x, off_y = w/2, h/2
 	end
-	if( item_pic_data[ pic ].anim ) then
-		pic = new_anim_looped( unpack( item_pic_data[ pic ].anim ))
-	end
 	
 	local extra_scale = hov_scale or 1
 	pic_x, pic_y = pic_x - extra_scale*off_x, pic_y - extra_scale*off_y
-	uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.002,
+	uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.002, --pass item_pic_data[ pic ].anim as anim
 		pic, { s_x = extra_scale, s_y = extra_scale, alpha = alpha, angle = angle })
 
 	if( fancy_shadow ~= false ) then
@@ -2278,11 +2131,11 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 		icon_info.txt = pen.despacer( icon_info.txt )
 		local t_x, t_h = pen.get_text_dims( icon_info.txt, true )
 		t_x = t_x - txt_off_x
-		uid = new_shadowed_text( gui, uid, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt, { alpha = is_hovered and 1 or 0.5 })
+		uid = pen.new_shadowed_text( gui, uid, pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt, { alpha = is_hovered and 1 or 0.5 })
 		tip_x = tip_x - t_x
 	end
 	if(( icon_info.count or 0 ) > 1 ) then
-		uid = new_shadowed_text( gui, uid, pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..icon_info.count, { alpha = is_hovered and 1 or 0.5 })
+		uid = pen.new_shadowed_text( gui, uid, pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..icon_info.count, { alpha = is_hovered and 1 or 0.5 })
 	end
 	if( kind == 4 ) then
 		pic_y = pic_y - 3
@@ -2291,10 +2144,10 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 		icon_info.desc = pen.despacer( icon_info.desc )
 		local anim = math.sin( math.min( tip_anim["generic"][3], 10 )*math.pi/20 )
 		local dims = { pen.get_text_dims( icon_info.desc, true )}
-		uid = new_shadowed_text( gui, uid, pic_x - dims[1] + w, pic_y + h + 3, pic_z, icon_info.desc, { color = icon_info.is_danger and {224,96,96} or {255,255,255}, alpha = anim })
+		uid = pen.new_shadowed_text( gui, uid, pic_x - dims[1] + w, pic_y + h + 3, pic_z, icon_info.desc, { color = icon_info.is_danger and {224,96,96} or {255,255,255}, alpha = anim })
 		
 		local bg_x = pic_x - ( dims[1] + 2 ) + w
-		uid = new_vanilla_plate( gui, uid, bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim*0.9 )
+		uid = index.new_vanilla_plate( gui, uid, bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim*0.9 )
 		
 		h = h + dims[2] + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 ) + 3
 	end
@@ -2305,7 +2158,8 @@ function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )
 			v[4] = math.min( #icon_info.other_perks, 10 )*14-1
 			v[5] = 14*math.max( math.ceil(( #icon_info.other_perks )/10 ), 1 )
 		end
-		uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, v, { icon_info.tip, icon_info.other_perks }, is_hovered, true, true )
+		uid = pen.new_tooltip( gui, uid, v, { is_active = is_hovered, is_left = false, is_over = true })
+		--do { icon_info.tip, icon_info.other_perks } here
 	end
 
 	if( kind == 1 ) then
@@ -2386,7 +2240,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 					no_hov_for_ya = false
 					if( data.dragger.swap_now ) then
 						if( this_info.id > 0 ) then
-							table.insert( slot_anim, {
+							table.insert( index.G.slot_anim, {
 								id = this_info.id,
 								x = pic_x,
 								y = pic_y - 10,
@@ -2397,7 +2251,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 						index.slot_swap( data.dragger.item_id, slot_data )
 						data.dragger.item_id = -1
 					end
-					if( slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= this_info.id ) then
+					if( index.G.slot_memo[ data.dragger.item_id ] and data.dragger.item_id ~= this_info.id ) then
 						dragger_hovered = true
 						uid = pen.new_image( gui, uid, pic_x - w/2, pic_y - w/2, zs.main_front + 0.001, data.slot_pic.hl )
 					end
@@ -2419,8 +2273,8 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 	
 	local slot_x, slot_y = pic_x - w/2, pic_y - h/2
 	if( can_drag ) then
-		if( this_info.id > 0 and not( data.dragger.swap_now or slot_going )) then
-			data, pic_x, pic_y = new_dragger_shell( this_info.id, this_info, pic_x, pic_y, w/2, h/2, data )
+		if( this_info.id > 0 and not( data.dragger.swap_now or index.G.is_slot_active )) then
+			pic_x, pic_y = index.new_dragger_shell( this_info.id, this_info, pic_x, pic_y, w/2, h/2 )
 		end
 	elseif( data.is_opened ) then
 		if( is_full == true ) then
@@ -2430,7 +2284,7 @@ function new_vanilla_slot( gui, uid, pic_x, pic_y, zs, data, slot_data, this_inf
 	end
 	
 	if( this_info.id > 0 ) then
-		local is_dragged = slot_memo[ data.dragger.item_id ] and data.dragger.item_id == this_info.id
+		local is_dragged = index.G.slot_memo[ data.dragger.item_id ] and data.dragger.item_id == this_info.id
 		local suppress_charges, suppress_action = false, false
 		if( cat_tbl.on_slot ~= nil ) then
 			if( no_action and is_dragged ) then
@@ -2590,7 +2444,7 @@ function new_vanilla_wand( gui, uid, pic_x, pic_y, zs, data, this_info, in_hand,
 		if( this_info.is_frozen ) then
 			uid = pen.new_image( gui, uid, pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
 				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
-			uid = new_vanilla_tooltip( gui, uid, nil, pic_z - 5, GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ))
+			uid = pen.new_tooltip( gui, uid, GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
 		end
 		if( is_hovered ) then
 			uid = index.cat_callback( this_info, "on_tooltip", {

@@ -651,8 +651,8 @@ local ITEM_CATS = {
 local GUI_STRUCT = {
     slot = new_vanilla_slot,
     icon = new_vanilla_icon,
-    tooltip = new_vanilla_tooltip,
-    plate = new_vanilla_plate,
+    tooltip = pen.new_tooltip,
+    plate = index.new_vanilla_plate,
     wand = new_vanilla_wand,
 
     full_inv = new_generic_inventory,

@@ -4,34 +4,22 @@ if( not( ModIsEnabled( "index_core" ))) then
     return
 end
 
-ctrl_data = ctrl_data or {} --general global for custom metaframe values
-dscrt_btn = dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
-item_pic_data = item_pic_data or {} --various info on the particular image filepath for icon pics
-spell_proj_data = spell_proj_data or {} --various info on the particular projectile filepath of a spell
-gonna_drop = gonna_drop or false --trigger for "drop on failure to swap"
+index.G.ctrl_data = index.G.ctrl_data or {} --general global for custom metaframe values
+index.G.dscrt_btn = index.G.dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
+index.G.gonna_drop = index.G.gonna_drop or false --trigger for "drop on failure to swap"
 
-slot_going = slot_going or false --a check that makes sure only one slot is being dragged at a time
-slot_memo = slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
-slot_anim = slot_anim or {} --fancy dragging anim
-slot_hover_sfx = slot_hover_sfx or {0,false} --context sensitive hover sfx
+index.G.is_slot_active = index.G.is_slot_active or false --a check that makes sure only one slot is being dragged at a time
+index.G.slot_memo = index.G.slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
+index.G.slot_anim = index.G.slot_anim or {} --fancy dragging anim
+index.G.slot_hover_sfx = index.G.slot_hover_sfx or {0,false} --context sensitive hover sfx
 
-mouse_memo = mouse_memo or {} --for getting pointer delta
-mouse_memo_world = mouse_memo_world or {} --for getting pointer delta in-world
+index.G.mouse_memo = index.G.mouse_memo or {} --for getting pointer delta
+index.G.mouse_memo_world = index.G.mouse_memo_world or {} --for getting pointer delta in-world
 
-mtr_probe = mtr_probe or 0 --matter test entity id 
-mtr_probe_memo = mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0} --smoothing of the matter displayed
+index.G.mtr_probe = index.G.mtr_probe or 0 --matter test entity id 
+index.G.mtr_probe_memo = index.G.mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0} --smoothing of the matter displayed
 
-tip_going = {} --a check that makes sure only one tooltip exists per unique id
-tip_anim = tip_anim or {generic={0,0,0}} --tooltip anim state
 local current_frame = GameGetFrameNum()
-for tid,tip_tbl in pairs( tip_anim ) do
-    if( current_frame - tip_tbl[2] > 20 ) then
-        tip_anim[tid][1] = 0
-    else
-        tip_anim[tid][3] = math.min( current_frame - tip_tbl[1], 15 )
-    end
-end
-
 local fake_gui, font_gui = nil, nil
 local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
@@ -825,20 +813,20 @@ if( #ctrl_bodies > 0 ) then
                 never_drop = false
             elseif( data.gmod.allow_advanced_draggables or never_drop ) then
                 data.dragger.wont_drop = true
-            elseif( dragger_action and slot_memo[ data.dragger.item_id ]) then
+            elseif( dragger_action and index.G.slot_memo[ data.dragger.item_id ]) then
                 never_drop = true
             end
         else
             if( not( gonna_drop )) then
                 if( not( dragger_action ) or data.gmod.allow_advanced_draggables ) then
                     data.dragger.wont_drop = true
-                elseif( dragger_action and slot_memo[ data.dragger.item_id ]) then
+                elseif( dragger_action and index.G.slot_memo[ data.dragger.item_id ]) then
                     gonna_drop = true
                 end
             elseif( data.dragger.item_id == 0 ) then
                 gonna_drop = false
             else
-                uid = new_shadowed_text( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
+                uid = pen.new_shadowed_text( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
             end
         end
 
@@ -848,11 +836,11 @@ if( #ctrl_bodies > 0 ) then
             slot_hover_sfx[1] = 0
         end
         
-        if( slot_going or data.dragger.item_id ~= 0 ) then
+        if( index.G.is_slot_active or data.dragger.item_id ~= 0 ) then
             if( data.dragger.swap_soon ) then
                 pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", true )
             else
-                if( not( slot_going ) or data.dragger.swap_now ) then
+                if( not( index.G.is_slot_active ) or data.dragger.swap_now ) then
                     if( data.dragger.swap_now and data.dragger.item_id > 0 ) then
                         local storage_external = pen.magic_storage( controller_id, "dragger_done_externally" )
                         if( ComponentGetValue2( storage_external, "value_bool" )) then
@@ -863,8 +851,8 @@ if( #ctrl_bodies > 0 ) then
                             else play_sound( data, "error" ) end
                         end
                     end
-                    gonna_drop = false
-                    slot_memo = nil
+                    index.G.gonna_drop = false
+                    index.G.slot_memo = nil
                     data.dragger = {}
                 end
                 pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", false )
@@ -872,7 +860,7 @@ if( #ctrl_bodies > 0 ) then
                 pen.magic_storage( controller_id, "dragger_inv_type", "value_float", data.dragger.inv_type or 0 )
                 pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool", data.dragger.is_quickest or false )
             end
-            slot_going = false
+            index.G.is_slot_active = false
         end
     end
     
