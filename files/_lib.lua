@@ -1,5 +1,3 @@
---terminate mod if no mnee
-
 dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
@@ -17,6 +15,7 @@ index.T2F = { --make the colors be custom
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
 }
 
+--use penman matter test
 --get_tip_width
 --simple_anim
 --tipping
@@ -169,8 +168,7 @@ function index.get_action_data( spell_id )
 		local is_gonna = false
 		c.proj_count = #c.projs
 		if( c.proj_count > 0 ) then
-			local nxml = dofile_once( "mods/index_core/nxml.lua" )
-			local xml = nxml.parse( ModTextFileGetContent( c.projs[1][2]))
+			local xml = pen.lib.nxml.parse( pen.magic_read( c.projs[1][2]))
 			local xml_kid = xml:first_of( "ProjectileComponent" )
 			if( xml_kid == nil ) then
 				xml_kid = xml:first_of( "Base" )
@@ -1069,8 +1067,7 @@ function index.register_item_pic( this_info, is_advanced )
 		if( pen.vld( anim_data )) then data.anim = pen.t.pack( anim_data ) end
 		
 		if( is_xml ) then
-			local nxml = dofile_once( "mods/index_core/nxml.lua" )
-			local xml = nxml.parse( ModTextFileGetContent( this_info.pic ))
+			local xml = pen.lib.nxml.parse( pen.magic_read( this_info.pic ))
 			local xml_kid = xml:first_of( "RectAnimation" )
 			if( xml_kid.attr.has_offset ) then
 				data.xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
