@@ -16,9 +16,6 @@ index.G.slot_hover_sfx = index.G.slot_hover_sfx or {0,false} --context sensitive
 index.G.mouse_memo = index.G.mouse_memo or {} --for getting pointer delta
 index.G.mouse_memo_world = index.G.mouse_memo_world or {} --for getting pointer delta in-world
 
-index.G.mtr_probe = index.G.mtr_probe or 0 --matter test entity id 
-index.G.mtr_probe_memo = index.G.mtr_probe_memo or {0,0,0,0,0,0,0,0,0,0} --smoothing of the matter displayed
-
 local current_frame = GameGetFrameNum()
 local fake_gui, font_gui = nil, nil
 local dead_guis = {}
@@ -134,42 +131,7 @@ if( #ctrl_bodies > 0 ) then
         mouse_memo = { mui_x, mui_y }
         
         local mtr_action = not( global_settings.info_mtr_hotkeyed ) or index.get_input( "ad_matter_action", true )
-        local pointer_mtr = 0
-        if( mtr_action ) then
-            if( not( EntityGetIsAlive( mtr_probe ))) then
-                mtr_probe = EntityLoad( "mods/index_core/files/misc/matter_test.xml", m_x, m_y )
-            end
-        elseif( EntityGetIsAlive( mtr_probe )) then
-            EntityKill( mtr_probe )
-            mtr_probe = 0
-        end
-        if( mtr_probe > 0 ) then
-            local jitter_mag = 0.5
-            EntityApplyTransform( mtr_probe, m_x + jitter_mag*pen.get_sign( math.random(-1,0)), m_y + jitter_mag*pen.get_sign( math.random(-1,0)))
-            
-            local mtr_list = {}
-            local dmg_comp = EntityGetFirstComponentIncludingDisabled( mtr_probe, "DamageModelComponent" )
-            local matter = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterials" )
-            local count = ComponentGetValue2( dmg_comp, "mCollisionMessageMaterialCountsThisFrame" )
-            for i,v in ipairs( count ) do
-                if( v > 0 ) then
-                    local id = matter[i]
-                    mtr_list[id] = ( mtr_list[id] or 0 ) + v
-                end
-            end
-            local max_id = { 0, 0 }
-            for id,cnt in pairs( mtr_list ) do
-                if( max_id[2] < cnt ) then
-                    max_id[1] = id
-                    max_id[2] = cnt
-                end
-            end
-            pointer_mtr = max_id[1]
-        end
-        table.remove( mtr_probe_memo, 1 )
-        table.insert( mtr_probe_memo, pointer_mtr )
-        local most_mtr, most_mtr_count = pen.t.get_most( mtr_probe_memo )
-        pointer_mtr = most_mtr_count > 5 and most_mtr or 0
+        local pointer_mtr = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0
         
         local epsilon = global_settings.min_effect_duration
 

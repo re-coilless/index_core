@@ -1,23 +1,21 @@
+dofile_once( "mods/penman/_libman.lua" )
 dofile_once( "mods/mnee/lib.lua" )
-dofile_once( "data/scripts/lib/utilities.lua" )
+dofile_once( "data/scripts/lib/utilities.lua" ) --remove this
 
 index = index or {}
 index.G = index.G or {}
 
-index.T2F = { --make the colors be custom
-	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", {90,35,35}}, --ACTION_TYPE_PROJECTILE
-	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", {141,63,24}}, --ACTION_TYPE_STATIC_PROJECTILE
-	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", {45,58,114}}, --ACTION_TYPE_MODIFIER
-	[3] = { "data/ui_gfx/inventory/item_bg_draw_many.png", {28,109,115}}, --ACTION_TYPE_DRAW_MANY
-	[4] = { "data/ui_gfx/inventory/item_bg_material.png", {53,111,68}}, --ACTION_TYPE_MATERIAL
-	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", {123,42,116}}, --ACTION_TYPE_UTILITY
-	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", {33,47,38}}, --ACTION_TYPE_PASSIVE
-	[7] = { "data/ui_gfx/inventory/item_bg_other.png", {113,75,51}}, --ACTION_TYPE_OTHER
+index.FRAMER = {
+	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
+	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", pen.PALETTE.VNL.ACTION_STATIC },
+	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", pen.PALETTE.VNL.ACTION_MODIFIER },
+	[3] = { "data/ui_gfx/inventory/item_bg_draw_many.png", pen.PALETTE.VNL.ACTION_DRAW },
+	[4] = { "data/ui_gfx/inventory/item_bg_material.png", pen.PALETTE.VNL.ACTION_MATERIAL },
+	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", pen.PALETTE.VNL.ACTION_UTILITY },
+	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE },
+	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
 
---use penman matter test
---get_tip_width
---simple_anim
 --tipping
 --data table must be index.D
 --data.memo -> index.M
@@ -1386,7 +1384,8 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	}
 	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ) + 3
 	if( is_advanced and pen.vld( this_info.desc )) then
-		_,this_info.tt_spacing[3] = pen.liner( this_info.desc, math.floor( get_tip_width( this_info.desc )*0.5 ), -1 )
+		_,this_info.tt_spacing[3] = pen.liner( this_info.desc,
+			math.floor( unpack( pen.get_tip_dims( this_info.desc ))*0.5 ), -1 )
 		this_info.tt_spacing[3] = { this_info.tt_spacing[3][1] + 4, this_info.tt_spacing[3][2] - 1 }
 		if( this_info.tt_spacing[2][2] < this_info.tt_spacing[3][2]) then
 			this_info.tt_spacing[2][3] = ( this_info.tt_spacing[3][2] - this_info.tt_spacing[2][2])/2
@@ -1480,7 +1479,7 @@ function new_vanilla_wtt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 
 				v = function( w_info ) return w_info.spread_degrees or 0 end,
 				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data )
+				custom_func = function( gui, uid, pic_x, pic_y, pic_z, txt, data ) --remove this (use ° symbol)
 					local dims = {}
 					uid, dims = pen.new_text( gui, uid, pic_x, pic_y, pic_z, txt, data )
 					return pen.new_image( gui, uid, pic_x + dims[1], pic_y, pic_z,
@@ -1649,7 +1648,7 @@ function new_vanilla_ptt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		{ 0, 0 },
 		{},
 	}
-	_,this_info.tt_spacing[2] = pen.liner( new_desc, get_tip_width( new_desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
+	_,this_info.tt_spacing[2] = pen.liner( new_desc, unpack( pen.get_tip_dims( new_desc, this_info.tt_spacing[1][1], 500 )), -1 )
 	if( extra_desc ~= "" ) then _,this_info.tt_spacing[4] = pen.liner( extra_desc, 999, -1 ) end
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = scale*this_info.tt_spacing[3][1], scale*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1], this_info.tt_spacing[4][1]) + 5
@@ -1784,7 +1783,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	this_info.tt_spacing = {{}, {}}
 	this_info.tip_name,this_info.tt_spacing[1] = pen.liner( this_info.tip_name, 221 )
 	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges >= 0 and 33 or 0 )
-	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1]), -1 )
+	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, unpack( pen.get_tip_dims( this_info.desc, this_info.tt_spacing[1][1])), -1 )
 	local size_x = math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 )
 	local size_y = this_info.tt_spacing[2][2] + 60
 	this_info.tt_spacing[3] = { size_x, size_y }
@@ -1792,7 +1791,7 @@ function new_vanilla_stt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 	uid = data.tip_func( gui, uid, tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( gui, uid, pic_x, pic_y, pic_z, inter_alpha, this_data )
 		pic_x, pic_y = pic_x + 2, pic_y + 2
 		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z - 0.001,
-			"data/ui_gfx/inventory/icon_action_type.png", { color = index.T2F[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
+			"data/ui_gfx/inventory/icon_action_type.png", { color = index.FRAMER[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
 		uid = pen.new_image( gui, uid, pic_x, pic_y, pic_z,
 			"data/ui_gfx/inventory/icon_action_type.png", { alpha = inter_alpha })
 		uid = pen.new_image( gui, uid, pic_x, pic_y + 1, pic_z + 0.001,
@@ -1989,7 +1988,8 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 		{ pen.get_pic_dims( this_info.pic )},
 		{},
 	}
-	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, get_tip_width( this_info.desc, this_info.tt_spacing[1][1], 500, 2 ), -1 )
+	_,this_info.tt_spacing[2] = pen.liner( this_info.desc,
+		unpack( pen.get_tip_dims( this_info.desc, this_info.tt_spacing[1][1], 500 )), -1 )
 	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
 	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
 	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
@@ -2016,7 +2016,7 @@ function new_vanilla_itt( gui, uid, tid, item_id, data, this_info, pic_x, pic_y,
 			if( runic_state >= 0 ) then
 				uid = pen.new_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001,
 					this_info.desc, { fully_featured = true, has_shadow = true, alpha = inter_alpha*runic_state })
-				ComponentSetValue2( storage_rune, "value_float", simple_anim( data, "runic"..this_info.id, 1, 0.01, 0.001 ))
+				ComponentSetValue2( storage_rune, "value_float", pen.estimate( "runic"..this_info.id, 1, 0.01, 0.001 ))
 			end
 		else
 			uid = pen.new_shadowed_text( gui, uid, pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.desc, { alpha = inter_alpha })
@@ -2070,7 +2070,7 @@ end
 
 function new_spell_frame( gui, uid, pic_x, pic_y, pic_z, spell_type, alpha, angle )
 	local off_x, off_y = pen.rotate_offset( 10, 10, angle or 0 )
-	return pen.new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, index.T2F[ spell_type ][1], { alpha = alpha, angle = angle })
+	return pen.new_image( gui, uid, pic_x - off_x, pic_y - off_y, pic_z, index.FRAMER[ spell_type ][1], { alpha = alpha, angle = angle })
 end
 
 function new_vanilla_icon( gui, uid, pic_x, pic_y, pic_z, icon_info, kind )

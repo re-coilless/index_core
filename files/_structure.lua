@@ -385,8 +385,8 @@ local ITEM_CATS = {
             
             local angle = 0
             if( john_bool.is_dragged ) then
-                angle = math.rad( simple_anim( data, "pouring_angle", target_angle, 0.2 ))
-                pic_y = pic_y + simple_anim( data, "sucking_drift", 0, 0.2 )
+                angle = math.rad( pen.estimate( "pouring_angle", target_angle, 0.2 ))
+                pic_y = pic_y + pen.estimate( "sucking_drift", 0, 0.2 )
             end
             
             local z = index.slot_z( this_info.id, zs.icons )

@@ -144,7 +144,7 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             data[tbl[type][4]] = total_drift
-            local extra_off, arrow_off = simple_anim( data, tbl[type][4], drift_target, 0.2 ), is_left and ( l - 8 ) or 0
+            local extra_off, arrow_off = pen.estimate( tbl[type][4], drift_target, 0.2 ), is_left and ( l - 8 ) or 0
             pic_x = pic_x - sign*( core_off + extra_off )
             if( this_data[tbl[type][2]]) then
                 if( is_left ) then pic_x = pic_x - 10 end

@@ -4,7 +4,6 @@ else return end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
---steal penman from mnee if no penman is installed
 --apparently magic numbers file is not appended
 --DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 
@@ -26,6 +25,14 @@ function OnModInit()
 	-- 	end
 	-- end
 	
+	pen.lib.font_builder( "data/fonts/font_pixel.xml", {
+		[176] = { pos = { 2, 0, 2 }, rect_w = 11, rect_h = 2 },
+	}, "mods/index_core/files/pics/font_atlas.png" )
+	pen.lib.font_builder( "data/fonts/font_small_number.xml", {
+		[66] = { pos = { 15, 0, 6 }, rect_w = 6, rect_h = 6 },
+		[101] = { pos = { 22, 0, 4 }, rect_w = 6, rect_h = 4 },
+	}, "mods/index_core/files/pics/font_atlas.png" )
+
 	local shader_file = "data/shaders/post_final.frag"
 	local file = pen.magic_read( shader_file )
 	file = string.gsub( file, "uniform float low_health_indicator_alpha;", "uniform float low_health_indicator_alpha;\r\nuniform vec4 low_health_indicator_alpha_proper;" )
