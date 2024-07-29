@@ -71,11 +71,10 @@ local APPLETS = {
             name = "README",
             desc = "The complete user guide.",
 
-            pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
-                local clicked, is_hovered = false, false
-                uid, clicked, _, is_hovered = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z,
+            pic = function( data, pic_x, pic_y, pic_z, angle )
+                local clicked, _, is_hovered = pen.new_image( pic_x - 1, pic_y - 1, pic_z,
                     "data/ui_gfx/status_indicators/confusion.png", { can_click = true, angle = angle })
-                return uid, clicked, hovered
+                return clicked, hovered
             end,
             toggle = function( data, state ) end,
         },
@@ -182,23 +181,23 @@ local ITEM_CATS = {
             end
         end,
 
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
+        on_inventory = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             if( data.gmod.allow_wand_editing and john_bool.is_quick and data.is_opened ) then
                 pic_x, pic_y = unpack( data.wand_inventory == nil and data.xys.full_inv or data.wand_inventory )
-                uid, w, h = data.wand_func( gui, uid, pic_x + 2*pen.b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
+                w, h = data.wand_func( pic_x + 2*pen.b2n( john_bool.in_hand ), pic_y, zs, data, this_info, john_bool.in_hand )
                 data.wand_inventory = { pic_x, pic_y + h }
             end
             
-            return uid, data
+            return data
         end,
         on_tooltip = new_vanilla_wtt,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0,0
             if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = pen.get_pic_dims( data.slot_pic.bg ) end
-            uid = new_slot_pic( gui, uid, pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
+            new_slot_pic( pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, zs.icons ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+                hov_func( nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
             
             if( this_info.wand_info.actions_per_round > 0 and this_info.charges < 0 ) then
@@ -230,7 +229,7 @@ local ITEM_CATS = {
                 end
             end
 
-            return uid, this_info
+            return this_info
         end,
         
         on_pickup = function( item_id, data, this_info, is_post )
@@ -249,8 +248,8 @@ local ITEM_CATS = {
         end,
 
         on_gui_world = new_vanilla_worldtip,
-        -- on_gui_pause = function( gui, uid, item_id, data, this_info, zs ) --should know the state (if is picked or not)
-        --     return uid
+        -- on_gui_pause = function( item_id, data, this_info, zs ) --should know the state (if is picked or not)
+        --     return
         -- end,
     },
     {
@@ -316,7 +315,7 @@ local ITEM_CATS = {
             return data, this_info
         end,
         
-        on_inventory = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool )
+        on_inventory = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool )
             local cap_max = this_info.matter_info[1]
             local mtrs = this_info.matter_info[2]
             local content_total = mtrs[1]
@@ -334,21 +333,21 @@ local ITEM_CATS = {
                 local delta = 0
                 for i,m in ipairs( content_tbl ) do
                     local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
-                    uid = pen.new_image( gui, uid, pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ),
+                    pen.new_image( pic_x, pic_y - math.min( delta, h ), zs.main + tonumber( "0.001"..i ),
                         data.pixel, { color = pen.get_color_matter( CellFactory_GetName( m[1])), s_x = w, s_y = sz, alpha = alpha })
                     if( delta >= h ) then break end
                 end
                 if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
-                    uid = pen.new_image( gui, uid, pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, { s_x = w, s_y = 0.5 })
+                    pen.new_image( pic_x, pic_y - ( delta + 0.5 ), zs.main + 0.001, data.pixel, { s_x = w, s_y = 0.5 })
                 end
             end
             
-            return uid, data
+            return data
         end,
         on_tooltip = new_vanilla_ptt,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
+                hov_func( nil, item_id, data, this_info, pic_x - 10, pic_y + 10, zs.tips )
             end
 
             local cap_max = this_info.matter_info[1]
@@ -391,11 +390,11 @@ local ITEM_CATS = {
             
             local z = index.slot_z( this_info.id, zs.icons )
             local ratio = math.min( content_total/cap_max, 1 )
-            uid, pic_x, pic_y = new_slot_pic( gui, uid, pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
-            uid = pen.new_image( gui, uid, pic_x, pic_y, z - 0.001, this_info.pic,
+            pic_x, pic_y = new_slot_pic( pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
+            pen.new_image( pic_x, pic_y, z - 0.001, this_info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( this_info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
-            return uid, this_info, content_total ~= 0, true
+            return this_info, content_total ~= 0, true
         end,
 
         on_action = function( type )
@@ -562,22 +561,22 @@ local ITEM_CATS = {
             end
         end,
         on_tooltip = new_vanilla_stt,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local angle, is_considered, anim_speed = 0, john_bool.is_dragged or john_bool.is_hov, data.spell_anim_frames
             if( john_bool.can_drag ) then
                 angle = -math.rad( 5 )*( is_considered and 1.5 or ( anim_speed == 0 and 0 or math.sin(( data.frame_num%anim_speed )*math.pi/anim_speed )))
             end
             local pic_z = index.slot_z( this_info.id, zs.icons )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
-            if( is_considered ) then pen.colourer( gui, {185,220,223}) end
-            uid = new_spell_frame( gui, uid, pic_x, pic_y, zs.icons + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
+            new_slot_pic( pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
+            if( is_considered ) then pen.colourer( {185,220,223}) end
+            new_spell_frame( pic_x, pic_y, zs.icons + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                hov_func( nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
-            return uid, this_info
+            return this_info
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -590,15 +589,15 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = new_vanilla_ttt,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+        on_slot = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+            new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                hov_func( nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
 
-            return uid, this_info, true
+            return this_info, true
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -621,15 +620,15 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = new_vanilla_itt,
-        on_slot = function( gui, uid, item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            uid = new_slot_pic( gui, uid, pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
+        on_slot = function( item_id, data, this_info, pic_x, pic_y, zs, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+            new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, zs.icons ), this_info.pic, nil, nil, hov_scale )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                uid = hov_func( gui, uid, nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
+                hov_func( nil, item_id, data, this_info, pic_x, pic_y, zs.tips )
             end
             
-            return uid, this_info
+            return this_info
         end,
 
         on_pickup = function( item_id, data, this_info, is_post )
@@ -688,9 +687,9 @@ local GUI_STRUCT = {
 
     extra = new_generic_extra,
     custom = {
-        aa_readme = function( gui, uid, screen_w, screen_h, data, zs, xys )
+        aa_readme = function( screen_w, screen_h, data, zs, xys )
             --? menu where all the controls will be described (+ some quick settings and settings refresh button; put README menu in custom)
-            return uid, data, {0,0}
+            return data, {0,0}
         end,
     },
 }

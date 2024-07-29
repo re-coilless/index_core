@@ -1,8 +1,5 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
-if( not( ModIsEnabled( "index_core" ))) then
-    index.self_destruct()
-    return
-end
+if( not( ModIsEnabled( "index_core" ))) then return index.self_destruct() end
 
 index.G.ctrl_data = index.G.ctrl_data or {} --general global for custom metaframe values
 index.G.dscrt_btn = index.G.dscrt_btn or {} --a table of button states for discrete input (jsut for the sake of being vanilla independent)
@@ -17,8 +14,6 @@ index.G.mouse_memo = index.G.mouse_memo or {} --for getting pointer delta
 index.G.mouse_memo_world = index.G.mouse_memo_world or {} --for getting pointer delta in-world
 
 local current_frame = GameGetFrameNum()
-local fake_gui, font_gui = nil, nil
-local dead_guis = {}
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 if( #ctrl_bodies > 0 ) then
     local controller_id = ctrl_bodies[1]
@@ -113,16 +108,6 @@ if( #ctrl_bodies > 0 ) then
     end
 
     if( is_going and inv_comp ~= nil ) then
-        if( real_gui == nil ) then
-            real_gui = GuiCreate()
-        end
-        GuiStartFrame( real_gui )
-
-        fake_gui = GuiCreate()
-        GuiStartFrame( fake_gui )
-        font_gui = GuiCreate()
-        GuiStartFrame( font_gui )
-
         local m_x, m_y = DEBUG_GetMouseWorld()
         local md_x, md_y = m_x - ( mouse_memo_world[1] or m_x ), m_y - ( mouse_memo_world[2] or m_y )
         mouse_memo_world = { m_x, m_y }
@@ -397,15 +382,11 @@ if( #ctrl_bodies > 0 ) then
 
         local dragger_action = index.get_input( "ab_drag_action", true )
 
-        local uid = 0
         local pos_tbl = {}
-        local screen_w, screen_h = GuiGetScreenDimensions( real_gui )
+        local gui = pen.gui_builder()
+        local screen_w, screen_h = GuiGetScreenDimensions( gui )
         local z_layers, global_modes, global_mutators, applets, item_cats, inv = unpack( global_settings.main_dump )
         local data = {
-            the_gui = real_gui,
-            a_gui = fake_gui,
-            some_guis = dead_guis,
-
             main_id = controller_id,
             player_id = hooman,
             player_xy = {0,0},
@@ -653,11 +634,10 @@ if( #ctrl_bodies > 0 ) then
             local close_applets = {
                 name = "CLOSE",
                 
-                pic = function( gui, uid, data, pic_x, pic_y, pic_z, angle )
-                    local clicked, is_hovered = false, false
-                    uid, clicked, _, is_hovered = pen.new_image( gui, uid, pic_x - 1, pic_y - 1, pic_z,
+                pic = function( data, pic_x, pic_y, pic_z, angle )
+                    local clicked, _, is_hovered = pen.new_image( pic_x - 1, pic_y - 1, pic_z,
                         "data/ui_gfx/status_indicators/neutralized.png", { can_click = true, angle = angle })
-                    return uid, clicked, hovered
+                    return clicked, hovered
                 end,
                 toggle = function( data, state )
                     if( state ) then
@@ -677,89 +657,53 @@ if( #ctrl_bodies > 0 ) then
 
         local global_callback = data.gmod.custom_func
         if( global_callback ~= nil ) then
-            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
+            data, inv = global_callback( screen_w, screen_h, data, z_layers, pos_tbl, inv, false )
         end
         if( not( data.gmod.nuke_default )) then
             if( inv.full_inv ~= nil ) then
-                uid, data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+                data, pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( screen_w, screen_h, data, z_layers, pos_tbl )
             end
             if( inv.applet_strip ~= nil ) then
-                uid, data, pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+                data, pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( screen_w, screen_h, data, z_layers, pos_tbl )
             end
             
             local bars = inv.bars or {}
-            if( bars.hp ~= nil ) then
-                uid, data, pos_tbl.hp = bars.hp( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( bars.air ~= nil ) then
-                uid, data, pos_tbl.air = bars.air( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( bars.flight ~= nil ) then
-                uid, data, pos_tbl.flight = bars.flight( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( bars.bossbar ~= nil ) then
-                uid, data, pos_tbl.bossbar = bars.bossbar( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
+            if( bars.hp ~= nil ) then data, pos_tbl.hp = bars.hp( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( bars.air ~= nil ) then data, pos_tbl.air = bars.air( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( bars.flight ~= nil ) then data, pos_tbl.flight = bars.flight( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( bars.bossbar ~= nil ) then data, pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, data, z_layers, pos_tbl ) end
             
             local actions = bars.action or {}
-            if( actions.mana ~= nil ) then
-                uid, data, pos_tbl.mana = actions.mana( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( actions.reload ~= nil ) then
-                uid, data, pos_tbl.reload = actions.reload( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( actions.delay ~= nil ) then
-                uid, data, pos_tbl.delay = actions.delay( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
+            if( actions.mana ~= nil ) then data, pos_tbl.mana = actions.mana( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( actions.reload ~= nil ) then data, pos_tbl.reload = actions.reload( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( actions.delay ~= nil ) then data, pos_tbl.delay = actions.delay( screen_w, screen_h, data, z_layers, pos_tbl ) end
 
-            if( inv.gold ~= nil ) then
-                uid, data, pos_tbl.gold = inv.gold( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( inv.orbs ~= nil ) then
-                uid, data, pos_tbl.orbs = inv.orbs( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( inv.info ~= nil ) then
-                uid, data, pos_tbl.info = inv.info( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
+            if( inv.gold ~= nil ) then data, pos_tbl.gold = inv.gold( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( inv.orbs ~= nil ) then data, pos_tbl.orbs = inv.orbs( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( inv.info ~= nil ) then data, pos_tbl.info = inv.info( screen_w, screen_h, data, z_layers, pos_tbl ) end
 
             local icons = inv.icons or {}
-            if( icons.ingestions ~= nil ) then
-                uid, data, pos_tbl.ingestions = icons.ingestions( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( icons.stains ~= nil ) then
-                uid, data, pos_tbl.stains = icons.stains( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( icons.effects ~= nil ) then
-                uid, data, pos_tbl.effects = icons.effects( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( icons.perks ~= nil ) then
-                uid, data, pos_tbl.perks = icons.perks( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
+            if( icons.ingestions ~= nil ) then data, pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( icons.stains ~= nil ) then data, pos_tbl.stains = icons.stains( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( icons.effects ~= nil ) then data, pos_tbl.effects = icons.effects( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( icons.perks ~= nil ) then data, pos_tbl.perks = icons.perks( screen_w, screen_h, data, z_layers, pos_tbl ) end
 
-            if( inv.pickup ~= nil ) then
-                uid, data = inv.pickup( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info )
-            end
-            if( inv.modder ~= nil ) then
-                uid, data = inv.modder( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
-            if( inv.extra ~= nil ) then
-                uid, data = inv.extra( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
-            end
+            if( inv.pickup ~= nil ) then data = inv.pickup( screen_w, screen_h, data, z_layers, pos_tbl, inv.pickup_info ) end
+            if( inv.modder ~= nil ) then data = inv.modder( screen_w, screen_h, data, z_layers, pos_tbl ) end
+            if( inv.extra ~= nil ) then data = inv.extra( screen_w, screen_h, data, z_layers, pos_tbl ) end
         end
         if( not( data.gmod.nuke_custom )) then
             for cid,cfunc in pen.t.order( inv.custom ) do
-                uid, data, pos_tbl[ cid ] = cfunc( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl )
+                data, pos_tbl[ cid ] = cfunc( screen_w, screen_h, data, z_layers, pos_tbl )
             end
         end
         if( global_callback ~= nil ) then
-            uid, data, inv = global_callback( fake_gui, uid, screen_w, screen_h, data, z_layers, pos_tbl, inv, true )
+            data, inv = global_callback( screen_w, screen_h, data, z_layers, pos_tbl, inv, true )
         end
 
-        if( data.gmod.allow_shooting ) then
-            data.no_inv_shooting = false
-        end
+        if( data.gmod.allow_shooting ) then data.no_inv_shooting = false end
         if( data.no_inv_shooting and data.is_opened ) then --replace this with naked interface
-            uid = pen.new_image( data.the_gui, uid, 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png", { can_click = true })
+            pen.new_image( 0, 0, -999999, "mods/index_core/files/pics/null_fullhd.png", { can_click = true })
         end
 
         if( data.inv_toggle and not( data.gmod.no_inv_toggle or false )) then
@@ -787,9 +731,7 @@ if( #ctrl_bodies > 0 ) then
                 end
             elseif( data.dragger.item_id == 0 ) then
                 gonna_drop = false
-            else
-                uid = pen.new_shadowed_text( fake_gui, uid, data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" )
-            end
+            else pen.new_shadowed_text( data.pointer_ui[1] + 6, data.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" ) end
         end
 
         if( slot_hover_sfx[2]) then
@@ -833,18 +775,4 @@ if( #ctrl_bodies > 0 ) then
     end
 end
 
-if( fake_gui ~= nil ) then
-    GuiDestroy( fake_gui )
-    GuiDestroy( font_gui )
-    if( #dead_guis > 0 ) then
-        for i,gui in ipairs( dead_guis ) do
-            GuiDestroy( gui )
-        end
-    end
-else
-    real_gui = pen.gui_killer( real_gui )
-    if( EntityGetIsAlive( mtr_probe )) then
-       EntityKill( mtr_probe )
-       mtr_probe_memo = nil
-    end
-end
+pen.gui_builder( true )

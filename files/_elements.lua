@@ -1,19 +1,19 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_inventory( screen_w, screen_h, data, zs, xys )
     local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
     local pic_x, pic_y = root_x, root_y
     
     local this_data = data.item_list
     if( this_data ~= nil ) then
         if( data.is_opened ) then
-            uid = pen.new_image( gui, uid, 0, 0, zs.background,
+            pen.new_image( 0, 0, zs.background,
                 data.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
             
             if( not( data.gmod.can_see )) then
                 local delta = math.max(( data.memo.inv_alpha or data.frame_num ) - data.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
-                uid = pen.new_image( gui, uid, -2, -2, zs.background + 1,
+                pen.new_image( -2, -2, zs.background + 1,
                     "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
             end
         end
@@ -28,7 +28,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         local inv_id = data.inventories_player[1]
         local slot_data = data.slot_state[ inv_id ].quickest
         for i,slot in ipairs( slot_data ) do
-            uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+            data, w, h = slot_setup( pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-1},
@@ -41,7 +41,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         local cat_items = pic_x
         slot_data = data.slot_state[ inv_id ].quick
         for i,slot in ipairs( slot_data ) do
-            uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+            data, w, h = slot_setup( pic_x, pic_y, zs, data, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-2},
@@ -51,13 +51,13 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         if( data.is_opened ) then
-            uid = pen.new_shadowed_text( gui, uid, cat_wands + 1, pic_y - 13, zs.main_far_back,
+            pen.new_shadowed_text( cat_wands + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            uid = pen.new_shadowed_text( gui, uid, cat_items + 1, pic_y - 13, zs.main_far_back,
+            pen.new_shadowed_text( cat_items + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
 
             pic_x = pic_x + data.inv_spacings[2]
-            uid = pen.new_shadowed_text( gui, uid, pic_x + 1, pic_y - 13, zs.main_far_back,
+            pen.new_shadowed_text( pic_x + 1, pic_y - 13, zs.main_far_back,
                 GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
         end
         if( data.gmod.show_full ) then
@@ -69,7 +69,7 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
                     local count = not( data.gmod.show_fullest or false ) and 1 or #col
                     for e = 1,count do
                         local slot = col[e]
-                        uid, data, w, h = slot_setup( gui, uid, pic_x, pic_y, zs, data, {
+                        data, w, h = slot_setup( pic_x, pic_y, zs, data, {
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
@@ -97,16 +97,16 @@ function new_generic_inventory( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
     
-    return uid, data, {root_x,root_y}, {pic_x,pic_y}
+    return data, {root_x,root_y}, {pic_x,pic_y}
 end
 
-function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_applets( screen_w, screen_h, data, zs, xys )
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
 
     local this_data = data.applets
     if( this_data ~= nil and not( data.gmod.menu_capable )) then
         absolutely_abominable_piece_of_shit = god_do_i_hate_this_one
-        local function applet_setup( gui, uid, data, this_data, pic_x, type )
+        local function applet_setup( data, this_data, pic_x, type )
             local is_left = type == 1
             local sign = is_left and -1 or 1
             local tbl = {
@@ -118,10 +118,9 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
             local drift_target, core_off = 5, is_left and -10 or 0
             local total_drift, allow_clicks = l - drift_target, true
             if( not( this_data[tbl[type][2]])) then
-                local clicked, r_clicked, is_hovered = false
-                uid, clicked, r_clicked, is_hovered = pen.new_interface(
-                    data.the_gui, uid, is_left and -1 or ( screen_w - 10 ), -1, 11, 19, zs.tips_front )
-                uid = data.tip_func( gui, uid, nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
+                local clicked, r_clicked, is_hovered = pen.new_interface(
+                    is_left and -1 or ( screen_w - 10 ), -1, 11, 19, zs.tips_front )
+                data.tip_func( nil, zs.tips, { "[APPLETS]" }, nil, is_hovered, not( is_left ))
                 if( clicked ) then
                     play_sound( data, "click" )
                     this_data[tbl[type][2]] = true
@@ -152,9 +151,9 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
                 local clicked, is_hovered, mute, reset_em, got_one = false, false, false, 0, false
                 for i,icon in ipairs( this_data[tbl[type][1]]) do
                     local metahover = not( got_one ) and ( this_data[tbl[type][5]][i] or false )
-                    uid, clicked, is_hovered, mute = icon.pic( got_one and data.a_gui or data.the_gui, uid, data, pic_x + sign*( i - 1 )*11, pic_y, zs.main_back, metahover and math.rad( -5 ) or 0 )
+                    clicked, is_hovered, mute = icon.pic( data, pic_x + sign*( i - 1 )*11, pic_y, zs.main_back, metahover and math.rad( -5 ) or 0 )
                     if( allow_clicks ) then
-                        uid = data.tip_func( gui, uid, nil, zs.tips, { icon.name..( icon.desc == nil and "" or "@"..icon.desc ), is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, nil, metahover, not( is_left ))
+                        data.tip_func( nil, zs.tips, { icon.name..( icon.desc == nil and "" or "@"..icon.desc ), is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, nil, metahover, not( is_left ))
                         if( clicked and reset_em == 0 ) then
                             if( not( mute or false )) then play_sound( data, "click" ) end
                             
@@ -179,34 +178,32 @@ function new_generic_applets( gui, uid, screen_w, screen_h, data, zs, xys )
                     if( is_hovered ) then got_one = true end
                 end
             else
-                pen.colourer( gui, {255,255,178})
+                pen.colourer({255,255,178})
             end
 
             if( is_left ) then pic_x = pic_x - ( l - 10 ) end
-            uid = pen.new_image( gui, uid, pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001,
+            pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1, zs.main_back - 0.001,
                 "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-            uid = data.plate_func( gui, uid, pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
+            data.plate_func( pic_x, pic_y, zs.main_far_back - 0.1, { total_drift + 5, 10 })
             if( is_left ) then
                 pic_x = pic_x + arrow_off + 11
-            else
-                pic_x = pic_x - ( 3 + arrow_off )
-            end
-            return uid, data, pic_x
+            else pic_x = pic_x - ( 3 + arrow_off ) end
+            return data, pic_x
         end
 
         if( data.is_opened ) then
             if( data.gmod.show_full and #this_data.r > 1 ) then
-                uid, data, pic_x_r = applet_setup( gui, uid, data, this_data, pic_x_r, 2 )
+                data, pic_x_r = applet_setup( data, this_data, pic_x_r, 2 )
             end
         elseif( #this_data.l > 1 ) then
-            uid, data, pic_x_l = applet_setup( gui, uid, data, this_data, pic_x_l, 1 )
+            data, pic_x_l = applet_setup( data, this_data, pic_x_l, 1 )
         end
     end
 
-    return uid, data, {pic_x_l,pic_y}, {pic_x_r,pic_y}
+    return data, {pic_x_l,pic_y}, {pic_x_r,pic_y}
 end
 
-function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_hp( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
     local red_shift, length, height = 0, 0, 0
 
@@ -214,14 +211,14 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         local max_hp, hp = this_data[2], this_data[3]
         if( max_hp > 0 ) then
-            uid, length, height, max_hp, hp, red_shift = new_vanilla_hp( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, data, data.player_id, this_data )
+            length, height, max_hp, hp, red_shift = new_vanilla_hp( pic_x, pic_y, {zs.main_back,zs.main}, data, data.player_id, this_data )
 
             local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
-            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", { has_shadow = true })
-            uid = pen.text( gui, uid, pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
+            pen.new_image( pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/health.png", { has_shadow = true })
+            pen.text( pic_x + 13, pic_y, zs.main, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
             
             local tip = index.hud_text_fix( "$hud_health" )..( data.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
-            uid = tipping( gui, uid, nil, nil, {
+            tipping( nil, nil, {
                 pic_x - ( length + 2 ),
                 pic_y - 1,
                 length + 4,
@@ -233,21 +230,21 @@ function new_generic_hp( gui, uid, screen_w, screen_h, data, zs, xys )
     end
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", data.hp_flashing_intensity*red_shift, 0, 0, 0 )
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_air( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.hp )
 
     local this_data = data.DamageModel
     if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( data.gmod.menu_capable )) then
         if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
-            uid = pen.new_text( gui, uid, pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
-            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
+            pen.new_text( pic_x + 3, pic_y - 1, zs.main, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
+            index.new_vanilla_bar( pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
 
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
-            uid = tipping( gui, uid, nil, nil, {
+            tipping( nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -258,10 +255,10 @@ function new_generic_air( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_flight( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.air )
     
     local this_data = data.CharacterData
@@ -272,12 +269,12 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
             end
         end
         local shake_frame = data.frame_num - ( data.memo.flight_shake or data.frame_num )
-        uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
-        uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
+        pen.new_image( pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", data.memo.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data[4], this_data[3], 2 )
-        uid = tipping( gui, uid, nil, nil, {
+        tipping( nil, nil, {
             pic_x - 42,
             pic_y - 1,
             44,
@@ -290,10 +287,10 @@ function new_generic_flight( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_mana( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.flight )
     data.memo.mana_shake = data.memo.mana_shake or {}
     
@@ -331,14 +328,14 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         if( value[1] >= 0 and value[2] > 0 ) then
             local ratio = math.min( value[1]/value[2], 1 )
-            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main,
+            pen.new_image( pic_x + 3, pic_y - 1, zs.main,
                 potion_data[1] or "data/ui_gfx/hud/mana.png", { has_shadow = true })
             if( potion_data[3] ~= nil ) then
-                uid = pen.new_image( gui, uid, pic_x - 40, pic_y + 1, zs.main + 0.001,
+                pen.new_image( pic_x - 40, pic_y + 1, zs.main + 0.001,
                     potion_data[2], { s_x = math.min( 40*ratio + 0.5, 40 ), s_y = 2 })
-                pen.colourer( gui, potion_data[3])
+                pen.colourer( potion_data[3])
             end
-            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
+            index.new_vanilla_bar( pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
             
             local tip = ""
             if( potion_data[3] ~= nil ) then
@@ -346,7 +343,7 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
             else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
 
             local tip_x, tip_y = unpack( xys.hp )
-            uid = tipping( gui, uid, nil, nil, {
+            tipping( nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -357,10 +354,10 @@ function new_generic_mana( gui, uid, screen_w, screen_h, data, zs, xys )
         end
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_reload( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.mana )
     data.memo.reload_shake = data.memo.reload_shake or {}
     data.memo.reload_max = data.memo.reload_max or {}
@@ -377,12 +374,12 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.reload_shake[data.active_item] or data.frame_num )
-            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
+            pen.new_image( pic_x + 3, pic_y - 1, zs.main, "data/ui_gfx/hud/reload.png", { has_shadow = true })
+            index.new_vanilla_bar( pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*reloading/data.memo.reload_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.reload_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-            uid = tipping( gui, uid, nil, nil, {
+            tipping( nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -399,10 +396,10 @@ function new_generic_reload( gui, uid, screen_w, screen_h, data, zs, xys )
         data.memo.reload_max[data.active_item] = nil
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_delay( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.reload )
     data.memo.delay_shake = data.memo.delay_shake or {}
     data.memo.delay_max = data.memo.delay_max or {}
@@ -419,13 +416,13 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
             end
             
             local shake_frame = data.frame_num - ( data.memo.delay_shake[data.active_item] or data.frame_num )
-            uid = pen.new_image( gui, uid, pic_x + 3, pic_y - 1, zs.main,
+            pen.new_image( pic_x + 3, pic_y - 1, zs.main,
                 "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
-            uid = index.new_vanilla_bar( gui, uid, pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
+            index.new_vanilla_bar( pic_x, pic_y, {zs.main_back,zs.main}, {40,2,40*cast_delay/data.memo.delay_max[data.active_item]}, "data/ui_gfx/hud/colors_reload_bar.png", data.memo.delay_shake[data.active_item] ~= nil and -shake_frame or nil )
             
             local tip_x, tip_y = unpack( xys.hp )
             local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
-            uid = tipping( gui, uid, nil, nil, {
+            tipping( nil, nil, {
                 pic_x - 42,
                 pic_y - 1,
                 44,
@@ -442,18 +439,18 @@ function new_generic_delay( gui, uid, screen_w, screen_h, data, zs, xys )
         data.memo.delay_max[data.active_item] = nil
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --make it line up to 3 bars horizontally with width check
+function new_generic_bossbar( screen_w, screen_h, data, zs, xys ) --make it line up to 3 bars horizontally with width check
     local pic_x, pic_y = unpack( xys.bossbar or {screen_w/2,screen_h-20})
 
     local bosses = EntityGetInRadiusWithTag( data.player_xy[1], data.player_xy[2], 1000, "index_bossbar" ) or {}
     if( #bosses > 0 ) then
         for i,boss in ipairs( bosses ) do
-            local step, bar_func = 0, function( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
-                local name, length, step, max_hp, hp = index.get_entity_name( entity_id ), 0, 0, 0, 0
-                uid, length, step, max_hp, hp = new_vanilla_hp( gui, uid, pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
+            local step, bar_func = 0, function( pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
+                local name = index.get_entity_name( entity_id )
+                local length, step, max_hp, hp = new_vanilla_hp( pic_x, pic_y, pic_zs, data, entity_id, this_data, params )
                 
                 local num_width, rounding = 35, 10
                 if( max_hp >= 10^6 ) then
@@ -466,19 +463,19 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
 
                 if( length > num_width ) then
                     if( not( pen.vld( name ))) then name = "Boss" end
-                    uid = pen.new_shadowed_text( gui, uid, pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
+                    pen.new_shadowed_text( pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
                 end
 
                 local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
-                uid = pen.new_shadowed_text( gui, uid, pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
+                pen.new_shadowed_text( pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
 
-                return uid, length, step
+                return length, step
             end
 
             local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
             if( func_path ~= nil ) then bar_func = dofile_once( func_path ) end
 
-            uid,_,step = bar_func( gui, uid, pic_x, pic_y, {zs.in_world_back+0.01,zs.in_world_back}, data, boss, nil, {
+            _,step = bar_func( pic_x, pic_y, {zs.in_world_back+0.01,zs.in_world_back}, data, boss, nil, {
                 low_hp = 0, low_hp_min = 0,
                 length_mult = 2, height = 13,
                 centered = true,
@@ -487,10 +484,10 @@ function new_generic_bossbar( gui, uid, screen_w, screen_h, data, zs, xys ) --ma
         end
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_gold( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.delay )
 
     local this_data = data.Wallet
@@ -504,13 +501,12 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         end
 
         local v = pen.get_short_num( god_i_love_money_holy_fuck )
-        local dims = {}
-        uid = pen.new_image( gui, uid, pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", { has_shadow = true })
-        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new_image( pic_x + 2.5, pic_y - 1.5, zs.main, "data/ui_gfx/hud/money.png", { has_shadow = true })
+        local dims = pen.new_text( pic_x + 13, pic_y, zs.main, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_gold" )..( data.short_gold and v or god_i_love_money_holy_fuck ).."$"
-        uid = tipping( gui, uid, nil, nil, {
+        tipping( nil, nil, {
             pic_x + 2.5,
             pic_y - 1,
             10.5 + dims[1],
@@ -520,22 +516,21 @@ function new_generic_gold( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_orbs( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.gold )
     
     if( data.orbs > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 1
         
-        local dims = {}
-        uid = pen.new_image( gui, uid, pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", { has_shadow = true })
-        uid, dims = pen.new_text( gui, uid, pic_x + 13, pic_y, zs.main, data.orbs, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new_image( pic_x + 3, pic_y, zs.main, "data/ui_gfx/hud/orbs.png", { has_shadow = true })
+        local dims = pen.new_text( pic_x + 13, pic_y, zs.main, data.orbs, { is_huge = false, has_shadow = true, alpha = 0.9 })
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( data.orbs ))
-        uid = tipping( gui, uid, nil, nil, {
+        tipping( nil, nil, {
             pic_x + 2,
             pic_y - 1,
             11 + dims[1],
@@ -545,13 +540,13 @@ function new_generic_orbs( gui, uid, screen_w, screen_h, data, zs, xys )
         pic_y = pic_y + 8
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_info( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = 0,0
     
-    function do_info( gui, p_x, p_y, txt, alpha, is_right, hover_func )
+    function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         
         txt = pen.capitalizer( txt )
@@ -561,7 +556,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             p_x = p_x - offset_x
         end
         if( hover_func ~= nil ) then hover_func( offset_x ) end
-        uid = pen.new_shadowed_text( gui, uid, p_x, p_y, zs.main, txt, { alpha = alpha })
+        pen.new_shadowed_text( p_x, p_y, zs.main, txt, { alpha = alpha })
     end
     
     data.memo.ui_info = data.memo.ui_info or { 0, 0 }
@@ -644,7 +639,7 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
                 pic_x, pic_y = pic_x + 3, pic_y + 5 + ( data.is_opened and 3 or 0 )
                 is_obstructed = false
             end
-            do_info( gui, pic_x, pic_y, info, fading, is_obstructed )
+            do_info( pic_x, pic_y, info, fading, is_obstructed )
         end
     end
 
@@ -673,9 +668,8 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             
             pic_x, pic_y = unpack( xys.delay )
             local alphaer = function( offset_x )
-                local hovered = false
-                uid, _, _, hovered = pen.new_interface(
-                    gui, uid, pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, zs.tips )
+                local _,_,hovered = pen.new_interface(
+                    pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, zs.tips )
                 if( hovered ) then data.memo.mtr_prb = { matter, data.frame_num + 300 } end
             end
             
@@ -683,14 +677,14 @@ function new_generic_info( gui, uid, screen_w, screen_h, data, zs, xys )
             if( not( data.info_mtr_static and matter == 0 )) then
                 txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
             end
-            do_info( gui, pic_x + 2, pic_y - 2.5, txt, fading, true, alphaer )
+            do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, alphaer )
         end
     end
     
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_ingestions( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.hp )
     pic_y = pic_y + data.effect_icon_spacing
     local orb_x, orb_y = unpack( xys.orbs )
@@ -701,50 +695,47 @@ function new_generic_ingestions( gui, uid, screen_w, screen_h, data, zs, xys )
     if( #this_data > 0 and not( data.gmod.menu_capable )) then
         pic_y = pic_y + 3
         for i,this_one in ipairs( this_data ) do
-            local step_x, step_y = 0, 0
-            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 1 )
+            local step_x, step_y = data.icon_func( pic_x, pic_y, zs.main, this_one, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
         pic_y = pic_y + 4
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_stains( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_stains( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.ingestions )
 
     local this_data = data.icon_data.stains
     if( #this_data > 0 and not( data.gmod.menu_capable )) then
         for i,this_one in ipairs( this_data ) do
-            local step_x, step_y = 0, 0
-            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 2 )
+            local step_x, step_y = data.icon_func( pic_x, pic_y, zs.main, this_one, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
         pic_y = pic_y + 3
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_effects( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_effects( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.stains )
 
     local this_data = data.icon_data.misc
     if( #this_data > 0 and not( data.gmod.menu_capable )) then
         for i,this_one in ipairs( this_data ) do
-            local step_x, step_y = 0, 0
             if( this_one.amount < 2 ) then this_one.txt = "" end
-            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 3 )
+            local step_x, step_y = data.icon_func( pic_x, pic_y, zs.main, this_one, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
         pic_y = pic_y + 3
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_perks( screen_w, screen_h, data, zs, xys )
     local pic_x, pic_y = unpack( xys.effects )
     
     local this_data = data.perk_data
@@ -755,14 +746,12 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
                 pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
                 txt = "",
                 desc = "",
-                tip = function( gui, uid, pic_x, pic_y, pic_z, alpha, v )
+                tip = function( pic_x, pic_y, pic_z, alpha, v )
                     for i,pic in ipairs( v ) do
                         local drift_x = 14*(( i - 1 )%10 )
                         local drift_y = 14*math.floor(( i - 1 )/10 )
-                        uid = pen.new_image( gui, uid, pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, { alpha = alpha })
+                        pen.new_image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, { alpha = alpha })
                     end
-                    
-                    return uid
                 end,
                 other_perks = {},
             }
@@ -776,22 +765,19 @@ function new_generic_perks( gui, uid, screen_w, screen_h, data, zs, xys )
                 end
             end
             table.insert( perk_tbl_short, extra_perk )
-        else
-            perk_tbl_short = this_data
-        end
+        else perk_tbl_short = this_data end
 
         for i,this_one in ipairs( perk_tbl_short ) do
-            local step_x, step_y = 0, 0
-            uid, step_x, step_y = data.icon_func( gui, uid, pic_x, pic_y, zs.main, this_one, 4 )
+            local step_x, step_y = data.icon_func( pic_x, pic_y, zs.main, this_one, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
         pic_y = pic_y + 5
     end
 
-    return uid, data, {pic_x,pic_y}
+    return data, {pic_x,pic_y}
 end
 
-function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_func )
+function new_generic_pickup( screen_w, screen_h, data, zs, xys, info_func )
     local this_data = data.ItemPickUpper
     if( #this_data > 0 ) then
         local x, y = unpack( data.player_xy )
@@ -840,14 +826,14 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                 local sampo_x, sampo_y = EntityGetTransform( data.sampo )
                 local spot_x, spot_y = EntityGetTransform( sampo_spot )
                 if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
-                    uid = info_func( gui, uid, screen_h, screen_w, data, {
+                    info_func( screen_h, screen_w, data, {
                         id = sampo_spot,
                         desc = { pen.capitalizer( GameTextGetTranslatedOrNot( "$biome_boss_victoryroom" )), msg },
                         txt = "[COMPLETE]",
                         color = {{121,201,153}, clr },
                     }, zs, xys )
 
-                    return uid, data
+                    return data
                 end
             end
         end
@@ -1013,7 +999,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                             local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
                             if( cost_comp == nil ) then
                                 local this_info = item_data[10]
-                                uid, data, w, h = slot_setup( gui, uid, screen_w/2, screen_h - 50, zs, data, {
+                                data, w, h = slot_setup( screen_w/2, screen_h - 50, zs, data, {
                                     inv_id = 0,
                                     id = this_info.id,
                                     inv_slot = {0,0},
@@ -1052,12 +1038,12 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     if( guiing ~= nil ) then
                         local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
                         local pic_x, pic_y = pen.world2gui( i_x, i_y )
-                        uid, ignore_default = guiing( gui, uid, nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, index.cat_callback( pickup_data.this_info, "on_tooltip" ))
+                        ignore_default = guiing( nil, math.abs( pickup_data.id ), data, pickup_data.this_info, pic_x, pic_y, zs, no_space, cant_buy, index.cat_callback( pickup_data.this_info, "on_tooltip" ))
                     end
                 end
                 
                 if( not( ignore_default )) then
-                    uid = info_func( gui, uid, screen_h, screen_w, data, pickup_data, zs, xys )
+                    info_func( screen_h, screen_w, data, pickup_data, zs, xys )
                 end
                 if( pickup_data.id > 0 and data.Controls[3][2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
@@ -1093,7 +1079,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
                     local func_path = pen.magic_storage( button_data[1], "index_message", "value_string" )
                     if( func_path ~= nil ) then message_func = dofile_once( func_path ) end
 
-                    uid = message_func( gui, uid, screen_h, screen_w, data, {
+                    message_func( screen_h, screen_w, data, {
                         id = button_data[1],
                         desc = { pen.capitalizer( button_data[3]), string.gsub( button_data[4], "$0", "[USE]" )},
                         txt = "[USE]",
@@ -1117,7 +1103,7 @@ function new_generic_pickup( gui, uid, screen_w, screen_h, data, zs, xys, info_f
         end
     end
 
-    return uid, data
+    return data
 end
 
 function new_generic_drop( this_item, data )
@@ -1152,20 +1138,20 @@ function new_generic_drop( this_item, data )
     end
 end
 
-function new_generic_extra( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_extra( screen_w, screen_h, data, zs, xys )
     if( #data.inventories_extra > 0 ) then
         for i,extra_inv in ipairs( data.inventories_extra ) do
             local inv_data = data.inventories[ extra_inv ]
             local x, y = EntityGetTransform( extra_inv )
             local pic_x, pic_y = pen.world2gui( x, y )
-            uid, data = inv_data.func( gui, uid, pic_x, pic_y, inv_data, data, zs, xys, data.slot_func )
+            data = inv_data.func( pic_x, pic_y, inv_data, data, zs, xys, data.slot_func )
         end
     end
 
-    return uid, data
+    return data
 end
 
-function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
+function new_generic_modder( screen_w, screen_h, data, zs, xys )
     local mode_data = data.gmod
     if( mode_data ~= nil and data.is_opened and ( not( data.gmod.is_hidden ) or data.gmod.force_show )) then
         local check = true
@@ -1180,13 +1166,11 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
         end
         if( check ) then
             local gonna_reset, gonna_highlight = false
-            local clicked, r_clicked, is_hovered = false
             local arrow_left_c, arrow_right_c, arrow_left_a, arrow_right_a = {255,255,255}, {255,255,255}, 0.3, 0.3
             local arrow_hl_c = {255,255,178}
 
             local new_mode = data.global_mode
-            uid, clicked, r_clicked, is_hovered = pen.new_interface(
-                data.the_gui, uid, pic_x - ( 11 + w ), pic_y - 11, 15, 10, zs.tips )
+            local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, zs.tips )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
             if( is_hovered ) then
@@ -1197,8 +1181,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 new_mode = new_mode - 1
                 arrow_left_a = 1
             end
-            uid, clicked, r_clicked, is_hovered = pen.new_interface(
-                data.the_gui, uid, pic_x - 10, pic_y - 11, 15, 10, zs.tips )
+            clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 10, pic_y - 11, 15, 10, zs.tips )
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
             if( is_hovered ) then
@@ -1209,7 +1192,7 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 new_mode = new_mode + 1
                 arrow_right_a = 1
             end
-            uid, is_hovered, clicked, r_clicked = tipping( data.the_gui, uid, nil, nil, {
+            is_hovered, clicked, r_clicked = tipping( nil, nil, {
                 pic_x - ( 6 + w ),
                 pic_y - 11,
                 w + 6,
@@ -1246,15 +1229,15 @@ function new_generic_modder( gui, uid, screen_w, screen_h, data, zs, xys )
                 pen.magic_storage( data.main_id, "global_mode", "value_int", new_mode )
             end
             
-            uid = pen.new_text( gui, uid, pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, { alpha = alpha })
-            uid = data.plate_func( gui, uid, pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
+            pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), zs.main, mode_data.name, { alpha = alpha })
+            data.plate_func( pic_x - ( 4 + w ), pic_y - 9, zs.main_back, { w + 2, 6 })
             
-            uid = pen.new_image( gui, uid, pic_x - ( 12 + w ), pic_y - 10, zs.main_back,
+            pen.new_image( pic_x - ( 12 + w ), pic_y - 10, zs.main_back,
                 "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
-            uid = pen.new_image( gui, uid, pic_x - 2, pic_y - 10, zs.main_back,
+            pen.new_image( pic_x - 2, pic_y - 10, zs.main_back,
                 "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
         end
     end
 
-    return uid, data
+    return data
 end
