@@ -860,10 +860,8 @@ function new_generic_pickup( screen_w, screen_h, data, zs, xys, info_func )
 
                     if( button_data[2] == 0 ) then
                         local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
-                        button_data[2] = pen.check_bounds({x,y}, {b_x, b_y}, box_comp )
-                    else
-                        button_data[2] = dist <= button_data[2]
-                    end
+                        button_data[2] = pen.check_bounds({ x, y }, box_comp, { b_x, b_y })
+                    else button_data[2] = dist <= button_data[2] end
                     if( button_data[2]) then
                         table.insert( interactables, button_data )
                     end
@@ -891,10 +889,8 @@ function new_generic_pickup( screen_w, screen_h, data, zs, xys, info_func )
                         if( item_data[2]) then
                             if( item_data[3] == 0 ) then
                                 local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
-                                item_data[3] = pen.check_bounds({x,y}, {i_x,i_y}, box_comp )
-                            else
-                                item_data[3] = dist <= item_data[3]
-                            end
+                                item_data[3] = pen.check_bounds({ x, y }, box_comp, { i_x, i_y })
+                            else item_data[3] = dist <= item_data[3] end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
                                 if( this_data[3] == 0 or ent == this_data[3]) then
                                     local this_info = index.get_item_data( ent )

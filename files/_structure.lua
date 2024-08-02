@@ -30,7 +30,7 @@ local GLOBAL_MODES = {
         is_default = true,
         allow_wand_editing = true,
         show_full = true,
-        show_fullest = global_settings.force_vanilla_fullest,
+        show_fullest = index.G.settings.force_vanilla_fullest,
     },
     {
         name = "MANAGEMENT",
@@ -60,8 +60,8 @@ local GLOBAL_MODES = {
 
 local GLOBAL_MUTATORS = {}
 local APPLETS = {
-    l_state = not( global_settings.mute_applets ),
-    r_state = not( global_settings.mute_applets ),
+    l_state = not( index.G.settings.mute_applets ),
+    r_state = not( index.G.settings.mute_applets ),
     l_hover = {},
     r_hover = {},
 

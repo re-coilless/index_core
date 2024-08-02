@@ -4,6 +4,8 @@ dofile_once( "data/scripts/lib/utilities.lua" ) --remove this
 
 index = index or {}
 index.G = index.G or {}
+index.D = index.D or {}
+index.M = index.M or {}
 
 index.FRAMER = {
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
@@ -26,14 +28,16 @@ function index.get_input( mnee_id, is_continuous, is_clean )
 end
 
 function index.self_destruct()
+	pen.gui_builder( false )
+
 	local controller_id = ( EntityGetWithTag( "index_ctrl" ) or {})[1]
-	if( not( pen.vld( controller_id, true ))) then return end
+	if( pen.vld( controller_id, true )) then
+		local hooman = EntityGetRootEntity( controller_id )
+		EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" ), true )
+		EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" ), true )
+		EntityKill( controller_id )
+	end
 
-	local hooman = EntityGetRootEntity( controller_id )
-	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" ), true )
-	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" ), true )
-
-	EntityKill( pen.get_child( hooman, "index_ctrl" ))
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 end
 
@@ -97,6 +101,240 @@ function index.clean_my_gun()
 	dont_draw_actions = false
 
 	root_shot = nil
+end
+
+function index.get_status_data( hooman, dmg_comp )
+	local effect_tbl = { ings = {}, stains = {}, misc = {}}
+	local perk_tbl = {}
+
+	dofile_once( "data/scripts/status_effects/status_list.lua" )
+    if( status_effects[1].real_id == nil ) then
+        local id_memo, id_num = {}, 1
+        for i,e in ipairs( status_effects ) do
+            if( id_memo[ e.id ] == nil ) then
+				id_memo[ e.id ], id_num = true, id_num + 1
+			end
+            status_effects[i].real_id = id_num
+        end 
+    end
+    
+    local simple_effects = {}
+    pen.child_play( hooman, function( parent, child, i )
+        local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
+        if( not( pen.vld( effect_comp, true ))) then return end
+		local is_stain = ComponentGetValue2( effect_comp, "caused_by_stains" )
+		local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
+		if( is_ing or is_stain ) then return end
+
+		local effect = ComponentGetValue2( effect_comp, "effect" )
+		effect = effect == "CUSTOM" and ComponentGetValue2( effect_comp, "custom_effect_id" ) or effect
+		local effect_id = ComponentGetValue2( effect_comp, "causing_status_effect" ) + 1
+		table.insert( simple_effects, { child, effect_comp, effect_id, effect })
+    end)
+
+	local ing_perc = 0
+	local ing_comp = EntityGetFirstComponentIncludingDisabled( hooman, "IngestionComponent" )
+	if( ing_comp ~= nil ) then
+		local raw_count = ComponentGetValue2( ing_comp, "ingestion_size" )
+		local total_cap = ComponentGetValue2( ing_comp, "ingestion_capacity" )
+		if( raw_count > 0 ) then ing_perc = math.floor( 100*raw_count/total_cap + 0.5 ) end
+	end
+	
+	local ing_frame = ComponentGetValue2( status_comp, "ingestion_effects" )
+	local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
+	local ing_many = ComponentGetValue2( status_comp, "ingestion_effect_causes_many" )
+	pen.t.loop( ing_frame, function( effect_id, duration )
+		if( duration == 0 ) then return end
+		
+		local raw_info = pen.t.get( status_effects, { effect_id }, "real_id" )
+		local effect_info = index.get_thresholded_effect( raw_info or {}, duration )
+		local time = index.get_effect_duration( duration, effect_info, epsilon )
+		if( effect_info.id == nil or time == 0 ) then return end
+		
+		local is_many = ing_many[ effect_id ] == 1
+		local mtr = GameTextGetTranslatedOrNot( CellFactory_GetUIName( ing_matter[ effect_id ]))
+		local message = GameTextGet( "$ingestion_status_caused_by"..( is_many and "_many" or "" ), mtr == "" and "???" or mtr )
+		if( ing_perc >= 100 ) then
+			local hardcoded_cancer_fucking_ass_list = {
+				INGESTION_MOVEMENT_SLOWER = 1,
+				INGESTION_EXPLODING = 1,
+				INGESTION_DAMAGE = 1,
+			}
+			if( hardcoded_cancer_fucking_ass_list[ effect_info.id ]) then
+				if( GameGetGameEffectCount( hooman, "IRON_STOMACH" ) == 0 ) then
+					message, time = GameTextGetTranslatedOrNot( "$ingestion_status_caused_by_overingestion" ), -1
+				else time = 0 end
+			end
+		end
+		
+		if( time == 0 ) then return end
+		table.insert( effect_tbl.ings, {
+			pic = effect_info.ui_icon,
+			txt = index.get_effect_timer( time ),
+			desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
+			tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."@"..message,
+
+			amount = time*60,
+			is_danger = effect_info.is_harmful,
+		})
+	end)
+	table.sort( effect_tbl.ings, function( a, b ) return a.amount > b.amount end)
+	if( ing_perc > 0 ) then
+		local stomach_step = 6
+		pen.t.loop({ 25, 90, 100, 140, 150, 175 }, function( i, stomach_step )
+			if( ing_perc < stomach_step ) then stomach_step = i-1; return true end
+		end)
+		
+		local delay = ComponentGetValue2( ing_comp, "m_ingestion_cooldown_frames" )
+		local total_delay = ComponentGetValue2( ing_comp, "ingestion_cooldown_delay_frames" )
+		table.insert( effect_tbl.ings, 1, {
+			txt = ing_perc.."%",
+			desc = GameTextGetTranslatedOrNot( "$status_satiated0"..stomach_step ),
+			pic = "data/ui_gfx/status_indicators/satiation_0"..stomach_step..".png",
+			tip = GameTextGetTranslatedOrNot( "$statusdesc_satiated0"..stomach_step ),
+
+			is_stomach = true,
+			digestion_delay = math.min( math.floor( 10*delay/total_delay + 0.5 )/10, 1 ),
+
+			amount = math.min( ing_perc/100, 1 ),
+			is_danger = ing_perc > 100 and not( GameHasFlagRun( "PERK_PICKED_IRON_STOMACH" )),
+		})
+	end
+
+	local stain_percs = ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" )
+	pen.t.loop( stain_percs, function( effect_id, duration )
+		local perc = index.get_stain_perc( duration )
+		if( perc == 0 ) then return end
+		local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect_id }, "real_id" ) or {}, duration )
+		if( not( pen.vld( effect_info.id ))) then return end
+
+		table.insert( effect_tbl.stains, {
+			id = effect_id,
+			
+			pic = effect_info.ui_icon,
+			txt = math.min( perc, 100 ).."%",
+			desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
+			tip = GameTextGetTranslatedOrNot( effect_info.ui_description ),
+
+			amount = math.min( perc/100, 1 ),
+			is_danger = effect_info.is_harmful,
+		})
+	end)
+	table.sort( effect_tbl.stains, function( a, b ) return a.id > b.id end)
+	if( pen.vld( dmg_comp, true ) and ComponentGetIsEnabled( dmg_comp ) and ComponentGetValue2( dmg_comp, "mIsOnFire" )) then
+		local fire_info = pen.t.get( status_effects, "ON_FIRE" )
+		local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
+		table.insert( effect_tbl.stains, 1, {
+			pic = fire_info.ui_icon,
+			txt = perc.."%",
+			desc = GameTextGetTranslatedOrNot( fire_info.ui_name ),
+			tip = GameTextGetTranslatedOrNot( fire_info.ui_description ),
+
+			amount = math.min( perc/100, 1 ),
+			is_danger = true,
+		})
+	end
+
+	local frame_num = GameGetFrameNum()
+    pen.child_play_full( hooman, function( child )
+        local info_comp = EntityGetFirstComponentIncludingDisabled( child, "UIIconComponent" )
+        if( not( pen.vld( info_comp, true ))) then return end
+		if( not( ComponentGetValue2( info_comp, "display_in_hud" ))) then return end
+		local icon_info = {
+			pic = ComponentGetValue2( info_comp, "icon_sprite_file" ),
+			txt = "",
+			desc = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" )),
+			tip = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "description" )),
+			count = 1,
+		}
+
+		local is_perk = ComponentGetValue2( info_comp, "is_perk" )
+		if( is_perk ) then
+			-- dofile_once( "data/scripts/perks/perk_list.lua" )
+			local _,true_id = pen.t.get( perk_tbl, icon_info.pic, "pic" )
+			if( true_id == nil ) then
+				if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
+					icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."@"..icon_info.tip
+					icon_info.count = tonumber( GlobalsGetValue( "fungal_shift_iteration", "0" ))
+					icon_info.is_fungal = true
+					
+					local raw_timer = tonumber( GlobalsGetValue( "fungal_shift_last_frame", "0" ))
+					local fungal_timer = math.max( 60*60*5 + raw_timer - frame_num, 0 )
+					if( fungal_timer > 0 ) then
+						icon_info.amount = fungal_timer
+						icon_info.txt = index.get_effect_timer( icon_info.amount/60 )
+						icon_info.tip = icon_info.tip.."@"..icon_info.txt.." until next Shift window."
+					end
+					
+					table.insert( perk_tbl, 1, icon_info )
+				else table.insert( perk_tbl, icon_info ) end
+			else perk_tbl[ true_id ].count = perk_tbl[ true_id ].count + 1 end
+		else
+			icon_info.amount = -2
+			local _,true_id = pen.t.get( effect_tbl.misc, icon_info.pic, "pic" )
+
+			pen.gateway( function()
+				if( pen.vld( true_id )) then return end
+				if( not( pen.vld( simple_effects ))) then return end
+				if( EntityGetParent( child ) ~= hooman ) then return end
+
+				local effect = pen.t.get( simple_effects, child )
+				if( not( pen.vld( effect ))) then return end
+
+				icon_info.amount = ComponentGetValue2( effect[2], "frames" )
+				local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect[3]}, "real_id" ) or {}, icon_info.amount )
+				if( not( pen.vld( effect_info.id ))) then return end
+
+				icon_info.main_info = effect_info
+				-- icon_info.pic = effect_info.ui_icon
+				icon_info.desc = GameTextGetTranslatedOrNot( effect_info.ui_name )
+				icon_info.tip = GameTextGetTranslatedOrNot( effect_info.ui_description )
+				icon_info.is_danger = effect_info.is_harmful
+			end)
+			
+			if( icon_info.amount == -2 ) then
+				local time_comp = EntityGetFirstComponentIncludingDisabled( child, "LifetimeComponent" )
+				if( pen.vld( time_comp, true )) then
+					icon_info.amount = math.max( ComponentGetValue2( time_comp, "kill_frame" ) - frame_num, -1 )
+				end
+			end
+			if( icon_info.amount ~= -2 ) then
+				icon_info.amount = index.get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
+			end
+
+			if( pen.vld( true_id )) then
+				local time = icon_info.amount/60
+				if( time > 0 ) then table.insert( effect_tbl.misc[true_id].time_tbl, time ) end
+				effect_tbl.misc[true_id].count = effect_tbl.misc[true_id].count + 1
+				if( effect_tbl.misc[true_id].amount < icon_info.amount ) then
+					effect_tbl.misc[true_id].amount = icon_info.amount
+				end
+			else
+				icon_info.time_tbl = {}
+				if( icon_info.amount ~= 0 ) then
+					local time = icon_info.amount/60
+					if( time > 0 ) then table.insert( icon_info.time_tbl, time ) end
+				end
+				table.insert( effect_tbl.misc, icon_info )
+			end
+		end
+    end)
+    table.sort( perk_tbl, function( a, b )
+        return a.count > b.count
+    end)
+    
+	pen.t.loop( effect_tbl.misc, function( i, e )
+		table.sort( e.time_tbl, function( a, b ) return a > b end)
+        effect_tbl.misc[1].txt = index.get_effect_timer( e.time_tbl[1])
+        if( #e.time_tbl <= 1 ) then return end
+		local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
+		effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", index.get_effect_timer( e.time_tbl[#e.time_tbl], true ))
+	end)
+    table.sort( effect_tbl.misc, function( a, b )
+        return a.amount > b.amount
+    end)
+
+	return effect_tbl, perk_tbl
 end
 
 function index.get_action_data( spell_id )
@@ -490,7 +728,7 @@ function index.inventory_man( item_id, this_info, in_hand, force_full )
 	end, { this_info, in_hand })
 end
 
-function set_to_slot( this_info, data, is_player ) --damn
+function set_to_slot( this_info, is_player ) --damn
 	if( is_player == nil ) then
 		local parent_id = EntityGetParent( this_info.id )
 		is_player = data.inventories_player[1] == parent_id or data.inventories_player[2] == parent_id
@@ -1094,10 +1332,10 @@ end
 
 --GUI frontend
 function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
-	if( index.G.is_slot_active ) then return pic_x, pic_y end
+	if( index.G.slot_state ) then return pic_x, pic_y end
 	local will_do, will_force, will_update = index.check_dragger_buffer( id )
 	if( not( will_do )) then return pic_x, pic_y end
-	local is_within = pen.check_bounds( index.D.pointer_ui, {pic_x,pic_y}, {-pic_w,pic_w,-pic_h,pic_h})
+	local is_within = pen.check_bounds( index.D.pointer_ui, { -pic_w, pic_w, -pic_h, pic_h }, { pic_x, pic_y })
 	if( not( will_force or is_within or index.G.slot_memo[ id ])) then return pic_x, pic_y end
 	local new_x, new_y, drag_state = 0, 0, 0
 	if( dragger_buffer[1] == 0 ) then dragger_buffer = { id, index.D.frame_num } end
@@ -1123,7 +1361,7 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 		
 		index.G.slot_memo[ id ] = hovered and has_begun
 		if( index.G.slot_memo[ id ]) then dragger_buffer[2] = index.D.frame_num end
-		index.G.is_slot_active = true
+		index.G.slot_state = true
 	end
 	return pic_x, pic_y, clicked, r_clicked, hovered
 end
@@ -1293,7 +1531,7 @@ function tipping( tid, tip_func, pos, tip, zs, is_right, is_up, is_debugging )
 	zs = pen.get_hybrid_table( zs )
 
 	local clicked, r_clicked, is_hovered = pen.new_interface(
-		pos[1], pos[2], pos[3], pos[4], zs[1], nil, is_debugging )
+		pos[1], pos[2], pos[3], pos[4], zs[1], { is_debugging = is_debugging })
 	if( zs[2] ~= nil and is_hovered ) then
 		pen.new_image( pos[1], pos[2], zs[2],
 			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = pos[3]/2, s_y = pos[4]/2, alpha = 0.5 })
@@ -2182,7 +2420,7 @@ function new_vanilla_slot( pic_x, pic_y, zs, data, slot_data, this_info, is_acti
 	end
 	if( data.dragger.item_id > 0 ) then
 		local no_hov_for_ya = true
-		if( pen.check_bounds( data.pointer_ui, {pic_x,pic_y}, {-w/2,w/2,-h/2,h/2})) then
+		if( pen.check_bounds( data.pointer_ui, { -w/2, w/2, -h/2, h/2 }, { pic_x, pic_y })) then
 			data.dragger.wont_drop = true
 			if( can_drag ) then
 				local dragged_data = pen.t.get( data.item_list, data.dragger.item_id )
@@ -2223,7 +2461,7 @@ function new_vanilla_slot( pic_x, pic_y, zs, data, slot_data, this_info, is_acti
 	
 	local slot_x, slot_y = pic_x - w/2, pic_y - h/2
 	if( can_drag ) then
-		if( this_info.id > 0 and not( data.dragger.swap_now or index.G.is_slot_active )) then
+		if( this_info.id > 0 and not( data.dragger.swap_now or index.G.slot_state )) then
 			pic_x, pic_y = index.new_dragger_shell( this_info.id, this_info, pic_x, pic_y, w/2, h/2 )
 		end
 	elseif( data.is_opened ) then
