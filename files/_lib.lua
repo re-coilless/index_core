@@ -728,67 +728,52 @@ function index.inventory_man( item_id, this_info, in_hand, force_full )
 	end, { this_info, in_hand })
 end
 
-function set_to_slot( this_info, is_player ) --damn
+function index.set_to_slot( this_info, is_player )
 	if( is_player == nil ) then
 		local parent_id = EntityGetParent( this_info.id )
-		is_player = data.inventories_player[1] == parent_id or data.inventories_player[2] == parent_id
+		is_player = index.D.inventories_player[1] == parent_id or index.D.inventories_player[2] == parent_id
 	end
 	
-	local valid_invs = index.get_valid_inventories( this_info.inv_type, this_info.is_quickest )
 	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
 	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
 	if( not( is_hidden )) then
+		local valid_invs = index.get_valid_inventories( this_info.inv_type, this_info.is_quickest )
 		if( slot_num[2] == -5 ) then
-			if( this_info.is_hidden ) then
-				slot_num = {-1,-1}
-			else
-				local inv_list = nil
-				if( is_player ) then
-					inv_list = data.inventories_player
-				else
-					inv_list = { this_info.inv_id }
-				end
-				for _,inv_id in ipairs( inv_list ) do
+			if( not( this_info.is_hidden )) then
+				local inv_list = is_player and data.inventories_player or { this_info.inv_id }
+				pen.t.loop( inv_list, function( _,inv_id )
 					local inv_dt = data.inventories[ inv_id ]
-					if( pen.t.get( inv_dt.kind, "universal" ) ~= 0 or #pen.t.get( valid_invs, inv_dt.kind ) > 0 ) then
-						for i,slot in pairs( data.slot_state[ inv_id ]) do
-							for k,s in ipairs( slot ) do
-								if( not( s )) then
-									local is_fancy = type( i ) == "string"
-									if( not( is_fancy and pen.t.get( valid_invs, i ) == 0 )) then
-										local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
-										if( index.inv_check( this_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt, })) then
-											if( temp_slot[2] < 0 ) then
-												temp_slot[2] = temp_slot[2] + 1
-											end
-											
-											local parent_check = EntityGetParent( this_info.id )
-											if( parent_check > 0 and inv_id ~= parent_check) then
-												EntityRemoveFromParent( this_info.id )
-												EntityAddChild( inv_id, this_info.id )
-											end
-
-											slot_num = temp_slot
-											data.slot_state[ inv_id ][i][k] = this_info.id
-											break
-										end
-									end
+					local is_universal = pen.t.get( inv_dt.kind, "universal" ) ~= 0
+					local is_valid = #pen.t.get( valid_invs, inv_dt.kind ) > 0
+					if( not( is_universal or is_valid )) then return end
+					
+					for i,slot in pairs( data.slot_state[ inv_id ]) do
+						pen.t.loop( slot, function( k, s )
+							if( s ) then return end
+							local is_fancy = type( i ) == "string"
+							if( is_fancy and pen.t.get( valid_invs, i ) == 0 ) then return end
+							local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
+							if( index.inv_check( this_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt })) then
+								if( temp_slot[2] < 0 ) then temp_slot[2] = temp_slot[2] + 1 end
+								
+								local parent_check = EntityGetParent( this_info.id )
+								if( parent_check > 0 and inv_id ~= parent_check) then
+									EntityRemoveFromParent( this_info.id )
+									EntityAddChild( inv_id, this_info.id )
 								end
-							end
-							if( slot_num[2] ~= -5 ) then
-								break
-							end
-						end
-					end
-					if( slot_num[2] ~= -5 ) then
-						break
-					end
-				end
-				if( slot_num[2] == -5 ) then
-					return this_info
-				end
-			end
 
+								slot_num = temp_slot
+								data.slot_state[ inv_id ][i][k] = this_info.id
+								return true
+							end
+						end)
+						if( slot_num[2] ~= -5 ) then break end
+					end
+
+					if( slot_num[2] ~= -5 ) then return true end
+				end)
+				if( slot_num[2] == -5 ) then return this_info end
+			else slot_num = { -1, -1 } end
 			slot_num[1], slot_num[2] = slot_num[1] - 1, slot_num[2] - 1
 			ComponentSetValue2( this_info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
 		elseif( slot_num[2] == -1 ) then
@@ -804,7 +789,7 @@ function set_to_slot( this_info, is_player ) --damn
 
 		slot_num[1], slot_num[2] = slot_num[1] + 1, slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
 	end
-	
+
 	this_info.inv_slot = slot_num
 	return this_info
 end

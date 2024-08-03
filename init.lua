@@ -1,10 +1,10 @@
+ModMagicNumbersFileAdd( "mods/index_core/files/_magic_numbers.xml" )
 if( ModIsEnabled( "mnee" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 else return end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
---apparently magic numbers file is not appended
 --DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 
 penman_r = penman_r or ModTextFileGetContent
