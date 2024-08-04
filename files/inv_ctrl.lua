@@ -13,7 +13,7 @@ index.G.mouse_memo_world = index.G.mouse_memo_world or {} --for getting pointer 
 
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
-if( pen.vld( ctrl_bodies )) then return pen.gui_builder( false ) end
+if( not( pen.vld( ctrl_bodies ))) then return pen.gui_builder( false ) end
 
 local controller_id = ctrl_bodies[1]
 local storage_reset = pen.magic_storage( controller_id, "reset_settings" )
@@ -98,7 +98,6 @@ local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Co
 local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
 local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
 local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
-local status_comp = EntityGetFirstComponentIncludingDisabled( hooman, "StatusEffectDataComponent" )
 for i,comp in ipairs({ iui_comp, pick_comp }) do
     if( pen.vld( comp, true ) and ComponentGetIsEnabled( comp )) then
         EntitySetComponentIsEnabled( hooman, comp, false )
@@ -128,7 +127,7 @@ local mtr_action = not( index.G.settings.info_mtr_hotkeyed ) or index.get_input(
 local pos_tbl = {}
 local gui = pen.gui_builder()
 local screen_w, screen_h = GuiGetScreenDimensions( gui )
-local z_layers, global_modes, global_mutators, applets, item_cats, inv = unpack( index.G.settings.main_dump )
+local global_modes, global_mutators, applets, item_cats, inv = unpack( index.G.settings.main_dump )
 index.D = {
     main_id = controller_id,
     player_id = hooman,
@@ -150,10 +149,8 @@ index.D = {
     inv_count_quickest = index.G.settings.quickest_size,
     inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - index.G.settings.quickest_size,
     inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
-
+    
     frame_num = frame_num,
-    pixel = "mods/index_core/files/pics/THE_GOD_PIXEL.png", --replace with pen.FILE_PIC_NUL
-    nopixel = "mods/index_core/files/pics/THE_NIL_PIXEL.png", --replace with pen.FILE_PIC_NIL
     global_mode = pen.magic_storage( controller_id, "global_mode", "value_int" ),
 
     gmod = {},
@@ -247,11 +244,11 @@ if( pen.vld( ctrl_comp, true )) then
     index.D.Controls = {
         ctrl_comp,
 
-        mnee.vanilla_input( "Inventory" ),
-        mnee.vanilla_input( "Interact" ),
-        mnee.vanilla_input( "Fly" ),
-        mnee.vanilla_input( "RightClick" ),
-        mnee.vanilla_input( "LeftClick" ),
+        { mnee.vanilla_input( "Inventory" )},
+        { mnee.vanilla_input( "Interact" )},
+        { mnee.vanilla_input( "Fly" )},
+        { mnee.vanilla_input( "RightClick" )},
+        { mnee.vanilla_input( "LeftClick" )},
     }
 end
 if( pen.vld( dmg_comp, true )) then
@@ -311,50 +308,50 @@ pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
     table.insert( index.D.inventories_extra, inv )
 end)
 
-index.get_items( hooman )
-if( pen.vld( index.D.active_item, true )) then
-    index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item )
-    if( pen.vld( index.D.active_info.id, true )) then
-        local abil_comp = index.D.active_info.AbilityC
-        if( pen.vld( abil_comp, true )) then
-            index.D.memo.shot_count = index.D.memo.shot_count or {}
-            local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
-            index.D.just_fired = index.D.just_fired or (( index.D.memo.shot_count[ index.D.active_item ] or shot_count ) < shot_count )
-            if( index.D.just_fired ) then index.D.memo.shot_count[ index.D.active_item ] = shot_count end
-        end
-    else index.D.active_item = 0 end
-end
+-- index.get_items( hooman )
+-- if( pen.vld( index.D.active_item, true )) then
+--     index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item )
+--     if( pen.vld( index.D.active_info.id, true )) then
+--         local abil_comp = index.D.active_info.AbilityC
+--         if( pen.vld( abil_comp, true )) then
+--             index.M.shot_count = index.M.shot_count or {}
+--             local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
+--             index.D.just_fired = index.D.just_fired or (( index.M.shot_count[ index.D.active_item ] or shot_count ) < shot_count )
+--             if( index.D.just_fired ) then index.M.shot_count[ index.D.active_item ] = shot_count end
+--         end
+--     else index.D.active_item = 0 end
+-- end
 
-index.D.slot_state = {}
-for i,inv_info in pairs( index.D.inventories ) do
-    if( inv_info.kind[1] == "quick" ) then
-        index.D.slot_state[ inv_info.id ] = {
-            quickest = pen.t.init( inv_info.size[1], false ),
-            quick = pen.t.init( inv_info.size[2], false ),
-        }
-    else
-        index.D.slot_state[ inv_info.id ] = pen.t.init( inv_info.size[1], false )
-        for i,slot in ipairs( index.D.slot_state[ inv_info.id ]) do
-            index.D.slot_state[ inv_info.id ][i] = pen.t.init( inv_info.size[2], false )
-        end
-    end
-end
+-- index.D.slot_state = {}
+-- for i,inv_info in pairs( index.D.inventories ) do
+--     if( inv_info.kind[1] == "quick" ) then
+--         index.D.slot_state[ inv_info.id ] = {
+--             quickest = pen.t.init( inv_info.size[1], false ),
+--             quick = pen.t.init( inv_info.size[2], false ),
+--         }
+--     else
+--         index.D.slot_state[ inv_info.id ] = pen.t.init( inv_info.size[1], false )
+--         for i,slot in ipairs( index.D.slot_state[ inv_info.id ]) do
+--             index.D.slot_state[ inv_info.id ][i] = pen.t.init( inv_info.size[2], false )
+--         end
+--     end
+-- end
 
-local nuke_em = {}
-for i,this_info in ipairs( index.D.item_list ) do
-    index.D.item_list[i] = index.set_to_slot( this_info )
-    if( this_info.inv_slot == nil ) then table.insert( nuke_em, i ) end
+-- local nuke_em = {}
+-- for i,this_info in ipairs( index.D.item_list ) do
+--     index.D.item_list[i] = index.set_to_slot( this_info )
+--     if( this_info.inv_slot == nil ) then table.insert( nuke_em, i ) end
 
-    local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
-    if( not( pen.vld( ctrl_func ))) then
-        index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
-    else ctrl_func( this_info.id, this_info ) end
-end
-if( pen.vld( nuke_em )) then
-    for i = #nuke_em,1,-1 do
-        table.remove( index.D.item_list, nuke_em[i])
-    end
-end
+--     local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
+--     if( not( pen.vld( ctrl_func ))) then
+--         index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
+--     else ctrl_func( this_info.id, this_info ) end
+-- end
+-- if( pen.vld( nuke_em )) then
+--     for i = #nuke_em,1,-1 do
+--         table.remove( index.D.item_list, nuke_em[i])
+--     end
+-- end
 
 index.D.gmod = global_modes[ index.D.global_mode ]
 index.D.gmod.gmods = global_modes
@@ -362,7 +359,7 @@ index.D.gmod.name = GameTextGetTranslatedOrNot( index.D.gmod.name )
 index.D.gmod.desc = GameTextGetTranslatedOrNot( index.D.gmod.desc )
 if( not( index.D.gmod.allow_advanced_draggables )) then index.D.drag_action = false end
 for i,mut in ipairs( global_mutators ) do
-    z_layers, pos_tbl = mut( z_layers, pos_tbl )
+    pos_tbl = mut( pos_tbl )
 end
 if( index.D.applets.done == nil ) then
     index.D.applets.done = true
@@ -379,10 +376,10 @@ if( index.D.applets.done == nil ) then
             if( not( state )) then return end
             if( index.D.is_opened ) then
                 index.D.applets.r_state = false
-                index.D.memo.applets_r_drift = index.D.applets_r_drift
+                index.M.applets_r_drift = index.D.applets_r_drift
             else
                 index.D.applets.l_state = false
-                index.D.memo.applets_l_drift = index.D.applets_l_drift
+                index.M.applets_l_drift = index.D.applets_l_drift
             end
         end,
     }
@@ -390,55 +387,55 @@ if( index.D.applets.done == nil ) then
     table.insert( index.D.applets.r, close_applets )
 end
 
+index.D.is_opened = true --testing
 local global_callback = index.D.gmod.custom_func
-if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, z_layers, pos_tbl, inv, false ) end
+if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, false ) end
+
 if( not( index.D.gmod.nuke_default )) then
     if( inv.full_inv ~= nil ) then
-        pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( screen_w, screen_h, z_layers, pos_tbl )
+        -- pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( screen_w, screen_h, pos_tbl )
     end
     if( inv.applet_strip ~= nil ) then
-        pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( screen_w, screen_h, z_layers, pos_tbl )
+        pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( screen_w, screen_h, pos_tbl )
     end
     
     local bars = inv.bars or {}
-    if( bars.hp ~= nil ) then pos_tbl.hp = bars.hp( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( bars.air ~= nil ) then pos_tbl.air = bars.air( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( bars.flight ~= nil ) then pos_tbl.flight = bars.flight( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, z_layers, pos_tbl ) end
+    if( bars.hp ~= nil ) then pos_tbl.hp = bars.hp( screen_w, screen_h, pos_tbl ) end
+    if( bars.air ~= nil ) then pos_tbl.air = bars.air( screen_w, screen_h, pos_tbl ) end
+    if( bars.flight ~= nil ) then pos_tbl.flight = bars.flight( screen_w, screen_h, pos_tbl ) end
+    if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
     
-    local actions = bars.action or {}
-    if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( actions.reload ~= nil ) then pos_tbl.reload = actions.reload( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( actions.delay ~= nil ) then pos_tbl.delay = actions.delay( screen_w, screen_h, z_layers, pos_tbl ) end
+    -- local actions = bars.action or {}
+    -- if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, pos_tbl ) end
+    -- if( actions.reload ~= nil ) then pos_tbl.reload = actions.reload( screen_w, screen_h, pos_tbl ) end
+    -- if( actions.delay ~= nil ) then pos_tbl.delay = actions.delay( screen_w, screen_h, pos_tbl ) end
 
-    if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, z_layers, pos_tbl ) end
+    -- if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
+    -- if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
+    -- if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
 
-    local icons = inv.icons or {}
-    if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( icons.stains ~= nil ) then pos_tbl.stains = icons.stains( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( icons.effects ~= nil ) then pos_tbl.effects = icons.effects( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( icons.perks ~= nil ) then pos_tbl.perks = icons.perks( screen_w, screen_h, z_layers, pos_tbl ) end
+    -- local icons = inv.icons or {}
+    -- if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, pos_tbl ) end
+    -- if( icons.stains ~= nil ) then pos_tbl.stains = icons.stains( screen_w, screen_h, pos_tbl ) end
+    -- if( icons.effects ~= nil ) then pos_tbl.effects = icons.effects( screen_w, screen_h, pos_tbl ) end
+    -- if( icons.perks ~= nil ) then pos_tbl.perks = icons.perks( screen_w, screen_h, pos_tbl ) end
 
-    if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, z_layers, pos_tbl, inv.pickup_info ) end
-    if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, z_layers, pos_tbl ) end
-    if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, z_layers, pos_tbl ) end
+    -- if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, pos_tbl, inv.pickup_info ) end
+    -- if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, pos_tbl ) end
+    -- if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, pos_tbl ) end
 end
 if( not( index.D.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do
-        pos_tbl[ cid ] = cfunc( screen_w, screen_h, z_layers, pos_tbl )
+        pos_tbl[ cid ] = cfunc( screen_w, screen_h, pos_tbl )
     end
-end
-if( global_callback ~= nil ) then
-    inv = global_callback( screen_w, screen_h, z_layers, pos_tbl, inv, true )
 end
 
 if( index.D.gmod.allow_shooting ) then index.D.no_inv_shooting = false end
-if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_h + 10, screen_w + 10, -999999 ) end
+if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, true ) end
+if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 999999 ) end
 
 if( index.D.inv_toggle and not( index.D.gmod.no_inv_toggle or false )) then
-    index.D.memo.inv_alpha = frame_num + 15
+    index.M.inv_alpha = frame_num + 15
     index.play_sound( index.D.is_opened and "close" or "open" )
     ComponentSetValue2( iui_comp, "mActive", not( index.D.is_opened ))
 elseif( index.D.gmod.no_inv_toggle and not( index.D.is_opened )) then
@@ -462,7 +459,7 @@ else
         end
     elseif( index.D.dragger.item_id == 0 ) then
         index.G.gonna_drop = false
-    else pen.new_shadowed_text( index.D.pointer_ui[1] + 6, index.D.pointer_ui[2] - 13, z_layers.tips_front, "[DROP]" ) end
+    else pen.new_shadowed_text( index.D.pointer_ui[1] + 6, index.D.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
 end
 
 if( index.G.slot_hover_sfx[2]) then

@@ -1,5 +1,5 @@
 ModMagicNumbersFileAdd( "mods/index_core/files/_magic_numbers.xml" )
-if( ModIsEnabled( "mnee" )) then
+if( ModIsEnabled( "mnee" ) and ModIsEnabled( "penman" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 else return end
 -- is_manual_pause = is_manual_pause or false
@@ -7,6 +7,7 @@ else return end
 
 --DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
 
+penman_d = penman_d or ModImageMakeEditable
 penman_r = penman_r or ModTextFileGetContent
 penman_w = penman_w or ModTextFileSetContent
 function OnModInit()
@@ -125,52 +126,51 @@ function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 
 	local hooman = pen.get_hooman()
-	if( pen.vld( hooman, true )) then
-		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-		if( iui_comp ~= nil ) then EntitySetComponentIsEnabled( hooman, iui_comp, false ) end
-		
-		local x, y = EntityGetTransform( hooman )
-		pen.t.loop( EntityGetInRadius( x, y, 250 ), function( i, entity_id )
-			local action_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "InteractableComponent" )
-			if( action_comp == nil ) then return end
-			if( not( ComponentGetIsEnabled( action_comp ))) then return end
+	if( not( pen.vld( hooman, true ))) then return end
 
-			local lua_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LuaComponent", "index_ctrl" )
-			if( lua_comp == nil ) then
-				EntitySetComponentIsEnabled( entity_id, action_comp, false )
-				EntityAddComponent( entity_id, "LuaComponent",
-				{
-					_tags = "index_ctrl",
-					script_source_file = "mods/index_core/files/misc/interaction_nuker.lua",
-					execute_every_n_frame = "1",
-				})
-			elseif( not( ComponentGetIsEnabled( lua_comp ))) then
-				ComponentSetValue2( lua_comp, "execute_on_added", true )
-				EntitySetComponentIsEnabled( entity_id, lua_comp, true )
-			else EntitySetComponentIsEnabled( entity_id, action_comp, false ) end
-		end)
-	end
+	local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+	if( iui_comp ~= nil ) then EntitySetComponentIsEnabled( hooman, iui_comp, false ) end
+	
+	local x, y = EntityGetTransform( hooman )
+	pen.t.loop( EntityGetInRadius( x, y, 250 ), function( i, entity_id )
+		local action_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "InteractableComponent" )
+		if( action_comp == nil ) then return end
+		if( not( ComponentGetIsEnabled( action_comp ))) then return end
+
+		local lua_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "LuaComponent", "index_ctrl" )
+		if( lua_comp == nil ) then
+			EntitySetComponentIsEnabled( entity_id, action_comp, false )
+			EntityAddComponent( entity_id, "LuaComponent",
+			{
+				_tags = "index_ctrl",
+				script_source_file = "mods/index_core/files/misc/interaction_nuker.lua",
+				execute_every_n_frame = "1",
+			})
+		elseif( not( ComponentGetIsEnabled( lua_comp ))) then
+			ComponentSetValue2( lua_comp, "execute_on_added", true )
+			EntitySetComponentIsEnabled( entity_id, lua_comp, true )
+		else EntitySetComponentIsEnabled( entity_id, action_comp, false ) end
+	end)
 end
 
 function OnWorldPostUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
+	GlobalsSetValue( "INDEX_FUCKYOURMANA", "0" )
 
 	local hooman = pen.get_hooman()
-	if( pen.vld( hooman, true )) then
-		local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
-		if( iui_comp ~= nil ) then EntitySetComponentIsEnabled( hooman, iui_comp, false ) end
-	end
-	
-	GlobalsSetValue( "INDEX_FUCKYOURMANA", "0" )
+	if( not( pen.vld( hooman, true ))) then return end
+
+	local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
+	if( pen.vld( iui_comp, true )) then EntitySetComponentIsEnabled( hooman, iui_comp, false ) end
 end
 
 function OnPlayerSpawned( hooman )
 	dofile_once( "mods/index_core/files/_lib.lua" )
 
 	local initer = "HERMES_INDEX_MOMENT"
-	if( GameHasFlagRun( initer )) then
-		return
-	else GameAddFlagRun( initer ) end
+	if( not( GameHasFlagRun( initer ))) then
+		GameAddFlagRun( initer )
+	else return end
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent",
@@ -178,14 +178,14 @@ function OnPlayerSpawned( hooman )
 		script_source_file = "mods/index_core/files/inv_ctrl.lua",
 		execute_every_n_frame = "1",
 	})
-
+	
 	local x, y = EntityGetTransform( hooman )
 	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" ))
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
-	if( inv_comp ~= nil ) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
+	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 	
 	-- CreateItemActionEntity( "LIGHTNING", x, y )
-	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
+	-- EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 	--testing_bag insert in the chest (autoarrange in the grid to match full inv width when inside player root inventory; display contents on hover tooltip)
 	--all spells wand
 	--custom spell you can seamlessly write the code into
