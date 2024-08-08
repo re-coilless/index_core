@@ -49,11 +49,7 @@ local APPLETS = {
             name = "README",
             desc = "The complete user guide.",
 
-            pic = function( pic_x, pic_y, pic_z, angle )
-                local clicked, _, is_hovered = pen.new_image( pic_x - 1, pic_y - 1, pic_z,
-                    "data/ui_gfx/status_indicators/confusion.png", { can_click = true, angle = angle })
-                return clicked, hovered
-            end,
+            pic = "data/ui_gfx/status_indicators/confusion.png",
             toggle = function( state ) end,
         },
     },
@@ -310,7 +306,7 @@ local ITEM_CATS = {
                 for i,m in ipairs( content_tbl ) do
                     local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
                     pen.new_pixel( pic_x, pic_y - math.min( delta, h ),
-                        pen.LAYERS.MAIN + tonumber( "0.001"..i ), pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, nil, alpha )
+                        pen.LAYERS.MAIN + tonumber( "0.001"..i ), pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
                     if( delta >= h ) then break end
                 end
                 if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then

@@ -29,7 +29,7 @@ function OnModInit()
 	pen.lib.font_builder( "data/fonts/font_pixel.xml", {
 		[176] = { pos = { 2, 0, 2 }, rect_w = 11, rect_h = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
-	pen.lib.font_builder( "data/fonts/font_small_number.xml", {
+	pen.lib.font_builder( "data/fonts/font_small_numbers.xml", {
 		[66] = { pos = { 15, 0, 6 }, rect_w = 6, rect_h = 6 },
 		[101] = { pos = { 22, 0, 4 }, rect_w = 6, rect_h = 4 },
 	}, "mods/index_core/files/pics/font_atlas.png" )

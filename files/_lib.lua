@@ -18,6 +18,8 @@ index.FRAMER = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
 
+--all this_data stuff must be string-indexed
+
 --core backend
 function index.get_input( mnee_id, is_continuous, is_clean )
 	return mnee.mnin( "bind", { "index", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
@@ -273,7 +275,7 @@ function index.get_status_data( hooman, dmg_comp )
 			icon_info.amount = -2
 			local _,true_id = pen.t.get( effect_tbl.misc, icon_info.pic, "pic" )
 
-			pen.gateway( function()
+			pen.hallway( function()
 				if( pen.vld( true_id )) then return end
 				if( not( pen.vld( simple_effects ))) then return end
 				if( EntityGetParent( child ) ~= hooman ) then return end
@@ -1204,7 +1206,7 @@ end
 
 function index.hud_text_fix( key )
 	local txt = tostring( GameTextGetTranslatedOrNot( key ))
-	local _, pos = string.find( txt, ":", 1, true )
+	local _,pos = string.find( txt, ":", 1, true )
 	if( pos ~= nil ) then txt = string.sub( txt, 1, pos-1 ) end
 	return txt..":@"
 end
@@ -1276,10 +1278,10 @@ function index.swap_anim( item_id, end_x, end_y ) --pen.animate
 	return end_x, end_y
 end
 
-function index.register_item_pic( this_info, is_advanced )
-	if( pen.vld( this_info.pic )) then return end
+function index.register_item_pic( this_info, is_advanced ) --leave xml getting to penman
+	if( not( pen.vld( this_info.pic ))) then return end
 	
-	local forced_update = EntityHasTag( this_info.id, "index_pic_update" )
+	local forced_update = EntityHasTag( this_info.id, "index_update" )
 	pen.cache({ "index_pic_data", this_info.pic }, function()
 		local data = { xy = { 0, 0 }, xml_xy = { 0, 0 }}
 
@@ -1394,35 +1396,32 @@ function index.new_vanilla_plate( pic_x, pic_y, pic_z, dims, alpha )
 	end
 end
 
-function index.new_vanilla_bar( pic_x, pic_y, pic_zs, dims, bar_pic, shake_frame, bar_alpha )
-	local will_shake = shake_frame ~= nil
-	if( will_shake ) then
+function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, alpha )
+	if( shake_frame ~= nil ) then
 		if( shake_frame < 0 ) then
 			pic_x = pic_x - 20*math.sin( shake_frame*math.pi/6.666 )/shake_frame
 		else pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 ) end
+		pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z - 0.005, pen.PALETTE.VNL.WARNING, dims[1] + 2, dims[2] + 2 )
 	end
 	
-	local w, h = pen.get_pic_dims( bar_pic )
-	pen.new_image( pic_x - dims[1], pic_y + 1, pic_zs[2], bar_pic, { s_x = dims[3]/w, s_y = dims[2]/h, alpha = bar_alpha })
-	
-	pen.new_pixel( pic_x, pic_y, pic_zs[1], pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, nil, 0.75 )
-	pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_zs[1], pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, nil, 0.75 )
-	pen.new_pixel( pic_x - dims[1], pic_y, pic_zs[1], pen.PALETTE.VNL.BROWN, dims[1], 1, nil, 0.75 )
-	pen.new_pixel( pic_x - dims[1], pic_y + dims[2] + 1, pic_zs[1], pen.PALETTE.VNL.BROWN, dims[1], 1, nil, 0.75 )
-	if( will_shake ) then
-		pen.new_image( pic_x - ( dims[1] + 1 ), pic_y, pic_zs[1] - 0.001,
-			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = dims[1]/2 + 1, s_y = dims[2]/2 + 1 })
-	end
-	
-	pen.new_image( pic_x - dims[1], pic_y + 1, pic_zs[1] + 0.001,
+	pen.new_pixel( pic_x - dims[1], pic_y + 1, pic_z - 0.01, color, dims[3], dims[2], alpha )
+
+	pen.new_pixel( pic_x, pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
+	pen.new_pixel( pic_x - dims[1], pic_y, pic_z, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
+	pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
+	pen.new_pixel( pic_x - dims[1], pic_y + dims[2] + 1, pic_z, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
+
+	pen.new_image( pic_x - dims[1], pic_y + 1, pic_z + 0.01,
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
-function index.new_vanilla_hp( pic_x, pic_y, pic_zs, entity_id, this_data, params )
-	params = params or {}
+function index.new_vanilla_hp( pic_x, pic_y, pic_z, data )
+	local entity_id = index.D.player_id
     local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
-    if( dmg_comp == nil ) then return 0,0,0,0,0 end
-    this_data = this_data or {
+    if( not( pen.vld( dmg_comp, true ))) then return 0,0,0,0,0 end
+
+	data = data or {}
+    data.dmg_data = data.dmg_data or {
         dmg_comp,
 
         ComponentGetValue2( dmg_comp, "max_hp" ),
@@ -1431,20 +1430,22 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_zs, entity_id, this_data, param
         math.max( index.D.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
     }
 
-    local red_shift, length, height = 0, 0, params.height or 4
-    local max_hp, hp = this_data[2], this_data[3]
-    if( max_hp > 0 ) then
-        length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
-        length = ( params.length_mult or 1 )*( length < 5 and 40 or length )
+    local max_hp, hp = data.dmg_data[2], data.dmg_data[3]
+	local red_shift, length, height = 0, 0, data.height or 4
+	pen.hallway( function()
+		if( max_hp <= 0 ) then return end
+
+		length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
+        length = ( data.length_mult or 1 )*( length < 5 and 40 or length )
         hp = math.min( math.max( hp, 0 ), max_hp )
 
-		if( params.centered ) then pic_x = pic_x + length/2 end
+		if( data.centered ) then pic_x = pic_x + length/2 end
 
-        local low_hp = math.max( math.min( max_hp/4, params.low_hp or index.D.hp_threshold ), params.low_hp_min or index.D.hp_threshold_min )
-        local pic = params.pic_hp or "data/ui_gfx/hud/colors_health_bar.png"
+        local low_hp = math.max( math.min( max_hp/4, data.low_hp or index.D.hp_threshold ), data.low_hp_min or index.D.hp_threshold_min )
+        local pic = data.color_hp or pen.PALETTE.VNL.HP
         if( hp < low_hp ) then
             local perc = ( low_hp - hp )/low_hp
-            local freq = ( params.hp_flashing or index.D.hp_flashing )*( 1.5 - perc )
+            local freq = ( data.hp_flashing or index.D.hp_flashing )*( 1.5 - perc )
             
             index.M.hp_flashing = index.M.hp_flashing or {}
             index.M.hp_flashing[ entity_id ] = index.M.hp_flashing[ entity_id ] or {}
@@ -1459,24 +1460,23 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_zs, entity_id, this_data, param
             index.M.hp_flashing[ entity_id ][2] = index.M.hp_flashing[ entity_id ][2] + 1
 
             if( red_shift > 0.5 ) then
-                pen.new_image( pic_x - ( length + 1 ), pic_y, pic_zs[1] - 0.001,
-					params.pic_dmg or "data/ui_gfx/hud/colors_health_bar_bg_low_hp.png", { s_x = ( length + 2 )/2, s_y = height/2 + 1 })
-			else pic = params.pic_bg or "data/ui_gfx/hud/colors_health_bar_damage.png" end
+                pen.new_pixel( pic_x - ( length + 1 ), pic_y,
+					pic_z - 0.005, data.color_bg or pen.PALETTE.VNL.HP_LOW, length + 2, height + 2 )
+			else pic = data.color_dmg or pen.PALETTE.VNL.DAMAGE end
             red_shift = red_shift*perc
         end
 
-		local delay = 30 --params.damage_fading
-        if( this_data[5] <= delay ) then
-            local last_hp = math.min( math.max( this_data[4], 0 ), max_hp )
-            pen.new_image( pic_x - length, pic_y + 1, pic_zs[2] + 0.001, "data/ui_gfx/hud/colors_health_bar_damage.png",
-				{ s_x = 0.5*length*last_hp/max_hp, s_y = height/2, alpha = ( delay - this_data[5])/delay })
+		local delay = 30 --data.damage_fading
+        if( data.dmg_data[5] <= delay ) then
+            local last_hp = math.min( math.max( data.dmg_data[4], 0 ), max_hp )
+            pen.new_pixel( pic_x - length, pic_y + 1,
+				pic_z - 0.009, pen.PALETTE.VNL.DAMAGE, length*last_hp/max_hp, height, ( delay - data.dmg_data[5])/delay )
         end
         
+		hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
-        hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
-        index.new_vanilla_bar( pic_x, pic_y, pic_zs, { length, height, length*hp/max_hp }, pic )
-    end
-
+        index.new_vanilla_bar( pic_x, pic_y, pic_z, { length, height, length*hp/max_hp }, pic )
+	end)
     return length, height, max_hp, hp, red_shift
 end
 
@@ -1509,21 +1509,14 @@ function index.new_pickup_info( screen_h, screen_w, pickup_info, xys )
 	end
 end
 
-function index.tipping( tid, tip_func, pos, tip, pic_zs, is_right, is_up, is_debugging )
-	pic_zs = pen.get_hybrid_table( pic_zs )
-
-	local clicked, r_clicked, is_hovered = pen.new_interface(
-		pos[1], pos[2], pos[3], pos[4], pic_zs[1], { is_debugging = is_debugging })
-	if( pic_zs[2] ~= nil and is_hovered ) then
-		pen.new_image( pos[1], pos[2], pic_zs[2],
-			"data/ui_gfx/hud/colors_reload_bar_bg_flash.png", { s_x = pos[3]/2, s_y = pos[4]/2, alpha = 0.5 })
-	end
-	
-	tip_func = tip_func or pen.new_tooltip
-	-- local out = { tip_func( tid, pic_zs[1], { tip[1], tip[2], tip[3], tip[4], tip[5] }, nil, is_hovered, is_right, is_up )}
-	-- table.insert( out, clicked )
-	-- table.insert( out, r_clicked )
-	-- return unpack( out )
+function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
+	data = data or {}
+	local clicked, r_clicked = false, false
+	pic_z = pen.get_hybrid_table( pic_z or { pen.LAYERS.TIPS, pen.LAYERS.MAIN_DEEP })
+	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z[1], data )
+	if( pic_z[2] ~= nil and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.WARNING, s_x, s_y, 0.75 ) end
+	( func or index.D.tip_func )( text, data, func )
+	return data.is_active, clicked, r_clicked
 end
 
 function index.new_vanilla_worldtip( tid, item_id, this_info, pic_x, pic_y, no_space, cant_buy, tip_func )
@@ -1868,9 +1861,9 @@ function index.new_vanilla_ptt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 				local t_x, t_y = pic_x + 1 + line_w, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + line_h*(i-1) + 9
 				local perc = math.max( line_w*m[2]/total_cap, 1 )
 				pen.new_pixel( t_x, t_y, pic_z + tonumber( "0.0001"..i ),
-					pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, nil, inter_alpha )
+					pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, inter_alpha )
 				if( line_w - perc > 0.25 ) then
-					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), nil, -0.5, line_h, nil, 0.75*inter_alpha )
+					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), nil, -0.5, line_h, 0.75*inter_alpha )
 				end
 			end
 			index.new_vanilla_plate( pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
@@ -2276,12 +2269,12 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, {170,170,170}, 10, pos, nil, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, nil, 10, scale, nil, 0.25 )
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, {170,170,170}, 10, pos, 0.15 )
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, nil, 10, scale, 0.25 )
 
-		pen.new_pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, nil, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, nil, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pen.PALETTE.B, 10, 1, nil, 0.15 )
+		pen.new_pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
+		pen.new_pixel( pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pen.PALETTE.B, 10, 1, 0.15 )
 	end
 
 	local txt_off_x, txt_off_y = 0, 0

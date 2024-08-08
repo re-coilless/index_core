@@ -367,11 +367,7 @@ if( index.D.applets.done == nil ) then
     local close_applets = {
         name = "CLOSE",
         
-        pic = function( pic_x, pic_y, pic_z, angle )
-            local clicked, _, is_hovered = pen.new_image( pic_x - 1, pic_y - 1, pic_z,
-                "data/ui_gfx/status_indicators/neutralized.png", { can_click = true, angle = angle })
-            return clicked, is_hovered
-        end,
+        pic = "data/ui_gfx/status_indicators/neutralized.png",
         toggle = function( state )
             if( not( state )) then return end
             if( index.D.is_opened ) then
@@ -387,7 +383,6 @@ if( index.D.applets.done == nil ) then
     table.insert( index.D.applets.r, close_applets )
 end
 
-index.D.is_opened = true --testing
 local global_callback = index.D.gmod.custom_func
 if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, false ) end
 
@@ -403,15 +398,15 @@ if( not( index.D.gmod.nuke_default )) then
     if( bars.hp ~= nil ) then pos_tbl.hp = bars.hp( screen_w, screen_h, pos_tbl ) end
     if( bars.air ~= nil ) then pos_tbl.air = bars.air( screen_w, screen_h, pos_tbl ) end
     if( bars.flight ~= nil ) then pos_tbl.flight = bars.flight( screen_w, screen_h, pos_tbl ) end
-    if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
+    -- if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
     
-    -- local actions = bars.action or {}
-    -- if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, pos_tbl ) end
-    -- if( actions.reload ~= nil ) then pos_tbl.reload = actions.reload( screen_w, screen_h, pos_tbl ) end
-    -- if( actions.delay ~= nil ) then pos_tbl.delay = actions.delay( screen_w, screen_h, pos_tbl ) end
+    local actions = bars.action or {}
+    if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, pos_tbl ) end
+    if( actions.reload ~= nil ) then pos_tbl.reload = actions.reload( screen_w, screen_h, pos_tbl ) end
+    if( actions.delay ~= nil ) then pos_tbl.delay = actions.delay( screen_w, screen_h, pos_tbl ) end
 
-    -- if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
-    -- if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
+    if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
+    if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
     -- if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
 
     -- local icons = inv.icons or {}
@@ -432,7 +427,7 @@ end
 
 if( index.D.gmod.allow_shooting ) then index.D.no_inv_shooting = false end
 if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, true ) end
-if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 999999 ) end
+if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
 
 if( index.D.inv_toggle and not( index.D.gmod.no_inv_toggle or false )) then
     index.M.inv_alpha = frame_num + 15

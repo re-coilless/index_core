@@ -101,102 +101,103 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
 end
 
 function index.new_generic_applets( screen_w, screen_h, xys )
-    local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
-
     local this_data = index.D.applets
-    if( this_data ~= nil and not( index.D.gmod.menu_capable )) then
-        absolutely_abominable_piece_of_shit = god_do_i_hate_this_one
-        local function applet_setup( this_data, pic_x, type )
-            local is_left = type == 1
-            local sign = is_left and -1 or 1
-            local tbl = {
-                { "l", "l_state", "l_frame", "applets_l_drift", "l_hover" },
-                { "r", "r_state", "r_frame", "applets_r_drift", "r_hover" },
-            }
+    local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
+    local function applet_setup( pic_x, type )
+        local is_left = type == 1
+        local sign = is_left and -1 or 1
+        local tbl = {
+            { "l", "l_state", "l_frame", "applets_l_drift", "l_hover" },
+            { "r", "r_state", "r_frame", "applets_r_drift", "r_hover" },
+        }
 
-            local l = #this_data[tbl[type][1]]*11
-            local drift_target, core_off = 5, is_left and -10 or 0
-            local total_drift, allow_clicks = l - drift_target, true
-            if( not( this_data[tbl[type][2]])) then
-                local clicked, r_clicked, is_hovered = pen.new_interface(
-                    is_left and -1 or ( screen_w - 10 ), -1, 11, 19, pen.LAYERS.TIPS_FRONT )
-                index.D.tip_func( "[APPLETS]", { is_active = is_hovered })
-                if( clicked ) then
-                    index.play_sound( "click" )
-                    this_data[ tbl[ type ][2]] = true
-                    this_data[ tbl[ type ][3]] = index.D.frame_num
-                    allow_clicks = false
-                end
-                if( not( is_hovered )) then
-                    drift_target = 0
-                end
-            else
-                local delta = index.D.frame_num - ( this_data[tbl[type][3]] or 0 )
-                if( delta < 16 ) then
-                    allow_clicks = false
-                    local k = 5
-                    local v = k*math.sin( delta*math.pi/k )/( math.pi*delta^2 )
-                    core_off = total_drift*( 1 - v )
-                else
-                    core_off = total_drift
-                end
+        local l = #this_data[ tbl[ type ][1]]*11
+        local drift_target, core_off = 5, is_left and -10 or 0
+        local total_drift, allow_clicks = l - drift_target, true
+        if( not( this_data[ tbl[ type ][2]])) then
+            local clicked, r_clicked, is_hovered = pen.new_interface(
+                is_left and -1 or ( screen_w - 10 ), -1, 11, 19, pen.LAYERS.TIPS_FRONT )
+            index.D.tip_func( "[APPLETS]", { is_active = is_hovered })
+            if( not( is_hovered )) then drift_target = 0 end
+
+            if( clicked ) then
+                allow_clicks = false
+                index.play_sound( "click" )
+                this_data[ tbl[ type ][2]] = true
+                this_data[ tbl[ type ][3]] = index.D.frame_num
             end
-            
-            index.D[ tbl[ type ][4]] = total_drift
-            local extra_off, arrow_off = pen.estimate( tbl[ type ][4], drift_target, 0.2 ), is_left and ( l - 8 ) or 0
-            pic_x = pic_x - sign*( core_off + extra_off )
-            if( this_data[tbl[type][2]]) then
-                if( is_left ) then pic_x = pic_x - 10 end
-                arrow_off = arrow_off + extra_off + 2
-                local clicked, is_hovered, mute, reset_em, got_one = false, false, false, 0, false
-                for i,icon in ipairs( this_data[tbl[type][1]]) do
-                    local metahover = not( got_one ) and ( this_data[tbl[type][5]][i] or false )
-                    clicked, is_hovered, mute = icon.pic( pic_x + sign*( i - 1 )*11, pic_y, pen.LAYERS.MAIN_BACK, metahover and math.rad( -5 ) or 0 )
-                    if( allow_clicks ) then
-                        index.D.tip_func( icon.name..( icon.desc == nil and "" or "@"..icon.desc ), { pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
-                        if( clicked and reset_em == 0 ) then
-                            if( not( mute or false )) then index.play_sound( "click" ) end
-                            
-                            reset_em = i
-                            if( icon.toggle ~= nil and icon.toggle( true )) then
-                                if( not( is_left )) then
-                                    for i,gmod in ipairs( index.D.gmod.gmods ) do
-                                        if( gmod.menu_capable ) then
-                                            pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                            for k,icn in ipairs( this_data[ tbl[ type ][1]]) do
-                                if( icn.toggle ~= nil ) then icn.toggle( false ) end
-                            end
-                        end
-                    end
-                    if( is_hovered and not( this_data[ tbl[ type ][5]][i] )) then index.play_sound( "hover" ) end
-                    this_data[ tbl[ type ][5]][i] = is_hovered
-                    if( is_hovered ) then got_one = true end
-                end
-            else pen.colourer({255,255,178}) end
-
-            if( is_left ) then pic_x = pic_x - ( l - 10 ) end
-            pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1, pen.LAYERS.MAIN_BACK - 0.001,
-                "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-            index.D.plate_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
-            if( is_left ) then
-                pic_x = pic_x + arrow_off + 11
-            else pic_x = pic_x - ( 3 + arrow_off ) end
-            return pic_x
+        else
+            local delta = index.D.frame_num - ( this_data[tbl[type][3]] or 0 )
+            if( delta < 16 ) then
+                allow_clicks = false
+                local k = 5
+                local v = k*math.sin( delta*math.pi/k )/( math.pi*delta^2 )
+                core_off = total_drift*( 1 - v )
+            else core_off = total_drift end
         end
+        
+        index.D[ tbl[ type ][4]] = total_drift
+        local arrow_off = is_left and ( l - 8 ) or 0
+        local extra_off = pen.estimate( tbl[ type ][4], drift_target, 0.2 )
+        pic_x = pic_x - sign*( core_off + extra_off )
+
+        if( this_data[ tbl[ type ][2]]) then
+            if( is_left ) then pic_x = pic_x - 10 end
+            arrow_off = arrow_off + extra_off + 2
+            local clicked, is_hovered, reset_em, got_one = false, false, 0, false
+            for i,icon in ipairs( this_data[ tbl[ type ][1]]) do
+                local t_x = pic_x + sign*( i - 1 )*11
+                local metahover = not( got_one ) and ( this_data[ tbl[ type ][5]][i] or false )
+                local clicked,_,is_hovered = pen.new_interface( t_x, pic_y, 10, 10, pen.LAYERS.MAIN_BACK )
+                pen.new_image( t_x - 1, pic_y - 1, pen.LAYERS.MAIN_BACK, icon.pic, { angle = metahover and math.rad( -5 ) or 0 })
+
+                pen.hallway( function()
+                    if( not( allow_clicks )) then return end
+                    index.D.tip_func( icon.name..( icon.desc == nil and "" or "@"..icon.desc ),
+                        { pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
+                    if( not( clicked and reset_em == 0 )) then return end
+                    if( not( icon.mute or false )) then index.play_sound( "click" ) end
+                    
+                    reset_em = i
+                    if( icon.toggle ~= nil and icon.toggle( true ) and not( is_left )) then
+                        pen.t.loop( index.D.gmod.gmods, function( i, gmod )
+                            if( not( gmod.menu_capable )) then return end
+                            pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
+                            return true
+                        end)
+                    end
+                    for k,icn in ipairs( this_data[ tbl[ type ][1]]) do
+                        if( icn.toggle ~= nil ) then icn.toggle( false ) end
+                    end
+                end)
+                if( is_hovered and not( this_data[ tbl[ type ][5]][i] )) then index.play_sound( "hover" ) end
+                this_data[ tbl[ type ][5]][i] = is_hovered
+                if( is_hovered ) then got_one = true end
+            end
+        else pen.colourer( pen.PALETTE.VNL.YELLOW ) end
+
+        if( is_left ) then pic_x = pic_x - ( l - 10 ) end
+        pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
+            pen.LAYERS.MAIN_BACK - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
+        index.D.plate_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
+        if( is_left ) then
+            pic_x = pic_x + arrow_off + 11
+        else pic_x = pic_x - ( 3 + arrow_off ) end
+        return pic_x
+    end
+
+    pen.hallway( function()
+        if( this_data == nil ) then return end
+        if( index.D.gmod.menu_capable ) then return end
         
         if( index.D.is_opened ) then
             if( index.D.gmod.show_full and #this_data.r > 1 ) then
-                pic_x_r = applet_setup( this_data, pic_x_r, 2 )
+                pic_x_r = applet_setup( pic_x_r, 2 )
             end
         elseif( #this_data.l > 1 ) then
-            pic_x_l = applet_setup( this_data, pic_x_l, 1 )
+            pic_x_l = applet_setup( pic_x_l, 1 )
         end
-    end
+    end)
 
     return { pic_x_l, pic_y }, { pic_x_r, pic_y }
 end
@@ -204,226 +205,208 @@ end
 function index.new_generic_hp( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
     local red_shift, length, height = 0, 0, 0
-
     local this_data = index.D.DamageModel
-    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        if( not( ComponentGetIsEnabled( this_data[1]))) then return end
         local max_hp, hp = this_data[2], this_data[3]
-        if( max_hp > 0 ) then
-            length, height, max_hp, hp, red_shift = index.new_vanilla_hp( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, index.D.player_id, this_data )
-
-            local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
-            pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
-            pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
-            
-            local tip = index.hud_text_fix( "$hud_health" )..( index.D.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
-            index.tipping( nil, nil, {
-                pic_x - ( length + 2 ),
-                pic_y - 1,
-                length + 4,
-                8,
-            }, { tip, pic_x - 43, pic_y + 9 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-
-            pic_y = pic_y + 10
-        end
-    end
+        if( max_hp <= 0 ) then return end
+        
+        length, height, max_hp, hp, red_shift = index.new_vanilla_hp( pic_x, pic_y, pen.LAYERS.MAIN_BACK, { dmg_data = this_data })
+        
+        local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
+        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
+        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        
+        local tip = index.hud_text_fix( "$hud_health" )..( index.D.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
+        index.tipping( pic_x - ( length + 2 ), pic_y - 1, nil, length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
+        pic_y = pic_y + 10
+    end)
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", index.D.hp_flashing_intensity*red_shift, 0, 0, 0 )
-
     return { pic_x, pic_y }
 end
 
 function index.new_generic_air( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.hp )
-
     local this_data = index.D.DamageModel
-    if( #this_data > 0 and ComponentGetIsEnabled( this_data[1]) and not( index.D.gmod.menu_capable )) then
-        if( this_data[6] and this_data[8]/this_data[7] < 0.9 ) then
-            pen.new_text( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
-            index.new_vanilla_bar( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, {40,2,40*math.max( this_data[8], 0 )/this_data[7]}, "data/ui_gfx/hud/colors_mana_bar.png", nil, 0.75 )
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        if( not( ComponentGetIsEnabled( this_data[1]))) then return end
+        if( not( this_data[6]) or this_data[8]/this_data[7] > 0.9 ) then return end
 
-            local tip_x, tip_y = unpack( xys.hp )
-            local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
-            index.tipping( nil, nil, {
-                pic_x - 42,
-                pic_y - 1,
-                44,
-                6,
-            }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
+        pen.new_text( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
+        index.new_vanilla_bar( pic_x, pic_y,
+            pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( this_data[8], 0 )/this_data[7]}, pen.PALETTE.VNL.MANA, nil, 0.75 )
 
-            pic_y = pic_y + 8
-        end
-    end
-
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
+        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        pic_y = pic_y + 8
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_flight( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.air )
-    
     local this_data = index.D.CharacterData
-    if( #this_data > 0 and this_data[2] and this_data[3] > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        if( not( this_data[2]) or this_data[3] == 0 ) then return end
+
         if( index.M.flight_shake == nil ) then
             if( #index.D.Controls > 0 and index.D.Controls[4][1] and this_data[4] <= 0 ) then
                 index.M.flight_shake = index.D.frame_num
             end
         end
+
         local shake_frame = index.D.frame_num - ( index.M.flight_shake or index.D.frame_num )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
-        index.new_vanilla_bar( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, {40,2,40*math.max( this_data[4], 0 )/this_data[3]}, "data/ui_gfx/hud/colors_flying_bar.png", index.M.flight_shake ~= nil and shake_frame or nil )
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
+            { 40, 2, 40*math.max( this_data[4], 0 )/this_data[3]}, pen.PALETTE.VNL.FLIGHT, index.M.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data[4], this_data[3], 2 )
-        index.tipping( nil, nil, {
-            pic_x - 42,
-            pic_y - 1,
-            44,
-            6,
-        }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
+        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then index.M.flight_shake = nil end
         pic_y = pic_y + 8
-    end
-
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_mana( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.flight )
-    index.M.mana_shake = index.M.mana_shake or {}
-    
     local this_data = index.D.active_info
-    if( this_data.id ~= nil and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data.id, true ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        index.M.mana_shake = index.M.mana_shake or {}
+
+        local value = {0,0}
         local potion_data = {}
         local throw_it_back = nil
-        
-        local value = {0,0}
         if( this_data.wand_info ~= nil ) then
-            local mana_max = this_data.wand_info.mana_max
             local mana = this_data.wand_info.mana
-
+            local mana_max = this_data.wand_info.mana_max
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( index.M.mana_shake[ index.D.active_item ] == nil ) then
                 if( index.D.no_mana_4life ) then index.M.mana_shake[ index.D.active_item ] = index.D.frame_num end
             end
+
             local shake_frame = index.D.frame_num - ( index.M.mana_shake[ index.D.active_item ] or index.D.frame_num )
             throw_it_back = index.M.mana_shake[ index.D.active_item ] ~= nil and -shake_frame or nil
             if( shake_frame >= 20 ) then index.M.mana_shake[ index.D.active_item ] = nil end
-        elseif( this_data.matter_info ~= nil ) then
-            if( this_data.matter_info[1] >= 0 ) then
-                value = { math.max( this_data.matter_info[2][1], 0 ), this_data.matter_info[1]}
-                potion_data = { "data/ui_gfx/hud/potion.png", }
-                if( index.D.fancy_potion_bar ) then
-                    table.insert( potion_data, pen.FILE_PIC_NUL )
-                    table.insert( potion_data, pen.magic_uint( GameGetPotionColorUint( index.D.active_item )))
-                    table.insert( potion_data, 0.8 )
-                end
+        elseif( this_data.matter_info ~= nil and this_data.matter_info[1] >= 0 ) then
+            value = { math.max( this_data.matter_info[2][1], 0 ), this_data.matter_info[1]}
+            potion_data = { "data/ui_gfx/hud/potion.png" }
+            if( index.D.fancy_potion_bar ) then
+                table.insert( potion_data, pen.magic_uint( GameGetPotionColorUint( index.D.active_item )))
+                table.insert( potion_data, 0.8 )
             end
         end
-        if( value[1] >= 0 and value[2] > 0 ) then
-            local ratio = math.min( value[1]/value[2], 1 )
-            pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN,
-                potion_data[1] or "data/ui_gfx/hud/mana.png", { has_shadow = true })
-            if( potion_data[3] ~= nil ) then
-                pen.new_image( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN + 0.001,
-                    potion_data[2], { s_x = math.min( 40*ratio + 0.5, 40 ), s_y = 2 })
-                pen.colourer( potion_data[3])
-            end
-            index.new_vanilla_bar( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, {40,2,40*ratio}, potion_data[2] or "data/ui_gfx/hud/colors_mana_bar.png", throw_it_back, potion_data[4])
-            
-            local tip = ""
-            if( potion_data[3] ~= nil ) then
-                tip = this_data.name..( this_data.fullness ~= nil and "@"..this_data.fullness or "" )
-            else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
-
-            local tip_x, tip_y = unpack( xys.hp )
-            tipping( nil, nil, {
-                pic_x - 42,
-                pic_y - 1,
-                44,
-                6,
-            }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-
-            pic_y = pic_y + 8
+        
+        if( value[1] < 0 or value[2] <= 0 ) then return end
+        
+        local ratio = math.min( value[1]/value[2], 1 )
+        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, potion_data[1] or "data/ui_gfx/hud/mana.png", { has_shadow = true })
+        if( potion_data[2] ~= nil ) then
+            pen.new_pixel( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN + 0.001, nil, math.min( 40*ratio + 0.5, 40 ), 2 )
         end
-    end
+        index.new_vanilla_bar( pic_x, pic_y,
+            pen.LAYERS.MAIN_BACK, { 40, 2, 40*ratio }, potion_data[2] or pen.PALETTE.VNL.MANA, throw_it_back, potion_data[4])
+        
+        local tip = ""
+        if( potion_data[3] ~= nil ) then
+            tip = this_data.name..( this_data.fullness ~= nil and "@"..this_data.fullness or "" )
+        else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
 
+        local tip_x, tip_y = unpack( xys.hp )
+        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        pic_y = pic_y + 8
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_reload( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.mana )
-    index.M.reload_shake = index.M.reload_shake or {}
-    index.M.reload_max = index.M.reload_max or {}
-    
     local this_data = index.D.active_info
-    if( this_data.wand_info ~= nil and not( this_data.wand_info.never_reload ) and not( index.D.gmod.menu_capable )) then
-        local reloading = this_data.wand_info.reload_frame
-        index.M.reload_max[ index.D.active_item ] = ( index.M.reload_max[ index.D.active_item ] or -1 ) < reloading and reloading or index.M.reload_max[ index.D.active_item ]
-        if( index.M.reload_max[ index.D.active_item ] > index.D.reload_threshold ) then
-            if( index.M.reload_max[ index.D.active_item ] ~= reloading ) then
-                if( index.M.reload_shake[ index.D.active_item ] == nil and index.D.just_fired ) then
-                    index.M.reload_shake[ index.D.active_item ] = index.D.frame_num
-                end
-            end
-            
-            local shake_frame = index.D.frame_num - ( index.M.reload_shake[ index.D.active_item ] or index.D.frame_num )
-            pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-            index.new_vanilla_bar( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, {40,2,40*reloading/index.M.reload_max[ index.D.active_item ]}, "data/ui_gfx/hud/colors_reload_bar.png", index.M.reload_shake[ index.D.active_item ] ~= nil and -shake_frame or nil )
-            
-            local tip_x, tip_y = unpack( xys.hp )
-            local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-            tipping( nil, nil, {
-                pic_x - 42,
-                pic_y - 1,
-                44,
-                6,
-            }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-            if( shake_frame >= 20 ) then index.M.reload_shake[ index.D.active_item ] = nil end
-            pic_y = pic_y + 8
-        end
-    end
-    if( this_data.wand_info == nil or ( this_data.wand_info.reload_frame or 0 ) == 0 ) then
-        index.M.reload_max[ index.D.active_item ] = nil
-    end
 
+    index.M.reload_max = index.M.reload_max or {}
+    index.M.reload_shake = index.M.reload_shake or {}
+
+    local is_real = pen.vld( this_data.wand_info, true )
+    pen.hallway( function()
+        if( not( is_real )) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        if( this_data.wand_info.never_reload ) then return end
+
+        local reloading = this_data.wand_info.reload_frame
+        local reloading_full = index.M.reload_max[ index.D.active_item ]
+        if(( reloading_full or -1 ) < reloading ) then reloading_full = reloading end
+        index.M.reload_max[ index.D.active_item ] = reloading_full
+        
+        if( reloading_full <= index.D.reload_threshold ) then return end
+
+        local reloading_shake = index.M.reload_shake[ index.D.active_item ]
+        if( reloading_shake == nil and index.D.just_fired and reloading_full ~= reloading ) then reloading_shake = index.D.frame_num end
+        index.M.reload_shake[ index.D.active_item ] = reloading_shake
+        
+        local shake_frame = index.D.frame_num - ( reloading_shake or index.D.frame_num )
+        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
+            { 40, 2, 40*reloading/reloading_full }, pen.PALETTE.VNL.CAST, reloading_shake ~= nil and -shake_frame or nil )
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
+        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        if( shake_frame >= 20 ) then index.M.reload_shake[ index.D.active_item ] = nil end
+        pic_y = pic_y + 8
+    end)
+
+    local is_done = (( this_data.wand_info or {}).reload_frame or 0 ) == 0 
+    if( not( is_real ) or is_done ) then index.M.reload_max[ index.D.active_item ] = nil end
     return { pic_x, pic_y }
 end
 
 function index.new_generic_delay( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.reload )
-    index.M.delay_shake = index.M.delay_shake or {}
-    index.M.delay_max = index.M.delay_max or {}
-    
     local this_data = index.D.active_info
-    if( this_data.wand_info ~= nil and not( index.D.gmod.menu_capable )) then
-        local cast_delay = this_data.wand_info.delay_frame
-        index.M.delay_max[ index.D.active_item ] = ( index.M.delay_max[ index.D.active_item ] or -1 ) < cast_delay and cast_delay or index.M.delay_max[ index.D.active_item ]
-        if( index.M.delay_max[ index.D.active_item ] > index.D.reload_threshold ) then
-            if( index.M.delay_max[ index.D.active_item ] ~= cast_delay ) then
-                if( index.M.delay_shake[ index.D.active_item ] == nil and index.D.just_fired ) then
-                    index.M.delay_shake[ index.D.active_item ] = index.D.frame_num
-                end
-            end
-            
-            local shake_frame = index.D.frame_num - ( index.M.delay_shake[ index.D.active_item ] or index.D.frame_num )
-            pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN,
-                "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
-            index.new_vanilla_bar( pic_x, pic_y, {pen.LAYERS.MAIN_BACK,pen.LAYERS.MAIN}, {40,2,40*cast_delay/index.M.delay_max[ index.D.active_item ]}, "data/ui_gfx/hud/colors_reload_bar.png", index.M.delay_shake[ index.D.active_item ] ~= nil and -shake_frame or nil )
-            
-            local tip_x, tip_y = unpack( xys.hp )
-            local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", cast_delay/60 ).."s"
-            tipping( nil, nil, {
-                pic_x - 42,
-                pic_y - 1,
-                44,
-                6,
-            }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-            if( shake_frame >= 20 ) then index.M.delay_shake[ index.D.active_item ] = nil end
-            pic_y = pic_y + 8
-        end
-    end
-    if( this_data.wand_info == nil or ( this_data.wand_info.delay_frame or 0 ) == 0 ) then
-        index.M.delay_max[ index.D.active_item ] = nil
-    end
 
+    index.M.delay_max = index.M.delay_max or {}
+    index.M.delay_shake = index.M.delay_shake or {}
+
+    local is_real = pen.vld( this_data.wand_info, true )
+    pen.hallway( function()
+        if( not( is_real )) then return end
+        if( index.D.gmod.menu_capable ) then return end
+
+        local delay = this_data.wand_info.delay_frame
+        local delay_full = index.M.delay_max[ index.D.active_item ]
+        if(( delay_full or -1 ) < delay ) then delay_full = delay end
+        index.M.delay_max[ index.D.active_item ] = delay_full
+        
+        if( delay_full <= index.D.reload_threshold ) then return end
+
+        local delay_shake = index.M.delay_shake[ index.D.active_item ]
+        if( delay_shake == nil and index.D.just_fired and delay_full ~= delay ) then delay_shake = index.D.frame_num end
+        index.M.delay_shake[ index.D.active_item ] = delay_shake
+        
+        local shake_frame = index.D.frame_num - ( delay_shake or index.D.frame_num )
+        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
+            { 40, 2, 40*delay/delay_full }, pen.PALETTE.VNL.CAST, delay_shake ~= nil and -shake_frame or nil )
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
+        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        if( shake_frame >= 20 ) then index.M.delay_shake[ index.D.active_item ] = nil end
+        pic_y = pic_y + 8
+    end)
+    
+    local is_done = (( this_data.wand_info or {}).delay_frame or 0 ) == 0 
+    if( not( is_real ) or is_done ) then index.M.delay_max[ index.D.active_item ] = nil end
     return { pic_x, pic_y }
 end
 
@@ -474,40 +457,32 @@ end
 
 function index.new_generic_gold( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.delay )
-
     local this_data = index.D.Wallet
-    if( #this_data > 0 and this_data[3] >= 0 and not( index.D.gmod.menu_capable )) then
-        local god_i_love_money_holy_fuck = -1
-        if( not( this_data[2])) then
-            index.M.money = index.M.money or this_data[3]
-            local delta = this_data[3] - index.M.money
-            index.M.money = index.M.money + pen.limiter( pen.limiter( 0.1*delta, 1, true ), delta )
-            god_i_love_money_holy_fuck = index.M.money
-        end
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+        if( this_data[3] < 0 ) then return end
 
-        local v = pen.get_short_num( god_i_love_money_holy_fuck )
+        local le_money = this_data[2] and -1 or math.floor( pen.estimate( "index_gold", this_data[3], 0.09, 1 ))
+        
+        local v = pen.get_short_num( le_money )
         pen.new_image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { has_shadow = true })
         local dims = pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_gold" )..( index.D.short_gold and v or god_i_love_money_holy_fuck ).."$"
-        tipping( nil, nil, {
-            pic_x + 2.5,
-            pic_y - 1,
-            10.5 + dims[1],
-            8,
-        }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-
+        local money_string = " "..(( this_data[2] or index.D.short_gold ) and v or le_money ).."$"
+        local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "@$", money_string )
+        index.tipping( pic_x + 2.5, pic_y - 1, nil, 10.5 + dims[1], 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
-    end
-
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_orbs( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.gold )
-    
-    if( index.D.orbs > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( index.D.gmod.menu_capable ) then return end
+        if( index.D.orbs <= 0 ) then return end
         pic_y = pic_y + 1
         
         pen.new_image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { has_shadow = true })
@@ -515,23 +490,15 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", tostring( index.D.orbs ))
-        tipping( nil, nil, {
-            pic_x + 2,
-            pic_y - 1,
-            11 + dims[1],
-            8,
-        }, { tip, tip_x - 43, tip_y - 1 }, {pen.LAYERS.TIPS,pen.LAYERS.MAIN_DEEP}, true )
-
+        index.tipping( pic_x + 2, pic_y - 1, nil, 11 + dims[1], 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
-    end
-
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_info( screen_w, screen_h, xys )
     local pic_x, pic_y = 0,0
-    
-    function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
+    local function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         
         txt = pen.capitalizer( txt )
@@ -1154,12 +1121,8 @@ function index.new_generic_modder( screen_w, screen_h, xys )
                 new_mode = new_mode + 1
                 arrow_right_a = 1
             end
-            is_hovered, clicked, r_clicked = tipping( nil, nil, {
-                pic_x - ( 6 + w ),
-                pic_y - 11,
-                w + 6,
-                10
-            }, { mode_data.name.."@"..mode_data.desc }, pen.LAYERS.TIPS, mode_data.show_full )
+            is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11,
+                pen.LAYERS.TIPS, w + 6, 10, mode_data.name.."@"..mode_data.desc, { pos = { tip_x - 44, tip_y }, is_left = mode_data.show_full })
             gonna_reset = gonna_reset or r_clicked
             gonna_highlight = gonna_highlight or is_hovered
 
