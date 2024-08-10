@@ -25,7 +25,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
 
         local cat_wands = pic_x
-        local inv_id = index.D.inventories_player[1]
+        local inv_id = index.D.inventories_player.q
         local slot_data = index.D.slot_state[ inv_id ].quickest
         for i,slot in ipairs( slot_data ) do
             w, h = slot_setup( pic_x, pic_y, {
@@ -63,7 +63,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         if( index.D.gmod.show_full ) then
             if( index.D.is_opened or index.D.always_show_full ) then
                 local core_y = pic_y
-                inv_id = index.D.inventories_player[2]
+                inv_id = index.D.inventories_player.f
                 slot_data = index.D.slot_state[ inv_id ]
                 for i,col in ipairs( slot_data ) do
                     local count = not( index.D.gmod.show_fullest or false ) and 1 or #col
@@ -92,7 +92,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         -- if( InputIsKeyJustDown( 41--[[escape]])) then
         --     index.D.inv_toggle = index.D.is_opened
         -- else
-        if( index.D.Controls[2][2]) then
+        if( index.D.Controls.inv[2]) then
             index.D.inv_toggle = true
         end
     end
@@ -174,7 +174,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
                 this_data[ tbl[ type ][5]][i] = is_hovered
                 if( is_hovered ) then got_one = true end
             end
-        else pen.colourer( pen.PALETTE.VNL.YELLOW ) end
+        else pen.colourer( nil, pen.PALETTE.VNL.YELLOW ) end
 
         if( is_left ) then pic_x = pic_x - ( l - 10 ) end
         pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
@@ -209,8 +209,8 @@ function index.new_generic_hp( screen_w, screen_h, xys )
     pen.hallway( function()
         if( not( pen.vld( this_data ))) then return end
         if( index.D.gmod.menu_capable ) then return end
-        if( not( ComponentGetIsEnabled( this_data[1]))) then return end
-        local max_hp, hp = this_data[2], this_data[3]
+        if( not( ComponentGetIsEnabled( this_data.comp ))) then return end
+        local max_hp, hp = this_data.hp_max, this_data.hp
         if( max_hp <= 0 ) then return end
         
         length, height, max_hp, hp, red_shift = index.new_vanilla_hp( pic_x, pic_y, pen.LAYERS.MAIN_BACK, { dmg_data = this_data })
@@ -233,15 +233,15 @@ function index.new_generic_air( screen_w, screen_h, xys )
     pen.hallway( function()
         if( not( pen.vld( this_data ))) then return end
         if( index.D.gmod.menu_capable ) then return end
-        if( not( ComponentGetIsEnabled( this_data[1]))) then return end
-        if( not( this_data[6]) or this_data[8]/this_data[7] > 0.9 ) then return end
+        if( not( ComponentGetIsEnabled( this_data.comp ))) then return end
+        if( not( this_data.can_air ) or this_data.air/this_data.air_max > 0.9 ) then return end
 
         pen.new_text( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
         index.new_vanilla_bar( pic_x, pic_y,
-            pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( this_data[8], 0 )/this_data[7]}, pen.PALETTE.VNL.MANA, nil, 0.75 )
+            pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( this_data.air, 0 )/this_data.air_max }, pen.PALETTE.VNL.MANA, nil, 0.75 )
 
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data[8], this_data[7], 2 )
+        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( this_data.air, this_data.air_max, 2 )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
     end)
@@ -254,10 +254,10 @@ function index.new_generic_flight( screen_w, screen_h, xys )
     pen.hallway( function()
         if( not( pen.vld( this_data ))) then return end
         if( index.D.gmod.menu_capable ) then return end
-        if( not( this_data[2]) or this_data[3] == 0 ) then return end
+        if( this_data.flight_always or this_data.flight_max == 0 ) then return end
 
         if( index.M.flight_shake == nil ) then
-            if( #index.D.Controls > 0 and index.D.Controls[4][1] and this_data[4] <= 0 ) then
+            if( index.D.Controls.fly[1] and this_data.flight <= 0 ) then
                 index.M.flight_shake = index.D.frame_num
             end
         end
@@ -265,10 +265,10 @@ function index.new_generic_flight( screen_w, screen_h, xys )
         local shake_frame = index.D.frame_num - ( index.M.flight_shake or index.D.frame_num )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
         index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
-            { 40, 2, 40*math.max( this_data[4], 0 )/this_data[3]}, pen.PALETTE.VNL.FLIGHT, index.M.flight_shake ~= nil and shake_frame or nil )
+            { 40, 2, 40*math.max( this_data.flight, 0 )/this_data.flight_max }, pen.PALETTE.VNL.FLIGHT, index.M.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data[4], this_data[3], 2 )
+        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( this_data.flight, this_data.flight_max, 2 )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then index.M.flight_shake = nil end
         pic_y = pic_y + 8
@@ -312,7 +312,7 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         local ratio = math.min( value[1]/value[2], 1 )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, potion_data[1] or "data/ui_gfx/hud/mana.png", { has_shadow = true })
         if( potion_data[2] ~= nil ) then
-            pen.new_pixel( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN + 0.001, nil, math.min( 40*ratio + 0.5, 40 ), 2 )
+            pen.new_pixel( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, math.min( 40*ratio + 0.5, 40 ), 2 )
         end
         index.new_vanilla_bar( pic_x, pic_y,
             pen.LAYERS.MAIN_BACK, { 40, 2, 40*ratio }, potion_data[2] or pen.PALETTE.VNL.MANA, throw_it_back, potion_data[4])
@@ -461,18 +461,21 @@ function index.new_generic_gold( screen_w, screen_h, xys )
     pen.hallway( function()
         if( not( pen.vld( this_data ))) then return end
         if( index.D.gmod.menu_capable ) then return end
-        if( this_data[3] < 0 ) then return end
+        if( this_data.money < 0 ) then return end
 
-        local le_money = this_data[2] and -1 or math.floor( pen.estimate( "index_gold", this_data[3], 0.09, 1 ))
-        
-        local v = pen.get_short_num( le_money )
-        pen.new_image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { has_shadow = true })
-        local dims = pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        local le_money = this_data.money_always and -1 or math.floor( pen.estimate( "index_gold", this_data.money, 0.09, 1 ))
         
         local tip_x, tip_y = unpack( xys.hp )
-        local money_string = " "..(( this_data[2] or index.D.short_gold ) and v or le_money ).."$"
+        local v = pen.get_short_num( le_money )
+        local money_string = " "..(( this_data.money_always or index.D.short_gold ) and v or le_money ).."$"
         local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "@$", money_string )
-        index.tipping( pic_x + 2.5, pic_y - 1, nil, 10.5 + dims[1], 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.LAYERS.TIPS,
+            10.5 + pen.get_text_dims( v, true ), 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        
+        local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
+        pen.new_image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
+        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+
         pic_y = pic_y + 8
     end)
     return { pic_x, pic_y }
@@ -485,12 +488,16 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
         if( index.D.orbs <= 0 ) then return end
         pic_y = pic_y + 1
         
-        pen.new_image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { has_shadow = true })
-        local dims = pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, index.D.orbs, { is_huge = false, has_shadow = true, alpha = 0.9 })
-
+        local v = tostring( index.D.orbs )
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = GameTextGet( "$hud_orbs", tostring( index.D.orbs ))
-        index.tipping( pic_x + 2, pic_y - 1, nil, 11 + dims[1], 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        local tip = GameTextGet( "$hud_orbs", v )
+        local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.LAYERS.TIPS,
+            11 + pen.get_text_dims( v, true ), 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+
+        local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
+        pen.new_image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
+        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+
         pic_y = pic_y + 8
     end)
     return { pic_x, pic_y }
@@ -644,54 +651,63 @@ function index.new_generic_ingestions( screen_w, screen_h, xys )
     if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
 
     local this_data = index.D.icon_data.ings
-    if( #this_data > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
         pic_y = pic_y + 3
+
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
-        pic_y = pic_y + 4
-    end
 
+        pic_y = pic_y + 4
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_stains( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.ingestions )
-
     local this_data = index.D.icon_data.stains
-    if( #this_data > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+
         for i,this_one in ipairs( this_data ) do
             local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
-        pic_y = pic_y + 3
-    end
 
+        pic_y = pic_y + 3
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_effects( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.stains )
-
     local this_data = index.D.icon_data.misc
-    if( #this_data > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+
         for i,this_one in ipairs( this_data ) do
             if( this_one.amount < 2 ) then this_one.txt = "" end
             local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
-        pic_y = pic_y + 3
-    end
 
+        pic_y = pic_y + 3
+    end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_perks( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.effects )
-    
     local this_data = index.D.perk_data
-    if( #this_data > 0 and not( index.D.gmod.menu_capable )) then
+    pen.hallway( function()
+        if( not( pen.vld( this_data ))) then return end
+        if( index.D.gmod.menu_capable ) then return end
+
         local perk_tbl_short = {}
         if( #this_data > index.D.max_perks ) then
             local extra_perk = {
@@ -708,23 +724,22 @@ function index.new_generic_perks( screen_w, screen_h, xys )
                 other_perks = {},
             }
             for i,perk in ipairs( this_data ) do
-                if( #perk_tbl_short < index.D.max_perks ) then
-                    table.insert( perk_tbl_short, perk )
-                else
+                if( #perk_tbl_short >= index.D.max_perks ) then
                     for k = 1,( perk.count or 1 ) do
                         table.insert( extra_perk.other_perks, perk.pic )
                     end
-                end
+                else table.insert( perk_tbl_short, perk ) end
             end
             table.insert( perk_tbl_short, extra_perk )
         else perk_tbl_short = this_data end
-
+        
         for i,this_one in ipairs( perk_tbl_short ) do
             local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
+
         pic_y = pic_y + 5
-    end
+    end)
 
     return { pic_x, pic_y }
 end
@@ -822,7 +837,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                         local item_data = {
                             { ent, item_comp, },
 
-                            ComponentGetValue2( item_comp, "is_pickable" ) or this_data[2],
+                            ComponentGetValue2( item_comp, "is_pickable" ) or this_data.pick_always,
                             ComponentGetValue2( item_comp, "item_pickup_radius" ),
                             ComponentGetValue2( item_comp, "next_frame_pickable" ),
                             ComponentGetValue2( item_comp, "auto_pickup" ),
@@ -840,7 +855,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                                 item_data[3] = pen.check_bounds({ x, y }, box_comp, { i_x, i_y })
                             else item_data[3] = dist <= item_data[3] end
                             if( item_data[3] and item_data[4] <= data.frame_num ) then
-                                if( this_data[3] == 0 or ent == this_data[3]) then
+                                if( this_data.pick_only == 0 or ent == this_data.pick_only ) then
                                     local this_info = index.get_item_data( ent )
                                     if( this_info.id ~= nil ) then
                                         table.insert( item_data, this_info )
@@ -875,7 +890,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                         if( cost_comp ~= nil ) then
                             is_shop = true
                             local cost = ComponentGetValue2( cost_comp, "cost" )
-                            if( index.D.Wallet[2] or ( cost <= index.D.Wallet[3])) then
+                            if( index.D.Wallet.money_always or ( cost <= index.D.Wallet.money )) then
                                 item_data[10].cost = cost
                             else cost_check = false end
                         end
@@ -980,7 +995,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                 if( not( ignore_default )) then
                     info_func( screen_h, screen_w, pickup_data, xys )
                 end
-                if( pickup_data.id > 0 and index.D.Controls[3][2]) then
+                if( pickup_data.id > 0 and index.D.Controls.act[2]) then
                     local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
                     local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
                     table.insert( index.G.slot_anim, {
@@ -1021,17 +1036,17 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                     }, xys )
                 end
             end
-            if( index.D.Controls[3][2]) then
-                index.D.Controls[3][2] = false
+            if( index.D.Controls.act[2]) then
+                index.D.Controls.act[2] = false
                 
                 if( do_action and not( index.M.action_skip_next or false )) then
                     local action_id = interactables[1][1]
                     EntitySetComponentIsEnabled( action_id, EntityGetFirstComponentIncludingDisabled( action_id, "InteractableComponent" ), true )
                     EntitySetComponentIsEnabled( action_id, EntityGetFirstComponent( action_id, "LuaComponent", "index_ctrl" ), false )
-                    ComponentSetValue2( index.D.Controls[1], "mButtonFrameInteract", index.D.frame_num + 1 )
+                    ComponentSetValue2( index.D.Controls.comp, "mButtonFrameInteract", index.D.frame_num + 1 )
                     index.M.action_skip_next = true
                 else
-                    ComponentSetValue2( index.D.Controls[1], "mButtonFrameInteract", 0 )
+                    ComponentSetValue2( index.D.Controls.comp, "mButtonFrameInteract", 0 )
                     index.M.action_skip_next = false
                 end
             end

@@ -119,7 +119,6 @@ local muid_x = mui_x - ( index.G.mouse_memo[1] or mui_x )
 local muid_y = mui_y - ( index.G.mouse_memo[2] or mui_y )
 index.G.mouse_memo = { mui_x, mui_y }
 
-local epsilon = index.G.settings.min_effect_duration
 local effect_tbl, perk_tbl = index.get_status_data( hooman, dmg_comp )
 local dragger_action = index.get_input( "ab_drag_action", true )
 local mtr_action = not( index.G.settings.info_mtr_hotkeyed ) or index.get_input( "ad_matter_action", true )
@@ -173,13 +172,17 @@ index.D = {
     can_tinker = false,
     sampo = 0,
 
-    inventories_player = { pen.get_child( hooman, "inventory_quick" ), pen.get_child( hooman, "inventory_full" )},
+    item_list = {},
+    slot_state = {},
+    item_cats = item_cats,
+
     inventories = {},
     inventories_init = {},
     inventories_extra = {},
-    slot_state = {},
-    item_cats = item_cats,
-    item_list = {},
+    inventories_player = {
+        q = pen.get_child( hooman, "inventory_quick" ),
+        f = pen.get_child( hooman, "inventory_full" ),
+    },
 
     dragger = {
         swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
@@ -195,7 +198,7 @@ index.D = {
 
     inv_spacings = index.G.settings.inv_spacings,
     effect_icon_spacing = index.G.settings.effect_icon_spacing,
-    min_effect_duration = epsilon,
+    min_effect_duration = index.G.settings.min_effect_duration,
     spell_anim_frames = index.G.settings.spell_anim_frames,
 
     hp_threshold = index.G.settings.hp_threshold,
@@ -242,65 +245,59 @@ index.D.player_xy = { hooman_x, hooman_y + index.D.player_core_off }
 index.D.can_tinker = pen.get_tinker_state( index.D.player_id, index.D.player_xy[1], index.D.player_xy[2])
 if( pen.vld( ctrl_comp, true )) then
     index.D.Controls = {
-        ctrl_comp,
-
-        { mnee.vanilla_input( "Inventory" )},
-        { mnee.vanilla_input( "Interact" )},
-        { mnee.vanilla_input( "Fly" )},
-        { mnee.vanilla_input( "RightClick" )},
-        { mnee.vanilla_input( "LeftClick" )},
+        comp = ctrl_comp,
+        fly = { mnee.vanilla_input( "Fly" )},
+        act = { mnee.vanilla_input( "Interact" )},
+        inv = { mnee.vanilla_input( "Inventory" )},
+        lmb = { mnee.vanilla_input( "LeftClick" )},
+        rmb = { mnee.vanilla_input( "RightClick" )},
     }
 end
 if( pen.vld( dmg_comp, true )) then
     index.D.DamageModel = {
-        dmg_comp,
-
-        ComponentGetValue2( dmg_comp, "max_hp" ),
-        ComponentGetValue2( dmg_comp, "hp" ),
-        ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
-        math.max( frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
-
-        ComponentGetValue2( dmg_comp, "air_needed" ),
-        ComponentGetValue2( dmg_comp, "air_in_lungs_max" ),
-        ComponentGetValue2( dmg_comp, "air_in_lungs" ),   
+        comp = dmg_comp,
+        hp = ComponentGetValue2( dmg_comp, "hp" ),
+        hp_max = ComponentGetValue2( dmg_comp, "max_hp" ),
+        hp_last = ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
+        hp_frame = math.max( frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
+        air = ComponentGetValue2( dmg_comp, "air_in_lungs" ),
+        can_air = ComponentGetValue2( dmg_comp, "air_needed" ),
+        air_max = ComponentGetValue2( dmg_comp, "air_in_lungs_max" ),
     }
 end
 local char_comp = EntityGetFirstComponentIncludingDisabled( hooman, "CharacterDataComponent" )
 if( pen.vld( char_comp, true )) then
     local max_flight = ComponentGetValue2( char_comp, "fly_time_max" )*( 2^GameGetGameEffectCount( hooman, "HOVER_BOOST" ))
     index.D.CharacterData = {
-        char_comp,
-
-        ComponentGetValue2( char_comp, "flying_needs_recharge" ),
-        max_flight,
-        math.min( ComponentGetValue2( char_comp, "mFlyingTimeLeft" ), max_flight ),
+        comp = char_comp,
+        flight_max = max_flight,
+        flight_always = not( ComponentGetValue2( char_comp, "flying_needs_recharge" )),
+        flight = math.min( ComponentGetValue2( char_comp, "mFlyingTimeLeft" ), max_flight ),
     }
 end
 local wallet_comp = EntityGetFirstComponentIncludingDisabled( hooman, "WalletComponent" )
 if( pen.vld( wallet_comp, true )) then
     index.D.Wallet = {
-        wallet_comp,
-        
-        ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
-        ComponentGetValue2( wallet_comp, "money" ),
+        comp = wallet_comp,
+        money = ComponentGetValue2( wallet_comp, "money" ),
+        money_always = ComponentGetValue2( wallet_comp, "mHasReachedInf" ),
     }
 end
 if( pen.vld( pick_comp, true )) then
     index.D.ItemPickUpper = {
-        pick_comp,
-
-        ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
-        ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
+        comp = pick_comp,
+        pick_only = ComponentGetValue2( pick_comp, "only_pick_this_entity" ),
+        pick_always = ComponentGetValue2( pick_comp, "pick_up_any_item_buggy" ),
     }
 end
 
-index.D.inventories[ index.D.inventories_player[1]] = index.get_inv_info(
-    index.D.inventories_player[1],
+index.D.inventories[ index.D.inventories_player.q ] = index.get_inv_info(
+    index.D.inventories_player.q,
     { index.D.inv_count_quickest, index.D.inv_count_quick }, nil,
     function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end
 )
-index.D.inventories[ index.D.inventories_player[2]] = index.get_inv_info(
-    index.D.inventories_player[2],
+index.D.inventories[ index.D.inventories_player.f ] = index.get_inv_info(
+    index.D.inventories_player.f,
     index.D.inv_count_full
 )
 pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
@@ -366,7 +363,6 @@ if( index.D.applets.done == nil ) then
 
     local close_applets = {
         name = "CLOSE",
-        
         pic = "data/ui_gfx/status_indicators/neutralized.png",
         toggle = function( state )
             if( not( state )) then return end
@@ -408,13 +404,13 @@ if( not( index.D.gmod.nuke_default )) then
     if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
     if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
     -- if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
-
-    -- local icons = inv.icons or {}
-    -- if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, pos_tbl ) end
-    -- if( icons.stains ~= nil ) then pos_tbl.stains = icons.stains( screen_w, screen_h, pos_tbl ) end
-    -- if( icons.effects ~= nil ) then pos_tbl.effects = icons.effects( screen_w, screen_h, pos_tbl ) end
-    -- if( icons.perks ~= nil ) then pos_tbl.perks = icons.perks( screen_w, screen_h, pos_tbl ) end
-
+    
+    local icons = inv.icons or {}
+    if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, pos_tbl ) end
+    if( icons.stains ~= nil ) then pos_tbl.stains = icons.stains( screen_w, screen_h, pos_tbl ) end
+    if( icons.effects ~= nil ) then pos_tbl.effects = icons.effects( screen_w, screen_h, pos_tbl ) end
+    if( icons.perks ~= nil ) then pos_tbl.perks = icons.perks( screen_w, screen_h, pos_tbl ) end
+    
     -- if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, pos_tbl, inv.pickup_info ) end
     -- if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, pos_tbl ) end
     -- if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, pos_tbl ) end

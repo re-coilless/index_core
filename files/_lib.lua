@@ -6,7 +6,6 @@ index = index or {}
 index.G = index.G or {}
 index.D = index.D or {}
 index.M = index.M or {}
-
 index.FRAMER = {
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
 	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", pen.PALETTE.VNL.ACTION_STATIC },
@@ -17,8 +16,6 @@ index.FRAMER = {
 	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE },
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
-
---all this_data stuff must be string-indexed
 
 --core backend
 function index.get_input( mnee_id, is_continuous, is_clean )
@@ -150,7 +147,7 @@ function index.get_status_data( hooman, dmg_comp )
 		
 		local raw_info = pen.t.get( status_effects, { effect_id }, "real_id" )
 		local effect_info = index.get_thresholded_effect( raw_info or {}, duration )
-		local time = index.get_effect_duration( duration, effect_info, epsilon )
+		local time = index.get_effect_duration( duration, effect_info )
 		if( effect_info.id == nil or time == 0 ) then return end
 		
 		local is_many = ing_many[ effect_id ] == 1
@@ -301,7 +298,7 @@ function index.get_status_data( hooman, dmg_comp )
 				end
 			end
 			if( icon_info.amount ~= -2 ) then
-				icon_info.amount = index.get_effect_duration( icon_info.amount, icon_info.main_info, epsilon )
+				icon_info.amount = index.get_effect_duration( icon_info.amount, icon_info.main_info )
 			end
 
 			if( pen.vld( true_id )) then
@@ -734,7 +731,7 @@ end
 function index.set_to_slot( this_info, is_player )
 	if( is_player == nil ) then
 		local parent_id = EntityGetParent( this_info.id )
-		is_player = index.D.inventories_player[1] == parent_id or index.D.inventories_player[2] == parent_id
+		is_player = index.D.inventories_player.q == parent_id or index.D.inventories_player.f == parent_id
 	end
 	
 	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
@@ -1075,12 +1072,12 @@ function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
 		end
 
 		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
-		EntityAddChild( index.D.inventories_player[ slot < 0 and 1 or 2 ], entity_id )
+		EntityAddChild( index.D.inventories_player[ slot < 0 and "q" or "f" ], entity_id )
 
 		if( is_shopping ) then
-			if( not( index.D.Wallet[2])) then
-				index.D.Wallet[3] = index.D.Wallet[3] - this_info.cost
-				ComponentSetValue2( index.D.Wallet[1], "money", index.D.Wallet[3])
+			if( not( index.D.Wallet.money_always )) then
+				index.D.Wallet.money = index.D.Wallet.money - this_info.cost
+				ComponentSetValue2( index.D.Wallet.comp, "money", index.D.Wallet.money )
 			end
 			
 			pen.t.loop( EntityGetAllComponents( entity_id ), function( i, comp )
@@ -1238,7 +1235,7 @@ end
 
 function index.get_effect_duration( duration, effect_info, eps )
 	duration = duration - 60*(( effect_info or {}).ui_timer_offset_normalized or 0 )
-	if( math.abs( duration*60 ) <= eps ) then duration = 0 end
+	if( math.abs( duration*60 ) <= ( eps or index.G.settings.min_effect_duration )) then duration = 0 end
 	return duration < 0 and -1 or duration
 end
 
@@ -1422,15 +1419,14 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, data )
 
 	data = data or {}
     data.dmg_data = data.dmg_data or {
-        dmg_comp,
-
-        ComponentGetValue2( dmg_comp, "max_hp" ),
-        ComponentGetValue2( dmg_comp, "hp" ),
-        ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
-        math.max( index.D.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
+        comp = dmg_comp,
+		hp = ComponentGetValue2( dmg_comp, "hp" ),
+        hp_max = ComponentGetValue2( dmg_comp, "max_hp" ),
+        hp_last = ComponentGetValue2( dmg_comp, "mHpBeforeLastDamage" ),
+        hp_frame = math.max( index.D.frame_num - ComponentGetValue2( dmg_comp, "mLastDamageFrame" ), 0 ),
     }
 
-    local max_hp, hp = data.dmg_data[2], data.dmg_data[3]
+    local max_hp, hp = data.dmg_data.hp_max, data.dmg_data.hp
 	local red_shift, length, height = 0, 0, data.height or 4
 	pen.hallway( function()
 		if( max_hp <= 0 ) then return end
@@ -1467,10 +1463,10 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, data )
         end
 
 		local delay = 30 --data.damage_fading
-        if( data.dmg_data[5] <= delay ) then
-            local last_hp = math.min( math.max( data.dmg_data[4], 0 ), max_hp )
+        if( data.dmg_data.hp_frame <= delay ) then
+            local last_hp = math.min( math.max( data.dmg_data.hp_last, 0 ), max_hp )
             pen.new_pixel( pic_x - length, pic_y + 1,
-				pic_z - 0.009, pen.PALETTE.VNL.DAMAGE, length*last_hp/max_hp, height, ( delay - data.dmg_data[5])/delay )
+				pic_z - 0.009, pen.PALETTE.VNL.DAMAGE, length*last_hp/max_hp, height, ( delay - data.dmg_data.hp_frame )/delay )
         end
         
 		hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
@@ -1514,7 +1510,7 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	local clicked, r_clicked = false, false
 	pic_z = pen.get_hybrid_table( pic_z or { pen.LAYERS.TIPS, pen.LAYERS.MAIN_DEEP })
 	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z[1], data )
-	if( pic_z[2] ~= nil and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.WARNING, s_x, s_y, 0.75 ) end
+	if( pic_z[2] ~= nil and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.YELLOW, s_x, s_y, 0.75 ) end
 	( func or index.D.tip_func )( text, data, func )
 	return data.is_active, clicked, r_clicked
 end
@@ -1794,7 +1790,7 @@ function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 				for k,spell in ipairs( tbl ) do
 					pen.new_image( spell_x + 9*counter, pic_y, pic_z,
 						spell.pic, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha })
-					if( counter%2 == i ) then pen.colourer({185,220,223}) end
+					if( counter%2 == i ) then pen.colourer( nil, {185,220,223}) end
 					_,_,is_hovered = pen.new_image( spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001,
 						index.D.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
 					if( is_hovered ) then
@@ -1863,7 +1859,7 @@ function index.new_vanilla_ptt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 				pen.new_pixel( t_x, t_y, pic_z + tonumber( "0.0001"..i ),
 					pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, inter_alpha )
 				if( line_w - perc > 0.25 ) then
-					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), nil, -0.5, line_h, 0.75*inter_alpha )
+					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), pen.PALETTE.W, -0.5, line_h, 0.75*inter_alpha )
 				end
 			end
 			index.new_vanilla_plate( pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
@@ -2246,9 +2242,8 @@ function index.new_spell_frame( pic_x, pic_y, pic_z, spell_type, alpha, angle )
 end
 
 function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
-	if( icon_info == nil or icon_info.pic == "" ) then
-		return 0, 0
-	end
+	if( not( pen.vld( icon_info ))) then return 0, 0 end
+	if( not( pen.vld( icon_info.pic ))) then return 0, 0 end
 
 	local pic_off_x, pic_off_y = 0, 0
 	if( kind == 2 ) then
@@ -2260,8 +2255,10 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
     local w, h = pen.get_pic_dims( icon_info.pic )
 	-- if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
 	local _,_,is_hovered = pen.new_image( pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, { can_click = true })
-	
-	if( kind == 2 and icon_info.amount > 0 ) then
+
+	if( is_hovered and kind == 4 ) then
+		pen.new_pixel( pic_x + pic_off_x + 2, pic_y + pic_off_y + 1, pic_z + 0.001, pen.PALETTE.VNL.YELLOW, 13, 13, 0.75 )
+	elseif( kind == 2 and icon_info.amount > 0 ) then
 		-- local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
 		-- pen.new_cutout( pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( v )
 		-- 	return pen.new_image( 0, -step, v[1], v[2])
@@ -2269,9 +2266,10 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, {170,170,170}, 10, pos, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, nil, 10, scale, 0.25 )
-
+		if( pos > 0 ) then
+			pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, pen.PALETTE.VNL.GREY, 10, pos, 0.25 ) end
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.W, 10, scale, 0.4 )
+		
 		pen.new_pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
 		pen.new_pixel( pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
 		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pen.PALETTE.B, 10, 1, 0.15 )
@@ -2284,40 +2282,43 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		txt_off_x, txt_off_y = 1, 2
 	end
 
-	local tip_x, tip_y = pic_x - 3, pic_y
-	if( icon_info.txt ~= "" ) then
+	local tip_x, tip_y = pic_x - 5, pic_y
+	if( pen.vld( icon_info.txt )) then
 		icon_info.txt = pen.despacer( icon_info.txt )
 		local t_x, t_h = pen.get_text_dims( icon_info.txt, true )
 		t_x = t_x - txt_off_x
-		pen.new_shadowed_text( pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt, { alpha = is_hovered and 1 or 0.5 })
+		pen.new_shadowed_text( pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt,
+			{ color = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, alpha = is_hovered and 1 or 0.5 })
 		tip_x = tip_x - t_x
 	end
 	if(( icon_info.count or 0 ) > 1 ) then
-		pen.new_shadowed_text( pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..icon_info.count, { alpha = is_hovered and 1 or 0.5 })
+		pen.new_shadowed_text( pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..icon_info.count,
+			{ color = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, alpha = is_hovered and 1 or 0.5 })
 	end
-	if( kind == 4 ) then
-		pic_y = pic_y - 3
+
+	if( kind == 4 ) then pic_y = pic_y - 3 end
+	if( pen.vld( icon_info.tip )) then
+		local dims, text = {}, ""
+		if( type( icon_info.tip ) == "function" ) then
+			dims = {
+				14*math.min( #icon_info.other_perks, 10 ) - 1,
+				14*math.max( math.ceil(( #icon_info.other_perks )/10 ), 1 )
+			}
+		else text = pen.despacer( icon_info.tip ) end
+		index.D.tip_func( text, { pos = { tip_x, tip_y + ( kind == 4 and 1 or 0 )},
+			dims = dims, is_active = is_hovered, is_left = true, is_over = false })
+		--do { icon_info.tip, icon_info.other_perks } here
 	end
-	if( icon_info.desc ~= "" and is_hovered and tip_anim["generic"][1] > 0 ) then
+	if( pen.vld( icon_info.desc ) and is_hovered ) then --add unique anim
 		icon_info.desc = pen.despacer( icon_info.desc )
-		local anim = math.sin( math.min( tip_anim["generic"][3], 10 )*math.pi/20 )
 		local dims = { pen.get_text_dims( icon_info.desc, true )}
-		pen.new_shadowed_text( pic_x - dims[1] + w, pic_y + h + 3, pic_z, icon_info.desc, { color = icon_info.is_danger and {224,96,96} or {255,255,255}, alpha = anim })
+		local anim = pen.animate( 1, pen.c.ttips[ "dft" ].anim[3], { ease_out = "wav1.5", frames = 15 })
+		pen.new_shadowed_text( pic_x - dims[1] + w, pic_y + h + 3, pic_z,
+			icon_info.desc, { color = icon_info.is_danger and pen.PALETTE.VNL.WARNING or pen.PALETTE.W, alpha = anim })
 		
 		local bg_x = pic_x - ( dims[1] + 2 ) + w
-		index.new_vanilla_plate( bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim*0.9 )
-		
+		index.new_vanilla_plate( bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim )
 		h = h + dims[2] + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 ) + 3
-	end
-	if( icon_info.tip ~= "" ) then
-		local is_func = type( icon_info.tip ) == "function"
-		local v = { is_func and "" or pen.despacer( icon_info.tip ), tip_x, tip_y + ( kind == 4 and 1 or 0 ), }
-		if( is_func ) then
-			v[4] = math.min( #icon_info.other_perks, 10 )*14-1
-			v[5] = 14*math.max( math.ceil(( #icon_info.other_perks )/10 ), 1 )
-		end
-		pen.new_tooltip( v, { is_active = is_hovered, is_left = false, is_over = true })
-		--do { icon_info.tip, icon_info.other_perks } here
 	end
 
 	if( kind == 1 ) then
@@ -2359,7 +2360,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, this_info, is_active, 
 	end
 
 	if( this_info.id > 0 and index.D.dragger.item_id == this_info.id ) then
-		pen.colourer({150,150,150})
+		pen.colourer( nil, {150,150,150})
 	end
 	local pic_bg = ( is_full == true ) and index.D.slot_pic.bg_alt or index.D.slot_pic.bg
 	local w, h = pen.get_pic_dims( pic_bg )
@@ -2598,7 +2599,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 		if( this_info.is_frozen ) then
 			pen.new_image( pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
 				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
-			pen.new_tooltip( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
+			index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
 		end
 		if( is_hovered ) then
 			index.cat_callback( this_info, "on_tooltip",
@@ -2636,7 +2637,8 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 					end
 				end
 				
-				if( counter%2 == 0 and slot_count > 2 ) then pen.colourer({185,220,223}) end
+				if( counter%2 == 0 and slot_count > 2 ) then
+					pen.colourer( nil, {185,220,223}) end
 				w, h = slot_setup( slot_x, slot_y, {
 					inv_id = this_info.id,
 					id = slot,

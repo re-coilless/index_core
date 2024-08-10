@@ -4,51 +4,35 @@ local GLOBAL_MODES = {
     {
         name = "FULL",
         desc = "Wand editing with minimal obstructions.",
-        
-        is_default = true,
-        allow_wand_editing = true,
-        show_full = true,
+        is_default = true, allow_wand_editing = true, show_full = true,
         show_fullest = index.G.settings.force_vanilla_fullest,
     },
     {
         name = "MANAGEMENT",
         desc = "Complete inventory management capability.",
-
-        allow_external_inventories = true,
-        show_full = true,
-        show_fullest = true,
+        allow_external_inventories = true, show_full = true, show_fullest = true,
     },
     {
         name = "INTERACTIVE",
         desc = "Dragging actions and complete in-world interactivity.",
-        
-        can_see = true,
-        allow_shooting = true,
-        allow_advanced_draggables = true,
+        can_see = true, allow_shooting = true, allow_advanced_draggables = true,
     },
     {
         name = "CUSTOM_MENU",
         desc = "Completely clears the entire right side and limits interactions.",
-        
-        menu_capable = true,
-        is_hidden = true,
-        no_inv_toggle = true,
+        menu_capable = true, is_hidden = true, no_inv_toggle = true,
     },
 }
 
-local GLOBAL_MUTATORS = {}
-local APPLETS = {
-    l_state = not( index.G.settings.mute_applets ),
-    r_state = not( index.G.settings.mute_applets ),
-    l_hover = {},
-    r_hover = {},
+local GLOBAL_MUTATORS, APPLETS = {}, {
+    l_state = not( index.G.settings.mute_applets ), l_hover = {},
+    r_state = not( index.G.settings.mute_applets ), r_hover = {},
 
     l = {},
     r = {
         {
             name = "README",
             desc = "The complete user guide.",
-
             pic = "data/ui_gfx/status_indicators/confusion.png",
             toggle = function( state ) end,
         },
@@ -310,7 +294,7 @@ local ITEM_CATS = {
                     if( delta >= h ) then break end
                 end
                 if(( h - delta ) > 0.5 and math.min( content_total/cap_max, 1 ) > 0 ) then
-                    pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, nil, w, 0.5 )
+                    pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, w, 0.5 )
                 end
             end
         end,
@@ -534,7 +518,7 @@ local ITEM_CATS = {
             end
             local pic_z = index.slot_z( this_info.id, pen.LAYERS.ICONS )
             new_slot_pic( pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
-            if( is_considered ) then pen.colourer( {185,220,223}) end
+            if( is_considered ) then pen.colourer( nil, {185,220,223}) end
             new_spell_frame( pic_x, pic_y, pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
