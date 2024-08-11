@@ -17,9 +17,11 @@ index.FRAMER = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
 
+--make index.new_vanilla_hp prettier
+
 --core backend
 function index.get_input( mnee_id, is_continuous, is_clean )
-	return mnee.mnin( "bind", { "index", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
+	return mnee.mnin( "bind", { "index_core", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
 end
 
 function index.self_destruct()
@@ -1412,11 +1414,10 @@ function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, a
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
-function index.new_vanilla_hp( pic_x, pic_y, pic_z, data )
-	local entity_id = index.D.player_id
+function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
     local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
     if( not( pen.vld( dmg_comp, true ))) then return 0,0,0,0,0 end
-
+	
 	data = data or {}
     data.dmg_data = data.dmg_data or {
         comp = dmg_comp,

@@ -236,12 +236,8 @@
 		value_int="5"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="info_mtr_hotkeyed"
-		value_bool="0"
-	></VariableStorageComponent>
-	<VariableStorageComponent
-		name="info_mtr_static"
-		value_bool="0"
+		name="info_mtr_state"
+		value_int="1"
 	></VariableStorageComponent>
 
 	<VariableStorageComponent

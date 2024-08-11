@@ -77,8 +77,7 @@ index.G.settings = index.G.settings or {
 
     info_pointer = pen.magic_storage( controller_id, "info_pointer", "value_bool" ),
     info_pointer_alpha = pen.magic_storage( controller_id, "info_pointer_alpha", "value_int" )*0.1,
-    info_mtr_hotkeyed = pen.magic_storage( controller_id, "info_mtr_hotkeyed", "value_bool" ),
-    info_mtr_static = pen.magic_storage( controller_id, "info_mtr_static", "value_bool" ),
+    info_mtr_state = pen.magic_storage( controller_id, "info_mtr_state", "value_int" ),
 
     mute_applets = pen.magic_storage( controller_id, "mute_applets", "value_bool" ),
     no_wand_scaling = pen.magic_storage( controller_id, "no_wand_scaling", "value_bool" ),
@@ -120,8 +119,8 @@ local muid_y = mui_y - ( index.G.mouse_memo[2] or mui_y )
 index.G.mouse_memo = { mui_x, mui_y }
 
 local effect_tbl, perk_tbl = index.get_status_data( hooman, dmg_comp )
-local dragger_action = index.get_input( "ab_drag_action", true )
-local mtr_action = not( index.G.settings.info_mtr_hotkeyed ) or index.get_input( "ad_matter_action", true )
+local dragger_action = index.get_input( "drag_action", true )
+local mtr_action = index.G.settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
 
 local pos_tbl = {}
 local gui = pen.gui_builder()
@@ -138,9 +137,9 @@ index.D = {
     pointer_delta_world = { md_x, md_y, math.sqrt( md_x^2 + md_y^2 )},
     pointer_matter = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0,
 
-    shift_action = index.get_input( "aa_shift_action", true ),
+    shift_action = index.get_input( "shift_action", true ),
     drag_action = dragger_action,
-    tip_action = index.get_input( "ac_tip_action", true ),
+    tip_action = index.get_input( "tip_action", true ),
     matter_action = mtr_action,
 
     is_opened = ComponentGetValue2( iui_comp, "mActive" ),
@@ -227,8 +226,7 @@ index.D = {
 
     info_pointer = index.G.settings.info_pointer,
     info_pointer_alpha = index.G.settings.info_pointer_alpha,
-    info_mtr_hotkeyed = index.G.settings.info_mtr_hotkeyed,
-    info_mtr_static = index.G.settings.info_mtr_static,
+    info_mtr_state = index.G.settings.info_mtr_state,
 
     no_wand_scaling = index.G.settings.no_wand_scaling,
     allow_tips_always = index.G.settings.allow_tips_always,
@@ -394,7 +392,7 @@ if( not( index.D.gmod.nuke_default )) then
     if( bars.hp ~= nil ) then pos_tbl.hp = bars.hp( screen_w, screen_h, pos_tbl ) end
     if( bars.air ~= nil ) then pos_tbl.air = bars.air( screen_w, screen_h, pos_tbl ) end
     if( bars.flight ~= nil ) then pos_tbl.flight = bars.flight( screen_w, screen_h, pos_tbl ) end
-    -- if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
+    if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
     
     local actions = bars.action or {}
     if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, pos_tbl ) end
@@ -403,7 +401,7 @@ if( not( index.D.gmod.nuke_default )) then
 
     if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
     if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
-    -- if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
+    if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
     
     local icons = inv.icons or {}
     if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, pos_tbl ) end

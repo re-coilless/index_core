@@ -21,8 +21,7 @@ if( ComponentGetValue2( storage_update, "value_bool" )) then
 
         INFO_POINTER = "info_pointer",
         INFO_POINTER_ALPHA = "info_pointer_alpha",
-        INFO_MTR_HOTKEYED = "info_mtr_hotkeyed",
-        INFO_MTR_STATIC = "info_mtr_static",
+        INFO_MTR_STATE = "info_mtr_state",
 
         MUTE_APPLETS = "mute_applets",
         NO_WAND_SCALING = "no_wand_scaling",

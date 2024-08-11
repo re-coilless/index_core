@@ -19,7 +19,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         end
         
         local function check_shortcut( id, is_quickest )
-            if( id <= 4 ) then return index.get_input(( is_quickest and "za_quickest_" or "zb_quick_" )..id ) end
+            if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
         end
         local w, h, step = 0, 0, 1
         xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
@@ -213,7 +213,8 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         local max_hp, hp = this_data.hp_max, this_data.hp
         if( max_hp <= 0 ) then return end
         
-        length, height, max_hp, hp, red_shift = index.new_vanilla_hp( pic_x, pic_y, pen.LAYERS.MAIN_BACK, { dmg_data = this_data })
+        length, height, max_hp, hp, red_shift = index.new_vanilla_hp(
+            pic_x, pic_y, pen.LAYERS.MAIN_BACK, index.D.player_id, { dmg_data = this_data })
         
         local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
@@ -410,48 +411,55 @@ function index.new_generic_delay( screen_w, screen_h, xys )
     return { pic_x, pic_y }
 end
 
-function index.new_generic_bossbar( screen_w, screen_h, xys ) --make it line up to 3 bars horizontally with width check
-    local pic_x, pic_y = unpack( xys.bossbar or {screen_w/2,screen_h-20})
+function index.new_generic_bossbar( screen_w, screen_h, xys )
+    local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 20 })
+    local x, y = unpack( index.D.player_xy )
+    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, boss )
+        local bar_comp = EntityGetFirstComponent( boss, "HealthBarComponent" )
+        if( not( pen.vld( bar_comp, true ))) then return end
+        
+        local b_x, b_y = EntityGetTransform( boss )
+        local distance = math.sqrt(( b_x - x )^2 + ( b_y - y )^2 )
+        if( distance > ComponentGetValue2( bar_comp, "gui_max_distance_visible" )) then return end
 
-    local bosses = EntityGetInRadiusWithTag( index.D.player_xy[1], index.D.player_xy[2], 1000, "index_bossbar" ) or {}
-    if( #bosses > 0 ) then
-        for i,boss in ipairs( bosses ) do
-            local step, bar_func = 0, function( pic_x, pic_y, pic_zs, entity_id, this_data, params )
-                local name = index.get_entity_name( entity_id )
-                local length, step, max_hp, hp = index.new_vanilla_hp( pic_x, pic_y, pic_zs, entity_id, this_data, params )
-                
-                local num_width, rounding = 35, 10
-                if( max_hp >= 10^6 ) then
-                    rounding = 1000
-                    num_width = num_width + 12
-                elseif( max_hp >= 10^5 ) then
-                    rounding = 100
-                    num_width = num_width + 6
-                end
+        -- if has tag boss, do unique
+        -- for visuals either run custom func or grab SpriteComp:health_bar
+        -- gui_special_final_boss (unique stuff for this)
+        -- in_world (always forces it to be anchored to the entity)
 
-                if( length > num_width ) then
-                    if( not( pen.vld( name ))) then name = "Boss" end
-                    pen.new_shadowed_text( pic_x - length/2 + 3, pic_y + 2.5, pic_zs[2] - 0.001, name )
-                end
-
-                local value = ( math.floor( rounding*100*hp/max_hp + 0.5 )/rounding ).."%"
-                pen.new_shadowed_text( pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_zs[2] - 0.001, value )
-
-                return length, step
+        local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
+            local name = index.get_entity_name( entity_id )
+            local length, step, max_hp, hp = index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
+            
+            local num_width, rounding = 35, 10
+            if( max_hp >= 10^6 ) then
+                rounding = 1000
+                num_width = num_width + 12
+            elseif( max_hp >= 10^5 ) then
+                rounding = 100
+                num_width = num_width + 6
             end
 
-            local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
-            if( func_path ~= nil ) then bar_func = dofile_once( func_path ) end
+            if( length > num_width ) then --make the text have real shadow
+                if( not( pen.vld( name ))) then name = "Boss" end
+                pen.new_shadowed_text( pic_x - length/2 + 3, pic_y + 2.5, pic_z - 0.011, name )
+            end
 
-            _,step = bar_func( pic_x, pic_y, {pen.LAYERS.WORLD_BACK+0.01,pen.LAYERS.WORLD_BACK}, boss, nil, {
-                low_hp = 0, low_hp_min = 0,
-                length_mult = 2, height = 13,
-                centered = true,
-            })
-            pic_y = pic_y - ( step + 4 )
+            local value = pen.rounder( 100*hp/max_hp, rounding ).."%"
+            pen.new_shadowed_text( pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_z - 0.011, value )
+            return length, step
         end
-    end
 
+        local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
+        if( func_path ~= nil ) then bar_func = dofile_once( func_path ) end
+        local _,step = bar_func( pic_x, pic_y, pen.LAYERS.WORLD_BACK, boss, {
+            low_hp = 0, low_hp_min = 0,
+            length_mult = 2, height = 13,
+            centered = true,
+        })
+
+        pic_y = pic_y - ( step + 4 )
+    end)
     return { pic_x, pic_y }
 end
 
@@ -504,73 +512,68 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
 end
 
 function index.new_generic_info( screen_w, screen_h, xys )
-    local pic_x, pic_y = 0,0
     local function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
-        
         txt = pen.capitalizer( txt )
         if( is_right ) then
             local w,h = pen.get_text_dims( txt, true )
             offset_x = w + 1
             p_x = p_x - offset_x
         end
-        if( hover_func ~= nil ) then hover_func( offset_x ) end
-        pen.new_shadowed_text( p_x, p_y, pen.LAYERS.MAIN, txt, { alpha = alpha })
+
+        local color = pen.vld( hover_func ) and hover_func( offset_x ) or nil
+        pen.new_shadowed_text( p_x, p_y, pen.LAYERS.MAIN, txt, { color = color, alpha = alpha })
     end
     
+    local pic_x, pic_y = 0, 0
     index.M.ui_info = index.M.ui_info or { 0, 0 }
-    if( not( index.D.is_opened and index.D.gmod.show_full ) and ( index.M.ui_info[1] ~= 0 or index.D.pointer_delta[3] < index.D.info_threshold )) then
+    pen.hallway( function()
+        if( index.D.is_opened and index.D.gmod.show_full ) then return end
+        if( index.M.ui_info[1] == 0 and index.D.pointer_delta[3] >= index.D.info_threshold ) then return end
+
         local info = ""
+        local best_kind, dist_tbl = -1, {}
+        local x, y = unpack( index.D.pointer_world )
+        pen.t.loop( EntityGetInRadius( x, y, index.D.info_radius ), function( i, entity_id )
+            if( entity_id == index.D.player_id ) then return end
+            if( EntityGetRootEntity( entity_id ) ~= entity_id ) then return end
 
-        local entities = EntityGetInRadius( index.D.pointer_world[1], index.D.pointer_world[2], index.D.info_radius ) or {}
-        if( #entities > 0 ) then
-            local best_kind = -1
-            local dist_tbl = {}
-            for i,entity_id in ipairs( entities ) do
-                if( EntityGetRootEntity( entity_id ) == entity_id and entity_id ~= index.D.player_id ) then
-                    local kind = {}
-                    local item_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemComponent" )
-                    
-                    local name = ""
-                    local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
-                    if( info_comp ~= nil ) then
-                        name = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
-                    end
-                    if( index.check_item_name( name )) then
-                        kind = { 0, name }
-                    elseif( item_comp ~= nil and ComponentGetValue2( item_comp, "is_pickable" )) then
-                        local name_func = function( item_id, item_comp, default_name )
-                            local name = index.get_entity_name( item_id, item_comp )
-                            return name == "" and default_name or name
-                        end
-                        for k,cat in ipairs( index.D.item_cats ) do
-                            if( cat.on_check( entity_id )) then
-                                local func = cat.on_info_name == nil and name_func or cat.on_info_name
-                                kind = { k, func( entity_id, item_comp, cat.name )}
-                                break
-                            end
-                        end
-                    elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
-                        name = index.get_entity_name( entity_id )
-                        if( index.check_item_name( name )) then
-                            kind = { 0, GameTextGetTranslatedOrNot( name )}
-                        end
-                    end
-
-                    if( #kind > 0 ) then
-                        if( best_kind < 0 or best_kind > kind[1]) then best_kind = kind[1] end
-                        table.insert( dist_tbl, { entity_id, unpack( kind )})
-                    end
-                end
+            local kind, name = {}, ""
+            local item_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "ItemComponent" )
+            local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
+            if( pen.vld( info_comp, true )) then
+                name = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" ) or "" )
             end
-            if( #dist_tbl > 0 ) then
-                local the_one = pen.get_closest( index.D.pointer_world[1], index.D.pointer_world[2], dist_tbl, nil, nil, function( thing )
-                    return thing[2] == best_kind
+
+            if( index.check_item_name( name )) then
+                kind = { 0, name }
+            elseif( item_comp ~= nil and ComponentGetValue2( item_comp, "is_pickable" )) then
+                local name_func = function( item_id, item_comp, default_name )
+                    local name = index.get_entity_name( item_id, item_comp )
+                    return name == "" and default_name or name
+                end
+                pen.t.loop( index.D.item_cats, function( k, cat )
+                    if( not( cat.on_check( entity_id ))) then return end
+                    local func = cat.on_info_name == nil and name_func or cat.on_info_name
+                    kind = { k, func( entity_id, item_comp, cat.name )}
+                    return true
                 end)
-                if( the_one ~= 0 ) then
-                    info = the_one[3]
+            elseif( EntityHasTag( entity_id, "hittable" ) or EntityHasTag( entity_id, "mortal" )) then
+                name = index.get_entity_name( entity_id )
+                if( index.check_item_name( name )) then
+                    kind = { 0, GameTextGetTranslatedOrNot( name )}
                 end
             end
+
+            if( not( pen.vld( kind ))) then return end
+            if( best_kind < 0 or best_kind > kind[1]) then best_kind = kind[1] end
+            table.insert( dist_tbl, { entity_id, unpack( kind )})
+        end)
+        if( pen.vld( dist_tbl )) then
+            local the_one = pen.get_closest( index.D.pointer_world[1], index.D.pointer_world[2], dist_tbl, nil, nil, function( thing )
+                return thing[2] == best_kind
+            end)
+            if( the_one ~= 0 ) then info = the_one[3] end
         end
         
         local fading = 1
@@ -588,7 +591,8 @@ function index.new_generic_info( screen_w, screen_h, xys )
             end
         end
         if( info ~= "" ) then
-            local is_obstructed = index.D.dragger.item_id > 0 or ( index.D.frame_num - tip_anim["generic"][2]) < 2
+            local tip_anim = (( pen.c.ttips or {})[ "dft" ] or {})[2] or 0
+            local is_obstructed = index.D.dragger.item_id > 0 or ( index.D.frame_num - tip_anim ) < 2
             if( index.D.always_show_full or index.D.info_pointer ) then
                 pic_x, pic_y = unpack( index.D.pointer_ui )
                 pic_x, pic_y = pic_x + ( is_obstructed and -2 or 6 ), pic_y + 3
@@ -600,9 +604,10 @@ function index.new_generic_info( screen_w, screen_h, xys )
             end
             do_info( pic_x, pic_y, info, fading, is_obstructed )
         end
-    end
+    end)
+    pen.hallway( function()
+        if( index.D.gmod.menu_capable ) then return end
 
-    if( not( index.D.gmod.menu_capable )) then
         local fading = 0.5
         index.M.mtr_prb = index.M.mtr_prb or { 0, 0 }
         local matter = index.M.mtr_prb[1]
@@ -618,28 +623,23 @@ function index.new_generic_info( screen_w, screen_h, xys )
                 fading = math.max( fading*math.sin(( 2*index.D.info_fading - delta )*math.pi/( 2*index.D.info_fading )), 0.01 )
             end
         end
-        if( matter > 0 or index.D.info_mtr_static ) then
-            if( index.D.info_mtr_static ) then
-                fading = 1
-            elseif( index.M.mtr_prb[2] > index.D.frame_num ) then
-                fading = math.min( fading*4, 1 )
-            end
-            
-            pic_x, pic_y = unpack( xys.delay )
-            local alphaer = function( offset_x )
-                local _,_,hovered = pen.new_interface(
-                    pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.LAYERS.TIPS )
-                if( hovered ) then index.M.mtr_prb = { matter, index.D.frame_num + 300 } end
-            end
-            
-            local txt = "air"
-            if( not( index.D.info_mtr_static and matter == 0 )) then
-                txt = GameTextGetTranslatedOrNot( CellFactory_GetUIName( matter ))
-            end
-            do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, alphaer )
+
+        if( matter == 0 and index.D.info_mtr_state ~= 3 ) then return end
+        if( index.D.info_mtr_state ~= 1 or index.M.mtr_prb[2] > index.D.frame_num ) then
+            fading = index.D.info_mtr_state == 3 and 1 or math.min( fading*4, 1 )
         end
-    end
-    
+        
+        local no_matter = index.D.info_mtr_state == 3 and matter == 0
+        local txt = GameTextGetTranslatedOrNot( no_matter and "$mat_air" or CellFactory_GetUIName( matter ))
+        
+        pic_x, pic_y = unpack( xys.delay )
+        do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
+            local _,_,is_hovered = pen.new_interface(
+                pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.LAYERS.TIPS )
+            if( is_hovered ) then index.M.mtr_prb = { matter, index.D.frame_num + 300 } end
+            return is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
+        end)
+    end)
     return { pic_x, pic_y }
 end
 
@@ -1121,7 +1121,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
                 arrow_left_c = arrow_hl_c
                 arrow_left_a = 1
             end
-            if( clicked or index.get_input( "bb_invmode_previous" )) then
+            if( clicked or index.get_input( "invmode_previous" )) then
                 new_mode = new_mode - 1
                 arrow_left_a = 1
             end
@@ -1132,7 +1132,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
                 arrow_right_c = arrow_hl_c
                 arrow_right_a = 1
             end
-            if( clicked or index.get_input( "ba_invmode_next" )) then
+            if( clicked or index.get_input( "invmode_next" )) then
                 new_mode = new_mode + 1
                 arrow_right_a = 1
             end

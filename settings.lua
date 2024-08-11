@@ -1,16 +1,16 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
-function get_storage( hooman, name )
+function storage( hooman, name, field, value )
 	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
-	if( #comps > 0 ) then
-		for i,comp in ipairs( comps ) do
-			if( ComponentGetValue2( comp, "name" ) == name ) then
-				return comp
-			end
+	if( #comps == 0 ) then return end
+	for i,comp in ipairs( comps ) do
+		if( ComponentGetValue2( comp, "name" ) == name ) then
+			if( value ~= nil ) then
+				ComponentSetValue2( comp, field, value )
+			else return ComponentGetValue2( comp, field ) end
+			return comp
 		end
 	end
-	
-	return nil
 end
 
 function update_settings( mod_id, gui, in_main_menu, setting, old_value, new_value )
@@ -18,11 +18,32 @@ function update_settings( mod_id, gui, in_main_menu, setting, old_value, new_val
 		local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
 		if( #ctrl_bodies > 0 ) then
 			local controller_id = ctrl_bodies[1]
-			if( ComponentGetValue2( get_storage( controller_id, "override_settings" ), "value_bool" )) then
-				ComponentSetValue2( get_storage( controller_id, "update_settings" ), "value_bool", true )
+			if( storage( controller_id, "override_settings", "value_bool" )) then
+				storage( controller_id, "update_settings", "value_bool", true )
 			end
 		end
 	end
+end
+
+function mod_setting_custom_enum( mod_id, gui, in_main_menu, im_id, setting )
+	local value = ModSettingGetNextValue( mod_setting_get_id( mod_id, setting ))
+	local text = setting.ui_name .. ": " .. setting.values[ value ]
+	
+	local new_value = value
+	local clicked,right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, text )
+	if clicked then
+		new_value = new_value + 1
+		if( new_value > #setting.values ) then new_value = 1 end
+	end
+	if right_clicked and setting.value_default then
+		new_value = setting.value_default
+	end
+	if( new_value ~= value ) then
+		new_value = setting.change_fn( mod_id, gui, in_main_menu, setting, value, new_value ) or new_value
+		ModSettingSetNextValue( mod_setting_get_id( mod_id, setting ), new_value, false )
+	end
+
+	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
 end
 
 local mod_id = "index_core"
@@ -181,21 +202,14 @@ mod_settings =
 				change_fn = update_settings,
 			},
 			{
-				id = "INFO_MTR_HOTKEYED",
-				ui_name = "Hotkeyed Material Info",
-				ui_description = "Displays material names only when the hotkey is held (prevents probe entity from obstructing the pointer).",
-				value_default = false,
+				id = "INFO_MTR_STATE",
+				ui_name = "Material Info Mode",
+				ui_description = "Changes how the behavior of the displayed material names.",
+				values = { "Auto", "Hotkeyed", "Persistent" },
+				value_default = 1,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
-			},
-			{
-				id = "INFO_MTR_STATIC",
-				ui_name = "Persistent Material Info",
-				ui_description = "Forces material info line to be present at all times.",
-				value_default = false,
-				
-				scope = MOD_SETTING_SCOPE_RUNTIME,
+				ui_fn = mod_setting_custom_enum,
 				change_fn = update_settings,
 			},
 		},
