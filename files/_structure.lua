@@ -85,7 +85,7 @@ local ITEM_CATS = {
                 damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            index.D.inventories_init[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
+            index.D.invs_i[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
                 local is_perma, inv_slot = {false,false}, {0,0}
                 for k = 1,2 do
                     local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
@@ -149,8 +149,9 @@ local ITEM_CATS = {
         on_tooltip = new_vanilla_wtt,
         on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0,0
-            if((( item_pic_data[ this_info.pic ] or {}).xy or {})[3] == nil ) then w, h = pen.get_pic_dims( index.D.slot_pic.bg ) end
-            new_slot_pic( pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
+            if((( pen.cache({ "index_pic_data", this_info.pic }) or {}).xy or {})[3] == nil ) then
+                w, h = pen.get_pic_dims( index.D.slot_pic.bg ) end
+            index.new_slot_pic( pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 hov_func( nil, item_id, this_info, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS )
@@ -316,17 +317,19 @@ local ITEM_CATS = {
             elseif( rmb_func ~= nil and john_bool.is_rmb and index.D.is_opened and john_bool.is_quick ) then
                 rmb_func( item_id, this_info )
             end
+
+            local pic_data = pen.cache({ "index_pic_data", this_info.pic })
             if( not( nuke_it )) then
-                if( item_pic_data[ this_info.pic ].memo_xy == nil ) then
-                    item_pic_data[ this_info.pic ].memo_xy = item_pic_data[ this_info.pic ].xy
-                    item_pic_data[ this_info.pic ].xy = { item_pic_data[ this_info.pic ].dims[1]/2, -2 }
-                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) - ( item_pic_data[ this_info.pic ].dims[2]/2 + 2 )
+                if( pic_data.memo_xy == nil ) then
+                    pic_data.memo_xy = pic_data.xy
+                    pic_data.xy = { pic_data.dims[1]/2, -2 }
+                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) - ( pic_data.dims[2]/2 + 2 )
                 end
             else
-                if( item_pic_data[ this_info.pic ].memo_xy ~= nil ) then
-                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) + ( item_pic_data[ this_info.pic ].dims[2]/2 + 2 )
-                    item_pic_data[ this_info.pic ].xy = item_pic_data[ this_info.pic ].memo_xy
-                    item_pic_data[ this_info.pic ].memo_xy = nil
+                if( pic_data.memo_xy ~= nil ) then
+                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) + ( pic_data.dims[2]/2 + 2 )
+                    pic_data.xy = pic_data.memo_xy
+                    pic_data.memo_xy = nil
                 end
                 if( index.D.dragger.item_id == 0 or index.D.dragger.item_id == item_id ) then
                     if( EntityGetIsAlive( index.M.john_pouring or 0 )) then
@@ -344,7 +347,7 @@ local ITEM_CATS = {
             
             local z = index.slot_z( this_info.id, pen.LAYERS.ICONS )
             local ratio = math.min( content_total/cap_max, 1 )
-            pic_x, pic_y = new_slot_pic( pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
+            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
             pen.new_image( pic_x, pic_y, z - 0.001, this_info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( this_info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
@@ -484,7 +487,7 @@ local ITEM_CATS = {
             this_info.desc = index.full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
             
             local parent_id = EntityGetParent( item_id )
-            if( parent_id > 0 and index.D.inventories[ parent_id ] ~= nil ) then
+            if( parent_id > 0 and index.D.invs[ parent_id ] ~= nil ) then
                 parent_id = pen.t.get( item_list_wip, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then this_info.in_wand = parent_id.id end
             end
@@ -517,7 +520,7 @@ local ITEM_CATS = {
                 angle = -math.rad( 5 )*( is_considered and 1.5 or ( anim_speed == 0 and 0 or math.sin(( index.D.frame_num%anim_speed )*math.pi/anim_speed )))
             end
             local pic_z = index.slot_z( this_info.id, pen.LAYERS.ICONS )
-            new_slot_pic( pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
             if( is_considered ) then pen.colourer( nil, {185,220,223}) end
             new_spell_frame( pic_x, pic_y, pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
 
@@ -540,7 +543,7 @@ local ITEM_CATS = {
         
         on_tooltip = new_vanilla_ttt,
         on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
@@ -571,7 +574,7 @@ local ITEM_CATS = {
         
         on_tooltip = new_vanilla_itt,
         on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
@@ -601,7 +604,7 @@ local GUI_STRUCT = {
     slot = index.new_vanilla_slot,
     icon = index.new_vanilla_icon,
     tooltip = pen.new_tooltip,
-    plate = index.new_vanilla_plate,
+    box = index.new_vanilla_box,
     wand = index.new_vanilla_wand,
 
     full_inv = index.new_generic_inventory,

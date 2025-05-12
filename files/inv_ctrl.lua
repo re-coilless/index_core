@@ -3,9 +3,9 @@ if( not( ModIsEnabled( "index_core" ))) then return index.self_destruct() end
 
 index.G.gonna_drop = index.G.gonna_drop or false --trigger for "drop on failure to swap"
 
-index.G.slot_state = index.G.slot_state or false --a check that makes sure only one slot is being dragged at a time
 index.G.slot_memo = index.G.slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
 index.G.slot_anim = index.G.slot_anim or {} --fancy dragging anim
+index.G.slot_state = index.G.slot_state or false --a check that makes sure only one slot is being dragged at a time
 index.G.slot_hover_sfx = index.G.slot_hover_sfx or { 0, false } --context sensitive hover sfx
 
 index.G.mouse_memo = index.G.mouse_memo or {} --for getting pointer delta
@@ -118,13 +118,11 @@ local muid_x = mui_x - ( index.G.mouse_memo[1] or mui_x )
 local muid_y = mui_y - ( index.G.mouse_memo[2] or mui_y )
 index.G.mouse_memo = { mui_x, mui_y }
 
-local effect_tbl, perk_tbl = index.get_status_data( hooman, dmg_comp )
-local dragger_action = index.get_input( "drag_action", true )
-local mtr_action = index.G.settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
-
-local pos_tbl = {}
 local gui = pen.gui_builder()
 local screen_w, screen_h = GuiGetScreenDimensions( gui )
+
+local effect_tbl, perk_tbl = index.get_status_data( hooman )
+local mtr_action = index.G.settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
 local global_modes, global_mutators, applets, item_cats, inv = unpack( index.G.settings.main_dump )
 index.D = {
     main_id = controller_id,
@@ -137,57 +135,53 @@ index.D = {
     pointer_delta_world = { md_x, md_y, math.sqrt( md_x^2 + md_y^2 )},
     pointer_matter = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0,
 
-    shift_action = index.get_input( "shift_action", true ),
-    drag_action = dragger_action,
-    tip_action = index.get_input( "tip_action", true ),
     matter_action = mtr_action,
+    tip_action = index.get_input( "tip_action", true ),
+    drag_action = index.get_input( "drag_action", true ),
+    shift_action = index.get_input( "shift_action", true ),
 
-    is_opened = ComponentGetValue2( iui_comp, "mActive" ),
     inventory = inv_comp,
     inv_count_quickest = index.G.settings.quickest_size,
     inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - index.G.settings.quickest_size,
     inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
-    
+    is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+
     frame_num = frame_num,
     global_mode = pen.magic_storage( controller_id, "global_mode", "value_int" ),
 
-    gmod = {},
-    xys = pos_tbl,
     applets = applets,
+    xys = {}, gmod = {},
+    gmods = global_modes,
+
     slot_func = inv.slot,
     icon_func = inv.icon,
     tip_func = inv.tooltip,
-    plate_func = inv.plate,
+    box_func = inv.box,
     wand_func = inv.wand,
 
     orbs = GameGetOrbCountThisRun(),
-    icon_data = effect_tbl,
-    perk_data = perk_tbl,
+    icon_data = effect_tbl, perk_data = perk_tbl,
 
-    active_item = pen.get_active_item( hooman ),
-    active_info = {},
-    just_fired = mnee.vanilla_input( "Fire", hooman ),
+    active_item = pen.get_active_item( hooman ), active_info = {},
     no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
-    can_tinker = false,
-    sampo = 0,
+    just_fired = mnee.vanilla_input( "Fire", hooman ),
+    can_tinker = false, sampo = 0,
 
     item_list = {},
     slot_state = {},
     item_cats = item_cats,
 
-    inventories = {},
-    inventories_init = {},
-    inventories_extra = {},
-    inventories_player = {
+    invs = {},
+    invs_i = {}, invs_e = {}, invs_p = {
         q = pen.get_child( hooman, "inventory_quick" ),
         f = pen.get_child( hooman, "inventory_full" ),
     },
 
     dragger = {
-        swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
         item_id = pen.magic_storage( controller_id, "dragger_item_id", "value_int" ),
         inv_type = pen.magic_storage( controller_id, "dragger_inv_type", "value_float" ),
         is_quickest = pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool" ),
+        swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
     },
 
     player_core_off = index.G.settings.player_core_off,
@@ -289,75 +283,72 @@ if( pen.vld( pick_comp, true )) then
     }
 end
 
-index.D.inventories[ index.D.inventories_player.q ] = index.get_inv_info(
-    index.D.inventories_player.q,
-    { index.D.inv_count_quickest, index.D.inv_count_quick }, nil,
+--player invs init
+index.D.invs[ index.D.invs_p.q ] = index.get_inv_info(
+    index.D.invs_p.q, { index.D.inv_count_quickest, index.D.inv_count_quick }, nil,
     function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end
 )
-index.D.inventories[ index.D.inventories_player.f ] = index.get_inv_info(
-    index.D.inventories_player.f,
-    index.D.inv_count_full
-)
+index.D.invs[ index.D.invs_p.f ] = index.get_inv_info( index.D.invs_p.f, index.D.inv_count_full )
 pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
-    index.D.inventories[ inv ] = index.get_inv_info( inv )
-    table.insert( index.D.inventories_extra, inv )
+    index.D.invs[ inv ] = index.get_inv_info( inv )
+    table.insert( index.D.invs_e, inv )
 end)
 
--- index.get_items( hooman )
--- if( pen.vld( index.D.active_item, true )) then
---     index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item )
---     if( pen.vld( index.D.active_info.id, true )) then
---         local abil_comp = index.D.active_info.AbilityC
---         if( pen.vld( abil_comp, true )) then
---             index.M.shot_count = index.M.shot_count or {}
---             local shot_count = ComponentGetValue2( abil_comp, "stat_times_player_has_shot" )
---             index.D.just_fired = index.D.just_fired or (( index.M.shot_count[ index.D.active_item ] or shot_count ) < shot_count )
---             if( index.D.just_fired ) then index.M.shot_count[ index.D.active_item ] = shot_count end
---         end
---     else index.D.active_item = 0 end
--- end
+--item data init
+index.get_items( hooman )
+if( pen.vld( index.D.active_item, true )) then
+    index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item )
+    if( pen.vld( index.D.active_info.id, true )) then
+        if( pen.vld( index.D.active_info.AbilityC, true )) then
+            index.M.shot_count = index.M.shot_count or {}
+            local shot_count = ComponentGetValue2( index.D.active_info.AbilityC, "stat_times_player_has_shot" )
+            index.D.just_fired = index.D.just_fired or (( index.M.shot_count[ index.D.active_item ] or shot_count ) < shot_count )
+            if( index.D.just_fired ) then index.M.shot_count[ index.D.active_item ] = shot_count end
+        end
+    else index.D.active_item = 0 end
+end
 
--- index.D.slot_state = {}
--- for i,inv_info in pairs( index.D.inventories ) do
---     if( inv_info.kind[1] == "quick" ) then
---         index.D.slot_state[ inv_info.id ] = {
---             quickest = pen.t.init( inv_info.size[1], false ),
---             quick = pen.t.init( inv_info.size[2], false ),
---         }
---     else
---         index.D.slot_state[ inv_info.id ] = pen.t.init( inv_info.size[1], false )
---         for i,slot in ipairs( index.D.slot_state[ inv_info.id ]) do
---             index.D.slot_state[ inv_info.id ][i] = pen.t.init( inv_info.size[2], false )
---         end
---     end
--- end
+--slot table init
+index.D.slot_state = {}
+for i,inv_info in pairs( index.D.invs ) do
+    if( inv_info.kind[1] == "quick" ) then
+        index.D.slot_state[ inv_info.id ] = {
+            quickest = pen.t.init( inv_info.size[1], false ),
+            quick = pen.t.init( inv_info.size[2], false ),
+        }
+    else
+        index.D.slot_state[ inv_info.id ] = pen.t.init( inv_info.size[1], false )
+        for i,slot in ipairs( index.D.slot_state[ inv_info.id ]) do
+            index.D.slot_state[ inv_info.id ][i] = pen.t.init( inv_info.size[2], false )
+        end
+    end
+end
 
--- local nuke_em = {}
--- for i,this_info in ipairs( index.D.item_list ) do
---     index.D.item_list[i] = index.set_to_slot( this_info )
---     if( this_info.inv_slot == nil ) then table.insert( nuke_em, i ) end
+--assignment to slots
+local nuke_em = {}
+for i,this_info in ipairs( index.D.item_list ) do
+    index.D.item_list[i] = index.set_to_slot( this_info )
+    if( this_info.inv_slot == nil ) then table.insert( nuke_em, i ) end
 
---     local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
---     if( not( pen.vld( ctrl_func ))) then
---         index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
---     else ctrl_func( this_info.id, this_info ) end
--- end
--- if( pen.vld( nuke_em )) then
---     for i = #nuke_em,1,-1 do
---         table.remove( index.D.item_list, nuke_em[i])
---     end
--- end
+    local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
+    if( not( pen.vld( ctrl_func ))) then
+        index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
+    else ctrl_func( this_info.id, this_info ) end
+end
+if( pen.vld( nuke_em )) then
+    for i = #nuke_em,1,-1 do
+        table.remove( index.D.item_list, nuke_em[i])
+    end
+end
 
+--global mode init
 index.D.gmod = global_modes[ index.D.global_mode ]
-index.D.gmod.gmods = global_modes
 index.D.gmod.name = GameTextGetTranslatedOrNot( index.D.gmod.name )
 index.D.gmod.desc = GameTextGetTranslatedOrNot( index.D.gmod.desc )
 if( not( index.D.gmod.allow_advanced_draggables )) then index.D.drag_action = false end
-for i,mut in ipairs( global_mutators ) do
-    pos_tbl = mut( pos_tbl )
-end
+for i,mut in ipairs( global_mutators ) do index.D.xys = mut( index.D.xys ) end
 if( index.D.applets.done == nil ) then
-    index.D.applets.done = true
+    index.D.applets.done = true --make sure this is working
 
     local close_applets = {
         name = "CLOSE",
@@ -377,50 +368,51 @@ if( index.D.applets.done == nil ) then
     table.insert( index.D.applets.r, close_applets )
 end
 
+--hud and inventory handling
 local global_callback = index.D.gmod.custom_func
-if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, false ) end
-
+if( global_callback ~= nil ) then
+    inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
     if( inv.full_inv ~= nil ) then
-        -- pos_tbl.inv_root, pos_tbl.full_inv = inv.full_inv( screen_w, screen_h, pos_tbl )
+        index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
     end
     if( inv.applet_strip ~= nil ) then
-        pos_tbl.applets_l, pos_tbl.applets_r = inv.applet_strip( screen_w, screen_h, pos_tbl )
+        index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
     end
     
     local bars = inv.bars or {}
-    if( bars.hp ~= nil ) then pos_tbl.hp = bars.hp( screen_w, screen_h, pos_tbl ) end
-    if( bars.air ~= nil ) then pos_tbl.air = bars.air( screen_w, screen_h, pos_tbl ) end
-    if( bars.flight ~= nil ) then pos_tbl.flight = bars.flight( screen_w, screen_h, pos_tbl ) end
-    if( bars.bossbar ~= nil ) then pos_tbl.bossbar = bars.bossbar( screen_w, screen_h, pos_tbl ) end
+    if( bars.hp ~= nil ) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
+    if( bars.air ~= nil ) then index.D.xys.air = bars.air( screen_w, screen_h, index.D.xys ) end
+    if( bars.flight ~= nil ) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
+    if( bars.bossbar ~= nil ) then index.D.xys.bossbar = bars.bossbar( screen_w, screen_h, index.D.xys ) end
     
     local actions = bars.action or {}
-    if( actions.mana ~= nil ) then pos_tbl.mana = actions.mana( screen_w, screen_h, pos_tbl ) end
-    if( actions.reload ~= nil ) then pos_tbl.reload = actions.reload( screen_w, screen_h, pos_tbl ) end
-    if( actions.delay ~= nil ) then pos_tbl.delay = actions.delay( screen_w, screen_h, pos_tbl ) end
+    if( actions.mana ~= nil ) then index.D.xys.mana = actions.mana( screen_w, screen_h, index.D.xys ) end
+    if( actions.reload ~= nil ) then index.D.xys.reload = actions.reload( screen_w, screen_h, index.D.xys ) end
+    if( actions.delay ~= nil ) then index.D.xys.delay = actions.delay( screen_w, screen_h, index.D.xys ) end
 
-    if( inv.gold ~= nil ) then pos_tbl.gold = inv.gold( screen_w, screen_h, pos_tbl ) end
-    if( inv.orbs ~= nil ) then pos_tbl.orbs = inv.orbs( screen_w, screen_h, pos_tbl ) end
-    if( inv.info ~= nil ) then pos_tbl.info = inv.info( screen_w, screen_h, pos_tbl ) end
+    if( inv.gold ~= nil ) then index.D.xys.gold = inv.gold( screen_w, screen_h, index.D.xys ) end
+    if( inv.orbs ~= nil ) then index.D.xys.orbs = inv.orbs( screen_w, screen_h, index.D.xys ) end
+    if( inv.info ~= nil ) then index.D.xys.info = inv.info( screen_w, screen_h, index.D.xys ) end
     
     local icons = inv.icons or {}
-    if( icons.ingestions ~= nil ) then pos_tbl.ingestions = icons.ingestions( screen_w, screen_h, pos_tbl ) end
-    if( icons.stains ~= nil ) then pos_tbl.stains = icons.stains( screen_w, screen_h, pos_tbl ) end
-    if( icons.effects ~= nil ) then pos_tbl.effects = icons.effects( screen_w, screen_h, pos_tbl ) end
-    if( icons.perks ~= nil ) then pos_tbl.perks = icons.perks( screen_w, screen_h, pos_tbl ) end
+    if( icons.ingestions ~= nil ) then index.D.xys.ingestions = icons.ingestions( screen_w, screen_h, index.D.xys ) end
+    if( icons.stains ~= nil ) then index.D.xys.stains = icons.stains( screen_w, screen_h, index.D.xys ) end
+    if( icons.effects ~= nil ) then index.D.xys.effects = icons.effects( screen_w, screen_h, index.D.xys ) end
+    if( icons.perks ~= nil ) then index.D.xys.perks = icons.perks( screen_w, screen_h, index.D.xys ) end
     
-    -- if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, pos_tbl, inv.pickup_info ) end
-    -- if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, pos_tbl ) end
-    -- if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, pos_tbl ) end
+    if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, index.D.xys, inv.pickup_info ) end
+    if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, index.D.xys ) end
+    if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, index.D.xys ) end
 end
 if( not( index.D.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do
-        pos_tbl[ cid ] = cfunc( screen_w, screen_h, pos_tbl )
+        index.D.xys[ cid ] = cfunc( screen_w, screen_h, index.D.xys )
     end
 end
 
 if( index.D.gmod.allow_shooting ) then index.D.no_inv_shooting = false end
-if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, pos_tbl, inv, true ) end
+if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, index.D.xys, inv, true ) end
 if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
 
 if( index.D.inv_toggle and not( index.D.gmod.no_inv_toggle or false )) then
@@ -431,19 +423,20 @@ elseif( index.D.gmod.no_inv_toggle and not( index.D.is_opened )) then
     ComponentSetValue2( iui_comp, "mActive", true )
 end
 
+--dropping handling
 if( index.D.do_vanilla_dropping ) then
     if( index.D.dragger.item_id == 0 ) then
         never_drop = false
     elseif( index.D.gmod.allow_advanced_draggables or never_drop ) then
         index.D.dragger.wont_drop = true
-    elseif( dragger_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
+    elseif( index.D.drag_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
         never_drop = true
     end
 else
     if( not( index.G.gonna_drop )) then
-        if( not( dragger_action ) or index.D.gmod.allow_advanced_draggables ) then
+        if( not( index.D.drag_action ) or index.D.gmod.allow_advanced_draggables ) then
             index.D.dragger.wont_drop = true
-        elseif( dragger_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
+        elseif( index.D.drag_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
             index.G.gonna_drop = true
         end
     elseif( index.D.dragger.item_id == 0 ) then
@@ -457,6 +450,7 @@ elseif( index.G.slot_hover_sfx[1] ~= 0 ) then
     index.G.slot_hover_sfx[1] = 0
 end
 
+--dragging handling
 if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
     if( index.D.dragger.swap_soon ) then
         pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", true )
@@ -469,7 +463,7 @@ if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
                 else
                     if( not( index.D.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                         inv.drop( index.D.dragger.item_id )
-                    else play_sound( "error" ) end
+                    else index.play_sound( "error" ) end
                 end
             end
             index.G.gonna_drop = false

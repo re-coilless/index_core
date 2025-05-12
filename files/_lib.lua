@@ -1,29 +1,55 @@
 dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "mods/penman/_libman.lua" )
--- dofile_once( "data/scripts/lib/utilities.lua" ) --remove this
 
 index = index or {}
-index.G = index.G or {}
-index.D = index.D or {}
-index.M = index.M or {}
-index.FRAMER = {
-	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
-	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", pen.PALETTE.VNL.ACTION_STATIC },
-	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", pen.PALETTE.VNL.ACTION_MODIFIER },
-	[3] = { "data/ui_gfx/inventory/item_bg_draw_many.png", pen.PALETTE.VNL.ACTION_DRAW },
-	[4] = { "data/ui_gfx/inventory/item_bg_material.png", pen.PALETTE.VNL.ACTION_MATERIAL },
-	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", pen.PALETTE.VNL.ACTION_UTILITY },
-	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE },
-	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
-}
+index.G = index.G or {} --persistent table
+index.D = index.D or {} --data table
+index.M = index.M or {} --al cases of this have to be made through pen.animate
+
+-- index.get_status_data
+-- index.get_inv_info (merge kind and kind_func?)
+-- index.get_items
+-- index.set_to_slot
+-- index.cat_callback
+-- index.inventory_man
+
+-- _structure.lua
+-- _elements.lua
+
+--completetly redo the image handling to rely on penman
+--make sure the minimum z_layers offsets are 0.01
+--transition to globals
 
 --make index.new_vanilla_hp prettier
+--min hp bar length must be of a typical bar size (reduce the internal size instead)
+--use this for spell type color https://davidmathlogic.com/colorblind/#%23000000-%23E69F00-%2356B4E9-%23009E73-%23F0E442-%230072B2-%23D55E00-%23CC79A7
 
---core backend
+------------------------------------------------------		[BACKEND]		------------------------------------------------------
+
+---A wrapper for M-Nee bind.
+---@param mnee_id string
+---@param is_continuous boolean
+---@param is_clean boolean
+---@return boolean
 function index.get_input( mnee_id, is_continuous, is_clean )
 	return mnee.mnin( "bind", { "index_core", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
 end
 
+--A wrapper for Penman sound player.
+---@param sfx table
+---@param x? number
+---@param y? number
+function index.play_sound( sfx, x, y ) end
+--A wrapper for Penman sound player.
+---@param sfx string
+---@param x? number
+---@param y? number
+function index.play_sound( sfx, x, y )
+	if( x == nil ) then x, y = unpack( index.D.player_xy ) end
+	pen.play_sound( type( sfx ) == "table" and sfx or index.D.sfxes[ sfx ], x, y )
+end
+
+---Resets the game to vanilla state if the mod was disabled (only works with local install).
 function index.self_destruct()
 	pen.gui_builder( false )
 
@@ -38,88 +64,44 @@ function index.self_destruct()
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 end
 
---ESC backend
-function index.cat_callback( this_info, name, input, fallback, do_default )
-	local func_local = this_info[ name ]
-	if( input ~= nil ) then
-		local out = fallback
-		local is_real = pen.vld( func_local )
-		if( is_real ) then out = { func_local( unpack( input ))} end
-		if( is_real or do_default ) then
-			local func_main = index.D.item_cats[ this_info.cat ][ name ]
-			if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
-		end
-		return unpack( out )
-	else return func_local or index.D.item_cats[ this_info.cat ] end
-end
-
-function index.play_sound( sfx, x, y )
-	if( x == nil ) then x, y = unpack( index.D.player_xy ) end
-	pen.play_sound( type( sfx ) == "table" and sfx or index.D.sfxes[ sfx ], x, y )
-end
-
+---Makes sure all the internal parameters used by vanilla wand system are reset to their default states.
 function index.clean_my_gun()
-	ACTION_MANA_DRAIN_DEFAULT = 10
-	ACTION_DRAW_RELOAD_TIME_INCREASE = 0
+	ACTION_MANA_DRAIN_DEFAULT, ACTION_DRAW_RELOAD_TIME_INCREASE = 10, 0
 	ACTION_UNIDENTIFIED_SPRITE_DEFAULT = "data/ui_gfx/gun_actions/unidentified.png"
 
-	reflecting = false
-	current_action = nil
-	state_from_game = nil
+	mana, state_cards_drawn = 0, 0
+	c, shot_effects, gun = {}, {}, {}
+	deck, hand, discarded = {}, {}, {}
+	reflecting, current_action, state_from_game = false, nil, nil
+	current_reload_time, current_projectile, active_extra_modifiers = 0, nil, {}
+	reloading, first_shot, start_reload, got_projectiles = false, true, false, false
+	state_shuffled, state_discarded_action, state_destroyed_action, playing_permanent_card = false, false, false, false
 
-	reloading = false
-	first_shot = true
-	start_reload = false
-	got_projectiles = false
-
-	deck = {}
-	hand = {}
-	discarded = {}
-
-	c = {}
-	shot_effects = {}
-	current_reload_time = 0
-	current_projectile = nil
-	active_extra_modifiers = {}
-
-	mana = 0
-	state_cards_drawn = 0
-	state_shuffled = false
-	state_discarded_action = false
-	state_destroyed_action = false
-	playing_permanent_card = false
-
-	gun = {}
 	use_game_log = false
 	ConfigGun_Init( gun )
 	current_reload_time = 0
-
-	shot_structure = {}
-	recursion_limit = 2
-	force_stop_draws = false
-	dont_draw_actions = false
-
-	root_shot = nil
+	shot_structure, recursion_limit = {}, 2
+	force_stop_draws, dont_draw_actions, root_shot = false, false, nil
 end
 
-function index.get_status_data( hooman, dmg_comp )
-	local effect_tbl = { ings = {}, stains = {}, misc = {}}
-	local perk_tbl = {}
+---Returns a table of all detected status effects, stains, ingestions and perks.
+---@param hooman entity_id
+---@return table effects, table perks
+function index.get_status_data( hooman ) --document the nuances of the returned tables
+	local perk_tbl, effect_tbl = {}, { ings = {}, stains = {}, misc = {}}
 
 	dofile_once( "data/scripts/status_effects/status_list.lua" )
     if( status_effects[1].real_id == nil ) then
         local id_memo, id_num = {}, 1
         for i,e in ipairs( status_effects ) do
-            if( id_memo[ e.id ] == nil ) then
-				id_memo[ e.id ], id_num = true, id_num + 1
-			end
+            if( id_memo[ e.id ] == nil ) then id_memo[ e.id ], id_num = true, id_num + 1 end
             status_effects[i].real_id = id_num
-        end 
+        end
     end
     
     local simple_effects = {}
-    pen.child_play( hooman, function( parent, child, i )
-        local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" ) --maybe don't get disabled
+    pen.child_play( hooman, function( parent, child, i ) --allow devs to specify whether disabled GameEffect should count for being displayed
+        local effect_comp = EntityGetFirstComponentIncludingDisabled( child, "GameEffectComponent" )
         if( not( pen.vld( effect_comp, true ))) then return end
 		local is_stain = ComponentGetValue2( effect_comp, "caused_by_stains" )
 		local is_ing = ComponentGetValue2( effect_comp, "caused_by_ingestion_status_effect" )
@@ -222,6 +204,8 @@ function index.get_status_data( hooman, dmg_comp )
 		})
 	end)
 	table.sort( effect_tbl.stains, function( a, b ) return a.id > b.id end)
+
+	local dmg_comp = EntityGetFirstComponentIncludingDisabled( hooman, "DamageModelComponent" )
 	if( pen.vld( dmg_comp, true ) and ComponentGetIsEnabled( dmg_comp ) and ComponentGetValue2( dmg_comp, "mIsOnFire" )) then
 		local fire_info = pen.t.get( status_effects, "ON_FIRE" )
 		local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
@@ -609,7 +593,21 @@ function index.chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
 end
 
 --Inventory pipeline
-function index.get_valid_inventories( inv_type, is_quickest )
+function index.cat_callback( this_info, name, input, fallback, do_default )
+	local func_local = this_info[ name ]
+	if( input ~= nil ) then
+		local out = fallback or {}
+		local is_real = pen.vld( func_local )
+		if( is_real ) then out = { func_local( unpack( input ))} end
+		if( is_real or do_default ) then
+			local func_main = index.D.item_cats[ this_info.cat ][ name ]
+			if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
+		end
+		return unpack( out )
+	else return func_local or index.D.item_cats[ this_info.cat ][ name ] end
+end
+
+function index.get_valid_invs( inv_type, is_quickest )
 	local inv_ids = {}
 
 	if( math.floor( inv_type ) == 0 ) then
@@ -672,10 +670,10 @@ function index.inv_check( this_info, inv_info )
 	if( this_info.id == inv_info.inv_id ) then return false end
 
 	local kind_memo = inv_info.kind
-	local inv_data = inv_info.full or index.D.inventories[ inv_info.inv_id ]
+	local inv_data = inv_info.full or index.D.invs[ inv_info.inv_id ]
 	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
 	
-	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( index.get_valid_inventories( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
+	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( index.get_valid_invs( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
 	if( val ) then
 		val = index.cat_callback( this_info, "on_inv_check", { this_info, inv_info }, { val })
 	end
@@ -724,7 +722,7 @@ end
 function index.inventory_man( item_id, this_info, in_hand, force_full )
 	pen.child_play_full( item_id, function( child, params )
 		index.inventory_boy( child, unpack( params ))
-		if( not( force_full ) and index.D.inventories[ child ] ~= nil ) then
+		if( not( force_full ) and index.D.invs[ child ] ~= nil ) then
 			return true
 		end
 	end, { this_info, in_hand })
@@ -733,18 +731,18 @@ end
 function index.set_to_slot( this_info, is_player )
 	if( is_player == nil ) then
 		local parent_id = EntityGetParent( this_info.id )
-		is_player = index.D.inventories_player.q == parent_id or index.D.inventories_player.f == parent_id
+		is_player = index.D.invs_p.q == parent_id or index.D.invs_p.f == parent_id
 	end
 	
 	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
 	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
 	if( not( is_hidden )) then
-		local valid_invs = index.get_valid_inventories( this_info.inv_type, this_info.is_quickest )
+		local valid_invs = index.get_valid_invs( this_info.inv_type, this_info.is_quickest )
 		if( slot_num[2] == -5 ) then
 			if( not( this_info.is_hidden )) then
-				local inv_list = is_player and index.D.inventories_player or { this_info.inv_id }
+				local inv_list = is_player and index.D.invs_p or { this_info.inv_id }
 				pen.t.loop( inv_list, function( _,inv_id )
-					local inv_dt = index.D.inventories[ inv_id ]
+					local inv_dt = index.D.invs[ inv_id ]
 					local is_universal = pen.t.get( inv_dt.kind, "universal" ) ~= 0
 					local is_valid = #pen.t.get( valid_invs, inv_dt.kind ) > 0
 					if( not( is_universal or is_valid )) then return end
@@ -809,7 +807,7 @@ function index.slot_swap( item_in, slot_data )
 	for i = 1,2 do
 		local p = tbl[i]
 		if( p > 0 ) then
-			local p_info = index.D.inventories[p] or {}
+			local p_info = index.D.invs[p] or {}
 			if( p_info.update ~= nil ) then
 				if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
 					table.insert( reset, pen.get_item_owner( p, true ))
@@ -1023,20 +1021,18 @@ end
 function index.get_items( hooman )
 	local item_tbl = {}
 	for k = 1,2 do
-		local tbl = { "inventories", "inventories_init" }
+		local tbl = { "invs", "invs_i" }
 		for i,inv_info in pairs( index.D[ tbl[k]]) do
-			if( k == 2 ) then index.D.inventories[i] = inv_info end
+			if( k == 2 ) then index.D.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child, j )
 				local new_info = index.get_item_data( child, inv_info, item_tbl )
 				if( new_info.id ~= nil ) then
 					if( not( EntityHasTag( new_info.id, "index_processed" ))) then
 						index.cat_callback( new_info, "on_processed", { new_info.id, new_info })
-						
 						ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 						EntityAddTag( new_info.id, "index_processed" )
 					end
 					index.cat_callback( new_info, "on_processed_forced", { new_info.id, new_info })
-
 					index.register_item_pic( new_info, new_info.advanced_pic )
 					table.insert( item_tbl, new_info )
 				end
@@ -1074,7 +1070,7 @@ function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
 		end
 
 		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
-		EntityAddChild( index.D.inventories_player[ slot < 0 and "q" or "f" ], entity_id )
+		EntityAddChild( index.D.invs_p[ slot < 0 and "q" or "f" ], entity_id )
 
 		if( is_shopping ) then
 			if( not( index.D.Wallet.money_always )) then
@@ -1353,20 +1349,20 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 	return pic_x, pic_y, clicked, r_clicked, hovered
 end
 
-function index.new_vanilla_plate( pic_x, pic_y, pic_z, dims, alpha )
+function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 	pen.new_image( pic_x, pic_y, pic_z,
-		"mods/index_core/files/pics/vanilla_plate.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
+		"mods/index_core/files/pics/vanilla_box.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
 
 	local temp = 0
 	local steps = { 10, 4, 2, 1 }
 	pen.new_image( pic_x - 2, pic_y - 2, pic_z,
-		"mods/index_core/files/pics/vanilla_plate_a1.xml", { alpha = alpha })
+		"mods/index_core/files/pics/vanilla_box_a1.xml", { alpha = alpha })
 	pen.new_image( pic_x + dims[1], pic_y - 2, pic_z,
-		"mods/index_core/files/pics/vanilla_plate_a2.xml", { alpha = alpha })
+		"mods/index_core/files/pics/vanilla_box_a2.xml", { alpha = alpha })
 	pen.new_image( pic_x + dims[1], pic_y + dims[2], pic_z,
-		"mods/index_core/files/pics/vanilla_plate_a3.xml", { alpha = alpha })
+		"mods/index_core/files/pics/vanilla_box_a3.xml", { alpha = alpha })
 	pen.new_image( pic_x - 2, pic_y + dims[2], pic_z,
-		"mods/index_core/files/pics/vanilla_plate_a4.xml", { alpha = alpha })
+		"mods/index_core/files/pics/vanilla_box_a4.xml", { alpha = alpha })
 
 	while( temp < dims[1]) do
 		local pic_id = 4
@@ -1375,9 +1371,9 @@ function index.new_vanilla_plate( pic_x, pic_y, pic_z, dims, alpha )
 			if( delta >= step ) then pic_id = i; break end
 		end
 		pen.new_image( pic_x + temp, pic_y - 2, pic_z,
-			"mods/index_core/files/pics/vanilla_plate_b"..pic_id..".xml", { alpha = alpha })
+			"mods/index_core/files/pics/vanilla_box_b"..pic_id..".xml", { alpha = alpha })
 		pen.new_image( pic_x + temp, pic_y + dims[2], pic_z,
-			"mods/index_core/files/pics/vanilla_plate_c"..pic_id..".xml", { alpha = alpha })
+			"mods/index_core/files/pics/vanilla_box_c"..pic_id..".xml", { alpha = alpha })
 		temp = temp + steps[ pic_id ]
 	end
 	temp = 0
@@ -1388,9 +1384,9 @@ function index.new_vanilla_plate( pic_x, pic_y, pic_z, dims, alpha )
 			if( delta >= step ) then pic_id = i; break end
 		end
 		pen.new_image( pic_x - 2, pic_y + temp, pic_z,
-			"mods/index_core/files/pics/vanilla_plate_d"..pic_id..".xml", { alpha = alpha })
+			"mods/index_core/files/pics/vanilla_box_d"..pic_id..".xml", { alpha = alpha })
 		pen.new_image( pic_x + dims[1], pic_y + temp, pic_z,
-			"mods/index_core/files/pics/vanilla_plate_e"..pic_id..".xml", { alpha = alpha })
+			"mods/index_core/files/pics/vanilla_box_e"..pic_id..".xml", { alpha = alpha })
 		temp = temp + steps[ pic_id ]
 	end
 end
@@ -1592,15 +1588,17 @@ function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 	this_info.tt_spacing[6][1] = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1] + this_info.tt_spacing[3][1])
 	this_info.tt_spacing[6][1] = math.ceil( this_info.tt_spacing[6][1]/9 )*9 + 3
 	this_info.tt_spacing[2][1] = this_info.tt_spacing[6][1] - this_info.tt_spacing[3][1]
-	if( item_pic_data[ this_info.pic ] and item_pic_data[ this_info.pic ].dims ) then
-		local dims = { scale*item_pic_data[ this_info.pic ].dims[1], scale*item_pic_data[ this_info.pic ].dims[2]}
-		local drift = { -scale*item_pic_data[ this_info.pic ].xy[2], dims[1]/2 + scale*item_pic_data[ this_info.pic ].xml_xy[1]}
+
+	local pic_data = pen.cache({ "index_pic_data", this_info.pic })
+	if( pic_data and pic_data.dims ) then
+		local dims = { scale*pic_data.dims[1], scale*pic_data.dims[2]}
+		local drift = { -scale*pic_data.xy[2], dims[1]/2 + scale*pic_data.xml_xy[1]}
 		if( this_info.tt_spacing[2][2] < dims[1]) then
 			this_info.tt_spacing[2][3] = this_info.tt_spacing[2][3] + ( dims[1] - this_info.tt_spacing[2][2])/2
 			this_info.tt_spacing[2][2] = dims[1]
 		end
 		this_info.tt_spacing[4] = { this_info.tt_spacing[2][1] + drift[1] - 15, this_info.tt_spacing[2][2]/2 + drift[2]}
-		local total_size = this_info.tt_spacing[4][1] + dims[2] + scale*item_pic_data[ this_info.pic ].xml_xy[2]
+		local total_size = this_info.tt_spacing[4][1] + dims[2] + scale*pic_data.xml_xy[2]
 		if( total_size > this_info.tt_spacing[2][1] - 1 ) then
 			this_info.tt_spacing[4][1] = this_info.tt_spacing[4][1] - ( total_size - this_info.tt_spacing[2][1] + 1 )
 		end
@@ -1863,7 +1861,7 @@ function index.new_vanilla_ptt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), pen.PALETTE.W, -0.5, line_h, 0.75*inter_alpha )
 				end
 			end
-			index.new_vanilla_plate( pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
+			index.new_vanilla_box( pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
 			
 			local cut = scale*this_info.potion_cutout
 			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
@@ -2205,16 +2203,17 @@ end
 function index.new_slot_pic( pic_x, pic_y, pic_z, pic, alpha, angle, hov_scale, fancy_shadow )
 	angle = angle or 0
 	scale_up = scale_up or false
-	item_pic_data[ pic ] = item_pic_data[ pic ] or {
+	
+	local pic_data = pen.cache({ "index_pic_data", pic }) or {
 		xy = { 0, 0 },
 		xml_xy = { 0, 0 },
 	}
 	
-	local w, h = unpack( item_pic_data[ pic ].dims or {pen.get_pic_dims( pic )})
+	local w, h = unpack( pic_data.dims or { pen.get_pic_dims( pic )})
 	local off_x, off_y = 0, 0
-	if( item_pic_data[ pic ].xy[3] == nil ) then
-		if( item_pic_data[ pic ].xy[1] ~= 0 or item_pic_data[ pic ].xy[2] ~= 0 ) then
-			local x, y = unpack( item_pic_data[ pic ].xy )
+	if( pic_data.xy[3] == nil ) then
+		if( pic_data.xy[1] ~= 0 or pic_data.xy[2] ~= 0 ) then
+			local x, y = unpack( pic_data.xy )
 			x, y = pen.rotate_offset( x, y, angle )
 			off_x, off_y = x, y
 		end
@@ -2318,7 +2317,7 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 			icon_info.desc, { color = icon_info.is_danger and pen.PALETTE.VNL.WARNING or pen.PALETTE.W, alpha = anim })
 		
 		local bg_x = pic_x - ( dims[1] + 2 ) + w
-		index.new_vanilla_plate( bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim )
+		index.new_vanilla_box( bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim )
 		h = h + dims[2] + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 ) + 3
 	end
 
@@ -2386,7 +2385,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, this_info, is_active, 
 	pic_x, pic_y = pic_x + w/2, pic_y + h/2
 	if(( is_full ~= true ) and is_active ) then
 		pen.new_image( pic_x, pic_y,
-			pen.LAYERS[( not( index.D.is_opened ) or can_drag ) and "main_front" or "icons_front" ] + 0.0001, index.D.slot_pic.active )
+			pen.LAYERS[( not( index.D.is_opened ) or can_drag ) and "MAIN_FRONT" or "ICONS_FRONT" ] + 0.0001, index.D.slot_pic.active )
 	end
 	if( index.D.dragger.item_id > 0 ) then
 		local no_hov_for_ya = true
@@ -2543,19 +2542,21 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 		extra_step - 1, 0,
 		19*this_info.wand_info.deck_capacity + 4, 0,
 	}
-	if( item_pic_data[ this_info.pic ]) then
+
+	local pic_data = pen.cache({ "index_pic_data", this_info.pic })
+	if( pic_data ) then
 		local drift = this_info.w_spacing[1]
 		this_info.w_spacing[2] = drift
-		if( item_pic_data[ this_info.pic ].xy ) then
-			drift = drift + scale*item_pic_data[ this_info.pic ].xy[1]
+		if( pic_data.xy ) then
+			drift = drift + scale*pic_data.xy[1]
 		end
-		if( item_pic_data[ this_info.pic ].xml_xy ) then
-			drift = drift - scale*item_pic_data[ this_info.pic ].xml_xy[1]
+		if( pic_data.xml_xy ) then
+			drift = drift - scale*pic_data.xml_xy[1]
 		end
 		this_info.w_spacing[1] = drift
 
-		if( item_pic_data[ this_info.pic ].dims ) then
-			this_info.w_spacing[2] = this_info.w_spacing[2] + scale*item_pic_data[ this_info.pic ].dims[1] + 1
+		if( pic_data.dims ) then
+			this_info.w_spacing[2] = this_info.w_spacing[2] + scale*pic_data.dims[1] + 1
 			local min_val = math.ceil( math.max( this_info.w_spacing[1] + this_info.w_spacing[2] - extra_step, 25 )/19 )*19
 			if( this_info.w_spacing[2] < min_val ) then
 				this_info.w_spacing[1] = drift + ( min_val - this_info.w_spacing[2])/2
@@ -2563,7 +2564,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 			end
 		end
 
-		drift = scale*item_pic_data[ this_info.pic ].dims[2] - 18
+		drift = scale*pic_data.dims[2] - 18
 		if( drift > 0 ) then
 			this_info.w_spacing[4] = drift
 		end
@@ -2593,7 +2594,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 		end
 
 		local drift, section_off = this_info.w_spacing[1], this_info.w_spacing[2]
-		new_slot_pic( pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, pic_z + 0.005, this_info.pic, inter_alpha, 0, scale, true )
+		index.new_slot_pic( pic_x + drift, pic_y + 9 + this_info.w_spacing[4]/2, pic_z + 0.005, this_info.pic, inter_alpha, 0, scale, true )
 		local clicked, r_clicked, is_hovered = pen.new_interface(
 			pic_x, pic_y, section_off, 18 + this_info.w_spacing[4], pic_z - 0.001 )
 		pic_x = pic_x + section_off
@@ -2640,7 +2641,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 				
 				if( counter%2 == 0 and slot_count > 2 ) then
 					pen.colourer( nil, {185,220,223}) end
-				w, h = slot_setup( slot_x, slot_y, {
+				w, h = index.slot_setup( slot_x, slot_y, {
 					inv_id = this_info.id,
 					id = slot,
 					inv_slot = {i,e},
@@ -2655,3 +2656,14 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 
 	return step_x + 7, step_y + 7
 end
+
+index.FRAMER = {
+	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
+	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", pen.PALETTE.VNL.ACTION_STATIC },
+	[2] = { "data/ui_gfx/inventory/item_bg_modifier.png", pen.PALETTE.VNL.ACTION_MODIFIER },
+	[3] = { "data/ui_gfx/inventory/item_bg_draw_many.png", pen.PALETTE.VNL.ACTION_DRAW },
+	[4] = { "data/ui_gfx/inventory/item_bg_material.png", pen.PALETTE.VNL.ACTION_MATERIAL },
+	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", pen.PALETTE.VNL.ACTION_UTILITY },
+	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE },
+	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
+}

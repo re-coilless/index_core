@@ -39,7 +39,7 @@ return function( pic_x, pic_y, inv_data, xys, slot_func )
                 if( is_hovered ) then alpha = 1 end
                 if( clicked ) then
                     index.D.inv_toggle = true
-                    for i,gmod in ipairs( index.D.gmod.gmods ) do
+                    for i,gmod in ipairs( index.D.gmods ) do
                         if( gmod.allow_external_inventories ) then
                             pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
                             break

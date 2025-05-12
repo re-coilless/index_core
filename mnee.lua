@@ -1,4 +1,4 @@
-bindings[ "index_core" ] = {
+_BINDINGS[ "index_core" ] = {
 	shift_action = {
 		order_id = "aa",
 		allow_special = true,

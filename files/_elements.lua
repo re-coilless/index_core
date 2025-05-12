@@ -25,10 +25,10 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
 
         local cat_wands = pic_x
-        local inv_id = index.D.inventories_player.q
+        local inv_id = index.D.invs_p.q
         local slot_data = index.D.slot_state[ inv_id ].quickest
         for i,slot in ipairs( slot_data ) do
-            w, h = slot_setup( pic_x, pic_y, {
+            w, h = index.slot_setup( pic_x, pic_y, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-1},
@@ -41,7 +41,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         local cat_items = pic_x
         slot_data = index.D.slot_state[ inv_id ].quick
         for i,slot in ipairs( slot_data ) do
-            w, h = slot_setup( pic_x, pic_y, {
+            w, h = index.slot_setup( pic_x, pic_y, {
                 inv_id = inv_id,
                 id = slot,
                 inv_slot = {i,-2},
@@ -63,13 +63,13 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         if( index.D.gmod.show_full ) then
             if( index.D.is_opened or index.D.always_show_full ) then
                 local core_y = pic_y
-                inv_id = index.D.inventories_player.f
+                inv_id = index.D.invs_p.f
                 slot_data = index.D.slot_state[ inv_id ]
                 for i,col in ipairs( slot_data ) do
                     local count = not( index.D.gmod.show_fullest or false ) and 1 or #col
                     for e = 1,count do
                         local slot = col[e]
-                        w, h = slot_setup( pic_x, pic_y, {
+                        w, h = index.slot_setup( pic_x, pic_y, {
                             inv_id = inv_id,
                             id = slot,
                             inv_slot = {i,e},
@@ -160,7 +160,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
                     
                     reset_em = i
                     if( icon.toggle ~= nil and icon.toggle( true ) and not( is_left )) then
-                        pen.t.loop( index.D.gmod.gmods, function( i, gmod )
+                        pen.t.loop( index.D.gmods, function( i, gmod )
                             if( not( gmod.menu_capable )) then return end
                             pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
                             return true
@@ -179,7 +179,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         if( is_left ) then pic_x = pic_x - ( l - 10 ) end
         pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
             pen.LAYERS.MAIN_BACK - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-        index.D.plate_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
+        index.D.box_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
         if( is_left ) then
             pic_x = pic_x + arrow_off + 11
         else pic_x = pic_x - ( 3 + arrow_off ) end
@@ -411,7 +411,7 @@ function index.new_generic_delay( screen_w, screen_h, xys )
     return { pic_x, pic_y }
 end
 
-function index.new_generic_bossbar( screen_w, screen_h, xys )
+function index.new_generic_bossbar( screen_w, screen_h, xys ) --huge thanks to Priskip for visuals
     local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 20 })
     local x, y = unpack( index.D.player_xy )
     pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, boss )
@@ -825,9 +825,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                         local box_comp = EntityGetFirstComponent( ent, "HitboxComponent" )
                         button_data[2] = pen.check_bounds({ x, y }, box_comp, { b_x, b_y })
                     else button_data[2] = dist <= button_data[2] end
-                    if( button_data[2]) then
-                        table.insert( interactables, button_data )
-                    end
+                    if( button_data[2]) then table.insert( interactables, button_data ) end
                 elseif( EntityGetRootEntity( ent ) == ent ) then
                     local item_comp = EntityGetFirstComponent( ent, "ItemComponent" )
                     if( item_comp ~= nil ) then
@@ -949,7 +947,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                             local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
                             if( cost_comp == nil ) then
                                 local this_info = item_data[10]
-                                w, h = slot_setup( screen_w/2, screen_h - 50, {
+                                w, h = index.slot_setup( screen_w/2, screen_h - 50, {
                                     inv_id = 0,
                                     id = this_info.id,
                                     inv_slot = {0,0},
@@ -971,12 +969,10 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             ]]
 
             if( pickup_data.txt == nil and ( no_space or cant_buy )) then
-                if( #interactables > 0 ) then
-                    pickup_data.id = 0
-                else
+                if( not( pen.vld( interactables ))) then
                     pickup_data.id = -pickup_data.id
                     pickup_data.desc = { index.full_stopper( GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name )), true }
-                end
+                else pickup_data.id = 0 end
             end
             if( pickup_data.id ~= 0 ) then
                 local ignore_default = false
@@ -1061,7 +1057,7 @@ function index.new_generic_drop( this_item )
         
         local do_default = true
         local this_info = pen.t.get( index.D.item_list, this_item )
-        local inv_data = index.D.inventories[ this_info.inv_id ] or {}
+        local inv_data = index.D.invs[ this_info.inv_id ] or {}
         local callback = index.cat_callback( this_info, "on_drop" )
         if( callback ~= nil ) then
             do_default = callback( this_item, this_info, false )
@@ -1085,9 +1081,9 @@ function index.new_generic_drop( this_item )
 end
 
 function index.new_generic_extra( screen_w, screen_h, xys )
-    if( #index.D.inventories_extra > 0 ) then
-        for i,extra_inv in ipairs( index.D.inventories_extra ) do
-            local inv_data = index.D.inventories[ extra_inv ]
+    if( #index.D.invs_e > 0 ) then
+        for i,extra_inv in ipairs( index.D.invs_e ) do
+            local inv_data = index.D.invs[ extra_inv ]
             local x, y = EntityGetTransform( extra_inv )
             local pic_x, pic_y = pen.world2gui( x, y )
             inv_data.func( pic_x, pic_y, inv_data, xys, index.D.slot_func )
@@ -1143,7 +1139,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
 
             local alpha = gonna_highlight and 1 or 0.3
             if( gonna_reset ) then
-                for i,gmod in ipairs( index.D.gmod.gmods ) do
+                for i,gmod in ipairs( index.D.gmods ) do
                     if( gmod.is_default ) then
                         new_mode = i
                         break
@@ -1170,7 +1166,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
             end
             
             pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, mode_data.name, { alpha = alpha })
-            index.D.plate_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
+            index.D.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
             
             pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
                 "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
