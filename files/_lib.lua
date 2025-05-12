@@ -4,14 +4,13 @@ dofile_once( "mods/penman/_libman.lua" )
 index = index or {}
 index.G = index.G or {} --persistent table
 index.D = index.D or {} --data table
-index.M = index.M or {} --al cases of this have to be made through pen.animate
+index.M = index.M or {} --all cases of this have to be made through pen.animate
 
--- index.get_status_data
--- index.get_inv_info (merge kind and kind_func?)
--- index.get_items
--- index.set_to_slot
--- index.cat_callback
--- index.inventory_man
+-- index.register_item_pic
+-- index.get_thresholded_effect
+-- index.get_effect_duration
+-- index.get_effect_timer
+-- index.get_stain_perc
 
 -- _structure.lua
 -- _elements.lua
@@ -20,6 +19,8 @@ index.M = index.M or {} --al cases of this have to be made through pen.animate
 --make sure the minimum z_layers offsets are 0.01
 --transition to globals
 
+--opening inv should have it be animated (lower the full part from the top)
+--stains and such a kind stinky
 --make index.new_vanilla_hp prettier
 --min hp bar length must be of a typical bar size (reduce the internal size instead)
 --use this for spell type color https://davidmathlogic.com/colorblind/#%23000000-%23E69F00-%2356B4E9-%23009E73-%23F0E442-%230072B2-%23D55E00-%23CC79A7
@@ -64,30 +65,10 @@ function index.self_destruct()
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 end
 
----Makes sure all the internal parameters used by vanilla wand system are reset to their default states.
-function index.clean_my_gun()
-	ACTION_MANA_DRAIN_DEFAULT, ACTION_DRAW_RELOAD_TIME_INCREASE = 10, 0
-	ACTION_UNIDENTIFIED_SPRITE_DEFAULT = "data/ui_gfx/gun_actions/unidentified.png"
-
-	mana, state_cards_drawn = 0, 0
-	c, shot_effects, gun = {}, {}, {}
-	deck, hand, discarded = {}, {}, {}
-	reflecting, current_action, state_from_game = false, nil, nil
-	current_reload_time, current_projectile, active_extra_modifiers = 0, nil, {}
-	reloading, first_shot, start_reload, got_projectiles = false, true, false, false
-	state_shuffled, state_discarded_action, state_destroyed_action, playing_permanent_card = false, false, false, false
-
-	use_game_log = false
-	ConfigGun_Init( gun )
-	current_reload_time = 0
-	shot_structure, recursion_limit = {}, 2
-	force_stop_draws, dont_draw_actions, root_shot = false, false, nil
-end
-
 ---Returns a table of all detected status effects, stains, ingestions and perks.
 ---@param hooman entity_id
 ---@return table effects, table perks
-function index.get_status_data( hooman ) --document the nuances of the returned tables
+function index.get_status_data( hooman )
 	local perk_tbl, effect_tbl = {}, { ings = {}, stains = {}, misc = {}}
 
 	dofile_once( "data/scripts/status_effects/status_list.lua" )
@@ -115,50 +96,41 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 
 	local ing_perc = 0
 	local ing_comp = EntityGetFirstComponentIncludingDisabled( hooman, "IngestionComponent" )
-	if( ing_comp ~= nil ) then
+	if( pen.vld( ing_comp, true )) then
 		local raw_count = ComponentGetValue2( ing_comp, "ingestion_size" )
 		local total_cap = ComponentGetValue2( ing_comp, "ingestion_capacity" )
 		if( raw_count > 0 ) then ing_perc = math.floor( 100*raw_count/total_cap + 0.5 ) end
 	end
 	
 	local status_comp = EntityGetFirstComponentIncludingDisabled( hooman, "StatusEffectDataComponent" )
-
-	local ing_frame = ComponentGetValue2( status_comp, "ingestion_effects" )
-	local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
 	local ing_many = ComponentGetValue2( status_comp, "ingestion_effect_causes_many" )
-	pen.t.loop( ing_frame, function( effect_id, duration )
+	local ing_matter = ComponentGetValue2( status_comp, "ingestion_effect_causes" )
+	pen.t.loop( ComponentGetValue2( status_comp, "ingestion_effects" ), function( effect_id, duration )
 		if( duration == 0 ) then return end
 		
-		local raw_info = pen.t.get( status_effects, { effect_id }, "real_id" )
-		local effect_info = index.get_thresholded_effect( raw_info or {}, duration )
+		local raw_info = pen.t.get( status_effects, effect_id, "real_id", nil, nil, {})
+		local effect_info = index.get_thresholded_effect( raw_info, duration )
 		local time = index.get_effect_duration( duration, effect_info )
 		if( effect_info.id == nil or time == 0 ) then return end
 		
 		local is_many = ing_many[ effect_id ] == 1
+		local hardcoded_cancer_fucking_ass_list = {
+			INGESTION_MOVEMENT_SLOWER = 1, INGESTION_EXPLODING = 1, INGESTION_DAMAGE = 1 }
 		local mtr = GameTextGetTranslatedOrNot( CellFactory_GetUIName( ing_matter[ effect_id ]))
 		local message = GameTextGet( "$ingestion_status_caused_by"..( is_many and "_many" or "" ), mtr == "" and "???" or mtr )
-		if( ing_perc >= 100 ) then
-			local hardcoded_cancer_fucking_ass_list = {
-				INGESTION_MOVEMENT_SLOWER = 1,
-				INGESTION_EXPLODING = 1,
-				INGESTION_DAMAGE = 1,
-			}
-			if( hardcoded_cancer_fucking_ass_list[ effect_info.id ]) then
-				if( GameGetGameEffectCount( hooman, "IRON_STOMACH" ) == 0 ) then
-					message, time = GameTextGetTranslatedOrNot( "$ingestion_status_caused_by_overingestion" ), -1
-				else time = 0 end
-			end
+		if( ing_perc >= 100 and hardcoded_cancer_fucking_ass_list[ effect_info.id ]) then
+			if( GameGetGameEffectCount( hooman, "IRON_STOMACH" ) == 0 ) then
+				message, time = GameTextGetTranslatedOrNot( "$ingestion_status_caused_by_overingestion" ), -1
+			else time = 0 end
 		end
-		
 		if( time == 0 ) then return end
+		
 		table.insert( effect_tbl.ings, {
 			pic = effect_info.ui_icon,
 			txt = index.get_effect_timer( time ),
 			desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
-			tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."@"..message,
-
-			amount = time*60,
-			is_danger = effect_info.is_harmful,
+			tip = GameTextGetTranslatedOrNot( effect_info.ui_description ).."\n"..message,
+			amount = time*60, is_danger = effect_info.is_harmful,
 		})
 	end)
 	table.sort( effect_tbl.ings, function( a, b ) return a.amount > b.amount end)
@@ -184,23 +156,20 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 		})
 	end
 
-	local stain_percs = ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" )
-	pen.t.loop( stain_percs, function( effect_id, duration )
+	pen.t.loop( ComponentGetValue2( status_comp, "mStainEffectsSmoothedForUI" ), function( effect_id, duration )
 		local perc = index.get_stain_perc( duration )
 		if( perc == 0 ) then return end
-		local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect_id }, "real_id" ) or {}, duration )
+		local effect_info = index.get_thresholded_effect(
+			pen.t.get( status_effects, effect_id, "real_id", nil, nil, {}), duration )
 		if( not( pen.vld( effect_info.id ))) then return end
 
 		table.insert( effect_tbl.stains, {
 			id = effect_id,
-			
 			pic = effect_info.ui_icon,
 			txt = math.min( perc, 100 ).."%",
 			desc = GameTextGetTranslatedOrNot( effect_info.ui_name ),
 			tip = GameTextGetTranslatedOrNot( effect_info.ui_description ),
-
-			amount = math.min( perc/100, 1 ),
-			is_danger = effect_info.is_harmful,
+			amount = math.min( perc/100, 1 ), is_danger = effect_info.is_harmful,
 		})
 	end)
 	table.sort( effect_tbl.stains, function( a, b ) return a.id > b.id end)
@@ -210,13 +179,10 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 		local fire_info = pen.t.get( status_effects, "ON_FIRE" )
 		local perc = math.floor( 100*ComponentGetValue2( dmg_comp, "mFireFramesLeft" )/ComponentGetValue2( dmg_comp, "mFireDurationFrames" ))
 		table.insert( effect_tbl.stains, 1, {
-			pic = fire_info.ui_icon,
-			txt = perc.."%",
+			pic = fire_info.ui_icon, txt = perc.."%",
 			desc = GameTextGetTranslatedOrNot( fire_info.ui_name ),
 			tip = GameTextGetTranslatedOrNot( fire_info.ui_description ),
-
-			amount = math.min( perc/100, 1 ),
-			is_danger = true,
+			amount = math.min( perc/100, 1 ), is_danger = true,
 		})
 	end
 
@@ -225,21 +191,17 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
         local info_comp = EntityGetFirstComponentIncludingDisabled( child, "UIIconComponent" )
         if( not( pen.vld( info_comp, true ))) then return end
 		if( not( ComponentGetValue2( info_comp, "display_in_hud" ))) then return end
-		local icon_info = {
-			pic = ComponentGetValue2( info_comp, "icon_sprite_file" ),
-			txt = "",
-			desc = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" )),
-			tip = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "description" )),
-			count = 1,
-		}
 
-		local is_perk = ComponentGetValue2( info_comp, "is_perk" )
-		if( is_perk ) then
-			-- dofile_once( "data/scripts/perks/perk_list.lua" )
+		local icon_info = {
+			pic = ComponentGetValue2( info_comp, "icon_sprite_file" ), txt = "",
+			desc = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "name" )),
+			tip = GameTextGetTranslatedOrNot( ComponentGetValue2( info_comp, "description" )), count = 1, }
+		if( ComponentGetValue2( info_comp, "is_perk" )) then
+			dofile_once( "data/scripts/perks/perk_list.lua" )
 			local _,true_id = pen.t.get( perk_tbl, icon_info.pic, "pic" )
-			if( true_id == nil ) then
+			if( not( pen.vld( true_id ))) then
 				if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
-					icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."@"..icon_info.tip
+					icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."\n"..icon_info.tip
 					icon_info.count = tonumber( GlobalsGetValue( "fungal_shift_iteration", "0" ))
 					icon_info.is_fungal = true
 					
@@ -248,7 +210,7 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 					if( fungal_timer > 0 ) then
 						icon_info.amount = fungal_timer
 						icon_info.txt = index.get_effect_timer( icon_info.amount/60 )
-						icon_info.tip = icon_info.tip.."@"..icon_info.txt.." until next Shift window."
+						icon_info.tip = icon_info.tip.."\n"..icon_info.txt.." until next Shift window."
 					end
 					
 					table.insert( perk_tbl, 1, icon_info )
@@ -257,17 +219,17 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 		else
 			icon_info.amount = -2
 			local _,true_id = pen.t.get( effect_tbl.misc, icon_info.pic, "pic" )
-
 			pen.hallway( function()
 				if( pen.vld( true_id )) then return end
 				if( not( pen.vld( simple_effects ))) then return end
 				if( EntityGetParent( child ) ~= hooman ) then return end
 
-				local effect = pen.t.get( simple_effects, child )
+				local effect = pen.t.get( simple_effects, child, nil, nil, {})
 				if( not( pen.vld( effect ))) then return end
 
 				icon_info.amount = ComponentGetValue2( effect[2], "frames" )
-				local effect_info = index.get_thresholded_effect( pen.t.get( status_effects, { effect[3]}, "real_id" ) or {}, icon_info.amount )
+				local effect_info = index.get_thresholded_effect(
+					pen.t.get( status_effects, effect[3], "real_id", nil, nil, {}), icon_info.amount )
 				if( not( pen.vld( effect_info.id ))) then return end
 
 				icon_info.main_info = effect_info
@@ -289,11 +251,9 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 
 			if( pen.vld( true_id )) then
 				local time = icon_info.amount/60
-				if( time > 0 ) then table.insert( effect_tbl.misc[true_id].time_tbl, time ) end
-				effect_tbl.misc[true_id].count = effect_tbl.misc[true_id].count + 1
-				if( effect_tbl.misc[true_id].amount < icon_info.amount ) then
-					effect_tbl.misc[true_id].amount = icon_info.amount
-				end
+				if( time > 0 ) then table.insert( effect_tbl.misc[ true_id ].time_tbl, time ) end
+				effect_tbl.misc[ true_id ].count = effect_tbl.misc[ true_id ].count + 1
+				if( effect_tbl.misc[ true_id ].amount < icon_info.amount ) then effect_tbl.misc[ true_id ].amount = icon_info.amount end
 			else
 				icon_info.time_tbl = {}
 				if( icon_info.amount ~= 0 ) then
@@ -304,333 +264,68 @@ function index.get_status_data( hooman ) --document the nuances of the returned 
 			end
 		end
     end)
-    table.sort( perk_tbl, function( a, b )
-        return a.count > b.count
-    end)
+    table.sort( perk_tbl, function( a, b ) return a.count > b.count end)
     
 	pen.t.loop( effect_tbl.misc, function( i, e )
 		table.sort( e.time_tbl, function( a, b ) return a > b end)
         effect_tbl.misc[1].txt = index.get_effect_timer( e.time_tbl[1])
         if( #e.time_tbl <= 1 ) then return end
 		local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
-		effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."@"..string.gsub( tip, "%$0 ", index.get_effect_timer( e.time_tbl[#e.time_tbl], true ))
+		effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."\n"..string.gsub(
+			tip, "%$0 ", index.get_effect_timer( e.time_tbl[ #e.time_tbl ], true ))
 	end)
-    table.sort( effect_tbl.misc, function( a, b )
-        return a.amount > b.amount
-    end)
+    table.sort( effect_tbl.misc, function( a, b ) return a.amount > b.amount end)
 
 	return effect_tbl, perk_tbl
 end
 
-function index.get_action_data( spell_id )
-	dofile_once( "data/scripts/gun/gun.lua" )
-	dofile_once( "data/scripts/gun/gun_enums.lua" )
-	dofile_once( "data/scripts/gun/gun_actions.lua" )
-	return pen.cache({ "index_spell_data", spell_id }, function()
-		index.clean_my_gun()
+------------------------------------------------------		[INVENTORY]		------------------------------------------------------
 
-		local spell_data = pen.t.clone( pen.t.get( actions, spell_id, nil, nil, {}))
-		if( spell_data.action == nil ) then return spell_data end
-		
-		add_projectile_old = add_projectile
-		add_projectile = function( path )
-			table.insert( c.projs, { 1, path })
-		end
-		add_projectile_trigger_timer_old = add_projectile_trigger_timer
-		add_projectile_trigger_timer = function( path, delay, draw_count )
-			c.draw_many = c.draw_many + draw_count
-			table.insert( c.projs, { 2, path, draw_count, delay })
-		end
-		add_projectile_trigger_hit_world_old = add_projectile_trigger_hit_world
-		add_projectile_trigger_hit_world = function( path, draw_count )
-			c.draw_many = c.draw_many + draw_count
-			table.insert( c.projs, { 3, path, draw_count })
-		end
-		add_projectile_trigger_death_old = add_projectile_trigger_death
-		add_projectile_trigger_death = function( path, draw_count )
-			c.draw_many = c.draw_many + draw_count
-			table.insert( c.projs, { 4, path, draw_count })
-		end
-		draw_actions_old = draw_actions
-		draw_actions = function( draw_count )
-			c.draw_many = c.draw_many + draw_count
-		end
-
-		ACTION_DRAW_RELOAD_TIME_INCREASE = 1e9
-		current_reload_time, shot_effects = 0, {}
-		dont_draw_actions, reflecting = true, true
-
-		SetRandomSeed( 0, 0 )
-		ConfigGunShotEffects_Init( shot_effects )
-		local metadata = create_shot()
-		c, metadata.state_proj = metadata.state, {damage={},explosion={},crit={},lightning={}}
-		set_current_action( spell_data )
-		c.draw_many = 0
-		c.projs = {}
-		
-		pcall( spell_data.action )
-		if( spell_data.tip_data ~= nil ) then spell_data.tip_data() end
-		if( math.abs( current_reload_time ) > 1e6 ) then
-			spell_data.is_chainsaw = true
-			current_reload_time = current_reload_time + ACTION_DRAW_RELOAD_TIME_INCREASE
-		end
-		metadata.state.reload_time, metadata.shot_effects = current_reload_time, pen.t.clone( shot_effects )
-		
-		local total_dmg_add, dmg_tbl = 0, {
-			"damage_projectile_add", "damage_curse_add", "damage_explosion_add", "damage_slice_add", "damage_poison_add",
-			"damage_melee_add", "damage_ice_add", "damage_electricity_add", "damage_drill_add", "damage_radioactive_add",
-			"damage_healing_add", "damage_fire_add", "damage_holy_add", "damage_physics_add", "damage_explosion",
-		}
-		for i,dmg in ipairs( dmg_tbl ) do
-			total_dmg_add = total_dmg_add + ( c[dmg] or 0 )
-		end
-		c.damage_total_add = total_dmg_add
-		
-		local is_gonna = false
-		c.proj_count = #c.projs
-		if( c.proj_count > 0 ) then
-			local xml = pen.lib.nxml.parse( pen.magic_read( c.projs[1][2]))
-			local xml_kid = xml:first_of( "ProjectileComponent" )
-			if( xml_kid == nil ) then
-				xml_kid = xml:first_of( "Base" )
-				if( xml_kid ~= nil ) then
-					xml_kid = xml_kid:first_of( "ProjectileComponent" )
-				end
-			end
-			if( xml_kid ) then
-				metadata.state_proj = {
-					damage = {
-						curse = 0,
-						drill = 0,
-						electricity = 0,
-						explosion = 0,
-						fire = 0,
-						healing = 0,
-						ice = 0,
-						melee = 0,
-						overeating = 0,
-						physics_hit = 0,
-						poison = 0,
-						projectile = tonumber( xml_kid.attr.damage or 0 ),
-						radioactive = 0,
-						slice = 0,
-						holy = 0,
-					},
-					explosion = {},
-					crit = {},
-					lightning = {},
-					laser = {},
-					damage_scaled_by_speed = tonumber( xml_kid.attr.damage_scaled_by_speed or 0 ) > 0,
-					damage_every_x_frames = tonumber( xml_kid.attr.damage_every_x_frames or -1 ),
-					
-					lifetime = tonumber( xml_kid.attr.lifetime or -1 ),
-
-					speed = math.floor((
-						tonumber( xml_kid.attr.speed_min or xml_kid.attr.speed_max or 0 )
-						+ tonumber( xml_kid.attr.speed_max or xml_kid.attr.speed_min or 0 )
-					)/2 + 0.5 ),
-
-					inf_bounces = tonumber( xml_kid.attr.bounce_always or 0 ) > 0,
-					bounces = tonumber( xml_kid.attr.bounces_left or 0 ),
-					
-					on_collision_die = tonumber( xml_kid.attr.on_collision_die or 1 ) > 0,
-					on_death_duplicate = tonumber( xml_kid.attr.on_death_duplicate_remaining or 0 ) > 0,
-					on_death_explode = tonumber( xml_kid.attr.on_death_explode or 0 ) > 0,
-					on_lifetime_out_explode = tonumber( xml_kid.attr.on_lifetime_out_explode or 0 ) > 0,
-
-					collide_with_entities = tonumber( xml_kid.attr.collide_with_entities or 1 ) > 0,
-					penetrate_entities = tonumber( xml_kid.attr.penetrate_entities or 0 ) > 0,
-					dont_collide_with_tag = xml_kid.attr.dont_collide_with_tag or "",
-					never_hit_player = tonumber( xml_kid.attr.never_hit_player or 0 ) > 0,
-					friendly_fire = tonumber( xml_kid.attr.friendly_fire or 0 ) > 0,
-					explosion_dont_damage_shooter = tonumber( xml_kid.attr.explosion_dont_damage_shooter or 0 ) > 0,
-
-					collide_with_world = tonumber( xml_kid.attr.collide_with_world or 1 ) > 0,
-					penetrate_world = tonumber( xml_kid.attr.penetrate_world or 0 ) > 0,
-					go_through_this_material = xml_kid.attr.go_through_this_material or "",
-					ground_penetration_coeff = tonumber( xml_kid.attr.ground_penetration_coeff or 0 ),
-					ground_penetration_max_durability = tonumber( xml_kid.attr.ground_penetration_max_durability_to_destroy or 0 ),
-				}
-
-				local dmg_kid = xml_kid:first_of( "damage_by_type" )
-				if( dmg_kid ) then
-					metadata.state_proj.damage["curse"] = tonumber( dmg_kid.attr.curse or 0 )
-					metadata.state_proj.damage["drill"] = tonumber( dmg_kid.attr.drill or 0 )
-					metadata.state_proj.damage["electricity"] = tonumber( dmg_kid.attr.electricity or 0 )
-					metadata.state_proj.damage["explosion"] = tonumber( dmg_kid.attr.explosion or 0 )
-					metadata.state_proj.damage["fire"] = tonumber( dmg_kid.attr.fire or 0 )
-					metadata.state_proj.damage["healing"] = tonumber( dmg_kid.attr.healing or 0 )
-					metadata.state_proj.damage["ice"] = tonumber( dmg_kid.attr.ice or 0 )
-					metadata.state_proj.damage["melee"] = tonumber( dmg_kid.attr.melee or 0 )
-					metadata.state_proj.damage["overeating"] = tonumber( dmg_kid.attr.overeating or 0 )
-					metadata.state_proj.damage["physics_hit"] = tonumber( dmg_kid.attr.physics_hit or 0 )
-					metadata.state_proj.damage["poison"] = tonumber( dmg_kid.attr.poison or 0 )
-					metadata.state_proj.damage["projectile"] = metadata.state_proj.damage.projectile
-						+ tonumber( dmg_kid.attr.projectile or 0 )
-					metadata.state_proj.damage["radioactive"] = tonumber( dmg_kid.attr.radioactive or 0 )
-					metadata.state_proj.damage["slice"] = tonumber( dmg_kid.attr.slice or 0 )
-					metadata.state_proj.damage["holy"] = tonumber( dmg_kid.attr.holy or 0 )
-				end
-				local exp_kid = xml_kid:first_of( "config_explosion" )
-				if( exp_kid ) then
-					metadata.state_proj.explosion = {
-						damage_mortals = tonumber( exp_kid.attr.damage_mortals or 1 ) > 0,
-						damage = tonumber( exp_kid.attr.damage or 0 ),
-						is_digger = tonumber( exp_kid.attr.is_digger or 0 ) > 0,
-						explosion_radius = tonumber( exp_kid.attr.explosion_radius or 0 ),
-						max_durability_to_destroy = tonumber( exp_kid.attr.max_durability_to_destroy or 0 ),
-						ray_energy = tonumber( exp_kid.attr.ray_energy or 0 ),
-					}
-				end
-				local crit_kid = xml_kid:first_of( "damage_critical" )
-				if( crit_kid ) then
-					metadata.state_proj.crit = {
-						chance = tonumber( crit_kid.attr.chance or 0 ),
-						damage_multiplier = tonumber( crit_kid.attr.damage_multiplier or 1 ),
-					}
-				end
-
-				xml_kid = xml:first_of( "LightningComponent" )
-				if( xml_kid == nil ) then
-					xml_kid = xml:first_of( "Base" )
-					if( xml_kid ~= nil ) then
-						xml_kid = xml_kid:first_of( "LightningComponent" )
-					end
-				end
-				if( xml_kid ) then
-					local lght_kid = xml_kid:first_of( "config_explosion" )
-					if( lght_kid ) then
-						metadata.state_proj.lightning = {
-							damage_mortals = tonumber( lght_kid.attr.damage_mortals or 1 ) > 0,
-							damage = tonumber( lght_kid.attr.damage or 0 ),
-							is_digger = tonumber( lght_kid.attr.is_digger or 0 ) > 0,
-							explosion_radius = tonumber( lght_kid.attr.explosion_radius or 0 ),
-							max_durability_to_destroy = tonumber( lght_kid.attr.max_durability_to_destroy or 0 ),
-							ray_energy = tonumber( lght_kid.attr.ray_energy or 0 ),
-						}
-					end
-				end
-
-				xml_kid = xml:first_of( "LaserEmitterComponent" )
-				if( xml_kid == nil ) then
-					xml_kid = xml:first_of( "Base" )
-					if( xml_kid ~= nil ) then
-						xml_kid = xml_kid:first_of( "LaserEmitterComponent" )
-					end
-				end
-				if( xml_kid ) then
-					local laser_kid = xml_kid:first_of( "laser" )
-					if( laser_kid ) then
-						metadata.state_proj.laser = {
-							max_length = tonumber( laser_kid.attr.max_length or 0 ),
-							beam_radius = tonumber( laser_kid.attr.beam_radius or 0 ),
-							damage_to_entities = tonumber( laser_kid.attr.damage_to_entities or 0 ),
-							damage_to_cells = tonumber( laser_kid.attr.damage_to_cells or 0 ),
-							max_cell_durability_to_destroy = tonumber( laser_kid.attr.max_cell_durability_to_destroy or 0 ),
-						}
-					end
-				end
-				
-				local total_dmg = 0
-				for field,dmg in pairs( metadata.state_proj.damage ) do
-					total_dmg = total_dmg + dmg
-				end
-				if( metadata.state_proj.explosion.damage_mortals ) then
-					total_dmg = total_dmg + ( metadata.state_proj.explosion.damage or 0 )
-				end
-				if( metadata.state_proj.lightning.damage_mortals ) then
-					total_dmg = total_dmg + ( metadata.state_proj.lightning.damage or 0 )
-				end
-				metadata.state_proj.damage["total"] = total_dmg
-			end
-		end
-
-		ACTION_DRAW_RELOAD_TIME_INCREASE, c = 0, nil
-		add_projectile = add_projectile_old
-		add_projectile_trigger_timer = add_projectile_trigger_timer_old
-		add_projectile_trigger_hit_world = add_projectile_trigger_hit_world_old
-		add_projectile_trigger_death = add_projectile_trigger_death_old
-		draw_actions = draw_actions_old
-		index.clean_my_gun()
-
-		spell_data.meta = pen.t.clone( metadata )
-		return spell_data
-	end, { reset_count = 0 })
-end
-
-function index.chugger_3000( mouth_id, cup_id, total_vol, mtr_list, perc )
-	if( not( pen.vld( mtr_list ))) then return end
-
-	local gonna_pour = type( mouth_id ) == "table"
-	if( gonna_pour ) then
-		perc = 9/total_vol
-	else perc = perc or 0.1 end
-	
-	local to_drink = total_vol*perc
-	local min_vol = math.ceil( to_drink*perc )
-	for i = #mtr_list,1,-1 do
-		local mtr = mtr_list[i]
-		if( mtr[2] > 0 ) then
-			local count = math.floor( mtr[2]*perc )
-			if( i == 1 ) then count = to_drink end
-			count = math.min( math.max( count, min_vol ), mtr[2])
-
-			local name = CellFactory_GetName( mtr[1])
-			if( gonna_pour ) then
-				local temp = to_drink - 1
-				for i = 1,count do
-					local off_x, off_y = -1.5 + temp%3, -1.5 + math.floor( temp/3 )%4
-					GameCreateParticle( name, mouth_id[1] + off_x, mouth_id[2] + off_y, 1, 0, 0, false, false, false )
-					temp = temp - 1
-				end
-			else EntityIngestMaterial( mouth_id, mtr[1], count ) end
-			AddMaterialInventoryMaterial( cup_id, name, math.floor( mtr[2] - count + 0.5 ))
-
-			to_drink = to_drink - count
-			if( to_drink <= 0 ) then break end
+function index.is_inv_empty( slot_state )
+	for i,col in pairs( slot_state ) do
+		for e,slot in ipairs( col ) do
+			if( slot ) then return false end
 		end
 	end
+	return true
 end
 
---Inventory pipeline
-function index.cat_callback( this_info, name, input, fallback, do_default )
-	local func_local = this_info[ name ]
-	if( input ~= nil ) then
-		local out = fallback or {}
-		local is_real = pen.vld( func_local )
-		if( is_real ) then out = { func_local( unpack( input ))} end
-		if( is_real or do_default ) then
-			local func_main = index.D.item_cats[ this_info.cat ][ name ]
-			if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
-		end
-		return unpack( out )
-	else return func_local or index.D.item_cats[ this_info.cat ][ name ] end
+function index.cat_callback( info, callback, input, fallback, do_default )
+	local func_local = info[ callback ]
+	if( not( pen.vld( input ))) then
+		return func_local or index.D.item_cats[ info.cat ][ name ]
+	elseif( type( input ) ~= "table" ) then input = { info, input } end
+
+	local out, is_real = fallback or {}, pen.vld( func_local )
+	if( is_real ) then out = { func_local( unpack( input ))} end
+	if( is_real or do_default ) then
+		local func_main = index.D.item_cats[ info.cat ][ callback ]
+		if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
+	end
+	return unpack( out )
 end
 
-function index.get_valid_invs( inv_type, is_quickest )
-	local inv_ids = {}
-
-	if( math.floor( inv_type ) == 0 ) then
-		table.insert( inv_ids, "full" )
-	end
-	if( math.ceil( inv_type ) == 0 ) then
-		table.insert( inv_ids, "quick" )
-		table.insert( inv_ids, "quickest" )
-	end
-	if( inv_type == -1 ) then
-		table.insert( inv_ids, is_quickest and "quickest" or "quick" )
-	end
-
-	return inv_ids
+---Transforms numerical inv_cat value to a table of all allowed inventories.
+---@param inv_cat number -1 is quick only (is_quickest changes this), -0.5 is quick and quickest, 0 is everything, 0.5 is full only, 1 is nothing
+---@param is_quickest boolean
+---@return table inv_kinds
+function index.get_valid_invs( inv_cat, is_quickest )
+	local inv_kinds = {}
+	if( math.floor( inv_cat ) == 0 ) then table.insert( inv_kinds, "full" ) end
+	if( math.ceil( inv_cat ) == 0 ) then table.insert( inv_kinds, "quick" ); table.insert( inv_kinds, "quickest" ) end
+	if( inv_cat == -1 ) then table.insert( inv_kinds, is_quickest and "quickest" or "quick" ) end
+	return inv_kinds
 end
 
-function index.get_inv_info( inv_id, slot_count, kind, kind_func, check_func, update_func, gui_func, sort_func )
-	local kind_data = pen.magic_storage( inv_id, "index_kind", "value_string" )
-	if( kind_data ~= nil ) then kind = pen.t.pack( kind_data ) end
-	local kind_path = pen.magic_storage( inv_id, "index_kind_func", "value_string" )
-	if( kind_path ~= nil ) then kind_func = dofile( kind_path ) end
+function index.get_inv_info( inv_id, size, kind, check_func, update_func, gui_func, sort_func )
+	local kind_path = pen.magic_storage( inv_id, "index_kind", "value_string" )
+	if( kind_path ~= nil ) then
+		local is_path = string.find( kind_path, "%.lua$" ) ~= nil
+		kind = is_path and dofile( kind_path ) or pen.t.pack( kind_data )
+	end
+
 	local size_data = pen.magic_storage( inv_id, "index_size", "value_string" )
-	if( size_data ~= nil ) then slot_count = pen.t.pack( size_data, true ) end
+	if( size_data ~= nil ) then size = pen.t.pack( size_data, true ) end
 	local gui_path = pen.magic_storage( inv_id, "index_gui", "value_string" )
 	if( gui_path ~= nil ) then gui_func = dofile_once( gui_path ) end
 	local check_path = pen.magic_storage( inv_id, "index_check", "value_string" )
@@ -642,13 +337,12 @@ function index.get_inv_info( inv_id, slot_count, kind, kind_func, check_func, up
 	
 	local inv_ts = {
 		inventory_full = { "full" },
-		inventory_quick = { "quick", slot_count[1] > 0 and "quickest" or nil },
+		inventory_quick = { "quick", size[1] > 0 and "quickest" or nil },
 	}
 	return {
 		id = inv_id,
 		kind = kind or inv_ts[ EntityGetName( inv_id )] or { "universal" },
-		kind_func = kind_func,
-		size = slot_count,
+		size = size,
 		func = gui_func,
 		check = check_func,
 		update = update_func,
@@ -656,45 +350,36 @@ function index.get_inv_info( inv_id, slot_count, kind, kind_func, check_func, up
 	}
 end
 
-function index.is_inv_empty( slot_state )
-	for i,col in pairs( slot_state ) do
-		for e,slot in ipairs( col ) do
-			if( slot ) then return false end
-		end
-	end
-	return true
+function index.inv_check( item_info, info )
+	if(( item_info.id or 0 ) < 0 ) then return true end
+	if( item_info.id == info.inv_id ) then return false end
+
+	local kind_memo = info.kind
+	local inv_info = index.D.invs[ info.inv_id ]
+	info.kind = pen.get_hybrid_function( inv_info.kind, info )
+	
+	local is_universal = pen.t.get( info.kind, "universal" ) ~= 0
+	local is_valid = pen.vld( pen.t.get( index.get_valid_invs( item_info.inv_cat, item_info.is_quickest ), info.kind, nil, nil, {}))
+	local is_fit = ( is_universal or is_valid ) and ( inv_info.check == nil or inv_info.check( item_info, info ))
+	if( is_fit ) then is_fit = index.cat_callback( item_info, "on_inv_check", info, { is_fit }) end
+	
+	info.kind = kind_memo
+	return is_fit
 end
 
-function index.inv_check( this_info, inv_info )
-	if(( this_info.id or 0 ) < 0 ) then return true end
-	if( this_info.id == inv_info.inv_id ) then return false end
-
-	local kind_memo = inv_info.kind
-	local inv_data = inv_info.full or index.D.invs[ inv_info.inv_id ]
-	inv_info.kind = inv_data.kind_func ~= nil and inv_data.kind_func( inv_info ) or inv_data.kind
-	
-	local val = (( pen.t.get( inv_info.kind, "universal" ) ~= 0 ) or #pen.t.get( index.get_valid_invs( this_info.inv_type, this_info.is_quickest ), inv_info.kind ) > 0 ) and ( inv_data.check == nil or inv_data.check( this_info, inv_info ))
-	if( val ) then
-		val = index.cat_callback( this_info, "on_inv_check", { this_info, inv_info }, { val })
-	end
-	
-	inv_info.kind = kind_memo
-	return val
-end
-
-function index.slot_swap_check( item_in, item_out, slot_data )
-	local inv_memo = item_out.inv_id
-	index.G.slot_memo = item_out.inv_slot
-	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_data.inv_id, item_out.inv_slot or slot_data.inv_slot
-	local val = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
+function index.slot_swap_check( item_in, item_out, slot_info )
+	local inv_memo = item_out.inv_id; index.G.slot_memo = item_out.inv_slot
+	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_info.inv_id, item_out.inv_slot or slot_info.inv_slot
+	local is_fit = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
 	item_out.inv_id, item_out.inv_slot = inv_memo, index.G.slot_memo
-	return val
+	return is_fit
 end
 
-function index.inventory_boy( item_id, this_info, in_hand )
-	local in_wand = ( this_info.in_wand or 0 ) > 0
+function index.inventory_boy( info, in_hand )
+	local item_id = info.id
+	local in_wand = peb.vld( info.in_wand, true )
 	if( in_wand or in_hand == nil ) then
-		local wand_id = in_wand and this_info.in_wand or item_id
+		local wand_id = in_wand and info.in_wand or item_id
 		in_hand = pen.get_item_owner( wand_id ) > 0
 	end
 	
@@ -711,140 +396,130 @@ function index.inventory_boy( item_id, this_info, in_hand )
 	end)
 
 	if( is_free ) then return end
-	if( not( in_hand ) or pen.get_active_item( pen.get_item_owner( item_id )) ~= item_id ) then
-		if( in_hand ) then hooman = EntityGetParent( item_id ) end
-		local x, y = EntityGetTransform( hooman )
-		EntitySetTransform( item_id, x, y )
-		EntityApplyTransform( item_id, x, y )
-	end
+	if( in_hand and pen.get_active_item( pen.get_item_owner( item_id )) == item_id ) then return end
+	if( in_hand ) then hooman = EntityGetParent( item_id ) end
+	local x, y = EntityGetTransform( hooman )
+	EntitySetTransform( item_id, x, y )
+	EntityApplyTransform( item_id, x, y )
 end
 
-function index.inventory_man( item_id, this_info, in_hand, force_full )
+function index.inventory_man( info, in_hand, force_full )
+	local item_id = info.id
 	pen.child_play_full( item_id, function( child, params )
-		index.inventory_boy( child, unpack( params ))
-		if( not( force_full ) and index.D.invs[ child ] ~= nil ) then
-			return true
-		end
-	end, { this_info, in_hand })
+		info.id = child
+		index.inventory_boy( info, in_hand )
+		if( not( force_full ) and index.D.invs[ child ] ~= nil ) then return true end
+	end)
+	info.id = item_id
 end
 
-function index.set_to_slot( this_info, is_player )
+function index.set_to_slot( info, is_player )
 	if( is_player == nil ) then
-		local parent_id = EntityGetParent( this_info.id )
+		local parent_id = EntityGetParent( info.id )
 		is_player = index.D.invs_p.q == parent_id or index.D.invs_p.f == parent_id
 	end
 	
-	local slot_num = { ComponentGetValue2( this_info.ItemC, "inventory_slot" )}
-	local is_hidden = slot_num[1] == -1 and slot_num[2] == -1
-	if( not( is_hidden )) then
-		local valid_invs = index.get_valid_invs( this_info.inv_type, this_info.is_quickest )
-		if( slot_num[2] == -5 ) then
-			if( not( this_info.is_hidden )) then
-				local inv_list = is_player and index.D.invs_p or { this_info.inv_id }
-				pen.t.loop( inv_list, function( _,inv_id )
-					local inv_dt = index.D.invs[ inv_id ]
-					local is_universal = pen.t.get( inv_dt.kind, "universal" ) ~= 0
-					local is_valid = #pen.t.get( valid_invs, inv_dt.kind ) > 0
-					if( not( is_universal or is_valid )) then return end
-					
-					for i,slot in pairs( index.D.slot_state[ inv_id ]) do
-						pen.t.loop( slot, function( k, s )
-							if( s ) then return end
-							local is_fancy = type( i ) == "string"
-							if( is_fancy and pen.t.get( valid_invs, i ) == 0 ) then return end
-							local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
-							if( index.inv_check( this_info, { inv_id = inv_id, inv_slot = temp_slot, full = inv_dt })) then
-								if( temp_slot[2] < 0 ) then temp_slot[2] = temp_slot[2] + 1 end
-								
-								local parent_check = EntityGetParent( this_info.id )
-								if( parent_check > 0 and inv_id ~= parent_check) then
-									EntityRemoveFromParent( this_info.id )
-									EntityAddChild( inv_id, this_info.id )
-								end
+	local slot_num = { ComponentGetValue2( info.ItemC, "inventory_slot" )}
+	if( slot_num[1] == -1 and slot_num[2] == -1 ) then return info end
 
-								slot_num = temp_slot
-								index.D.slot_state[ inv_id ][i][k] = this_info.id
-								return true
+	local valid_invs = index.get_valid_invs( info.inv_cat, info.is_quickest )
+	if( slot_num[2] == -5 ) then
+		if( not( info.is_hidden )) then
+			local inv_list = is_player and index.D.invs_p or { info.inv_id }
+			pen.t.loop( inv_list, function( _,inv_id )
+				local inv_info = index.D.invs[ inv_id ]
+				local is_universal = pen.t.get( inv_info.kind, "universal" ) ~= 0
+				local is_valid = peb.vld( pen.t.get( valid_invs, inv_info.kind, nil, nil, {}))
+				if( not( is_universal or is_valid )) then return end
+				
+				for i,slot in pairs( index.D.slot_state[ inv_id ]) do
+					pen.t.loop( slot, function( k, s )
+						if( s ) then return end
+						local is_fancy = type( i ) == "string"
+						if( is_fancy and pen.t.get( valid_invs, i ) == 0 ) then return end
+
+						local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
+						if( index.inv_check( info, { inv_id = inv_id, inv_slot = temp_slot })) then
+							if( temp_slot[2] < 0 ) then temp_slot[2] = temp_slot[2] + 1 end
+							
+							local parent_check = EntityGetParent( info.id )
+							if( parent_check > 0 and inv_id ~= parent_check) then
+								EntityRemoveFromParent( info.id )
+								EntityAddChild( inv_id, info.id )
 							end
-						end)
-						if( slot_num[2] ~= -5 ) then break end
-					end
 
-					if( slot_num[2] ~= -5 ) then return true end
-				end)
-				if( slot_num[2] == -5 ) then return this_info end
-			else slot_num = { -1, -1 } end
-			slot_num[1], slot_num[2] = slot_num[1] - 1, slot_num[2] - 1
-			ComponentSetValue2( this_info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
-		elseif( slot_num[2] == -1 ) then
-			index.D.slot_state[ this_info.inv_id ].quickest[ slot_num[1] + 1 ] = this_info.id
-			this_info.inv_kind = "quickest"
-		elseif( slot_num[2] == -2 ) then
-			index.D.slot_state[ this_info.inv_id ].quick[ slot_num[1] + 1 ] = this_info.id
-			this_info.inv_kind = "quick"
-		elseif( slot_num[2] >= 0 ) then
-			index.D.slot_state[ this_info.inv_id ][ slot_num[1] + 1 ][ slot_num[2] + 1 ] = this_info.id
-			this_info.inv_kind = this_info.inv_kind[1]
-		end
+							slot_num = temp_slot
+							index.D.slot_state[ inv_id ][i][k] = info.id
+							return true
+						end
+					end)
 
-		slot_num[1], slot_num[2] = slot_num[1] + 1, slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
+					if( slot_num[2] ~= -5 ) then break end
+				end
+
+				if( slot_num[2] ~= -5 ) then return true end
+			end)
+			if( slot_num[2] == -5 ) then return info end
+		else slot_num = { -1, -1 } end
+		slot_num[1], slot_num[2] = slot_num[1] - 1, slot_num[2] - 1
+		ComponentSetValue2( info.ItemC, "inventory_slot", slot_num[1], slot_num[2])
+	elseif( slot_num[2] == -1 ) then
+		index.D.slot_state[ info.inv_id ].quickest[ slot_num[1] + 1 ] = info.id
+		info.inv_kind = "quickest"
+	elseif( slot_num[2] == -2 ) then
+		index.D.slot_state[ info.inv_id ].quick[ slot_num[1] + 1 ] = info.id
+		info.inv_kind = "quick"
+	elseif( slot_num[2] >= 0 ) then
+		index.D.slot_state[ info.inv_id ][ slot_num[1] + 1 ][ slot_num[2] + 1 ] = info.id
+		info.inv_kind = info.inv_kind[1]
 	end
 
-	this_info.inv_slot = slot_num
-	return this_info
+	slot_num[1] = slot_num[1] + 1
+	slot_num[2] = slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
+	info.inv_slot = slot_num
+	return info
 end
 
-function index.slot_swap( item_in, slot_data )
-	local reset = { 0, 0 }
-
-	local parent1 = EntityGetParent( item_in )
-	local parent2 = slot_data.inv_id
-	local tbl = { parent1, parent2 }
-	local idata = {
+function index.slot_swap( item_in, slot_info )
+	local reset, idata = { 0, 0 }, {
 		pen.t.get( index.D.item_list, item_in, nil, nil, {}),
-		pen.t.get( index.D.item_list, slot_data.id, nil, nil, {}),
-	}
-	for i = 1,2 do
-		local p = tbl[i]
-		if( p > 0 ) then
-			local p_info = index.D.invs[p] or {}
-			if( p_info.update ~= nil ) then
-				if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[(i+1)%2+1], idata[i%2+1])) then
-					table.insert( reset, pen.get_item_owner( p, true ))
-				end
-			end
+		pen.t.get( index.D.item_list, slot_info.id, nil, nil, {})}
+	local parent1, parent2 = EntityGetParent( item_in ), slot_info.inv_id
+	
+	pen.t.loop({ parent1, parent2 }, function( i, p )
+		if( not( pen.vld( p, true ))) then return end
+		local p_info = index.D.invs[p] or {}
+		if( not( pen.vld( p_info.update ))) then return end
+		if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[( i + 1 )%2 + 1 ], idata[ i%2 + 1 ])) then
+			table.insert( reset, pen.get_item_owner( p, true ))
 		end
-	end
+	end)
 	if( parent1 ~= parent2 ) then
 		reset[1] = pen.get_item_owner( item_in )
 		EntityRemoveFromParent( item_in )
 		EntityAddChild( parent2, item_in )
-		if( slot_data.id > 0 ) then
-			reset[2] = pen.get_item_owner( slot_data.id )
-			EntityRemoveFromParent( slot_data.id )
-			EntityAddChild( parent1, slot_data.id )
+		if( pen.vld( slot_info.id, true )) then
+			reset[2] = pen.get_item_owner( slot_info.id )
+			EntityRemoveFromParent( slot_info.id )
+			EntityAddChild( parent1, slot_info.id )
 		end
 	end
 	
 	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_in, "ItemComponent" )
 	local slot1 = { ComponentGetValue2( item_comp1, "inventory_slot" )}
-	local slot2 = slot_data.inv_slot
+	local slot2 = slot_info.inv_slot
 	ComponentSetValue2( item_comp1, "inventory_slot", slot2[1] - 1, slot2[2] < 0 and slot2[2] or slot2[2] - 1 )
-	if( slot_data.id > 0 ) then
-		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data.id, "ItemComponent" )
+	if( slot_info.id > 0 ) then
+		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_info.id, "ItemComponent" )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
 	end
 	
-	for i = 1,2 do
-		local this_info = idata[i]
-		if(( this_info.id or 0 ) > 0 ) then
-			index.cat_callback( this_info, "on_inv_swap", { this_info, slot_data })
-		end
-	end
+	pen.t.loop( idata, function( i, d )
+		if( not( pen.vld( d.id, true ))) then
+		index.cat_callback( d, "on_inv_swap", slot_info )
+	end)
 	for i,deadman in pairs( reset ) do
-		if( deadman > 0 ) then
-			pen.reset_active_item( deadman )
-		end
+		if( pen.vld( deadman, true )) then pen.reset_active_item( deadman ) end
 	end
 end
 
@@ -853,13 +528,13 @@ function index.check_item_name( name )
 end
 
 function index.get_entity_name( entity_id, item_comp, abil_comp )
-	local name = item_comp == nil and "" or ComponentGetValue2( item_comp, "item_name" )
+	local name = pen.vld( item_comp, true ) and ComponentGetValue2( item_comp, "item_name" ) or ""
 
 	local info_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "UIInfoComponent" )
-	if( info_comp ~= nil ) then
+	if( pen.vld( info_comp, true )) then
 		local temp = ComponentGetValue2( info_comp, "name" )
 		name = index.check_item_name( temp ) and temp or name
-	elseif( abil_comp ~= nil ) then
+	elseif( pen.vld( abil_comp, true )) then
 		local temp = ComponentGetValue2( abil_comp, "ui_name" )
 		name = index.check_item_name( temp ) and temp or name
 	end
@@ -871,255 +546,229 @@ function index.get_entity_name( entity_id, item_comp, abil_comp )
 	return index.check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
-function index.get_potion_info( entity_id, name, max_count, total_count, matters )
-	local info = ""
-	
+function index.get_potion_info( entity_id, name, volume, max_volume, matters )
 	local cnt = 1
-	for i,mtr in ipairs( matters ) do --pen.t.loop_concat
-		if( i == 1 or mtr[2] > 5 ) then
-			info = info..( i == 1 and "" or "+" )..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
-			cnt = cnt + 1
-			if( cnt > 3 ) then break end
-		end
-	end
+	local info = pen.t.loop_concat( matters, function( i, mtr )
+		if( cnt > 3 ) then return end
+		if( not( i == 1 or mtr[2] > 5 )) then return end
+		cnt = cnt + 1
+		return { i == 1 and "" or "+", pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))}
+	end) or ""
 	
 	local v = nil
-	if( max_count > 0 ) then
-		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*total_count/max_count + 0.5 )))
-	end
-
+	if(( max_volume or 0 ) > 0 ) then
+		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*volume/max_volume + 0.5 ))) end
 	if( string.sub( name, 1, 1 ) == "$" ) then
 		name = pen.capitalizer( GameTextGet( name, ( info == "" and GameTextGetTranslatedOrNot( "$item_potion_empty" ) or info )))
 	else name = string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" ) end
-	return info..( info == "" and info or " " )..name, v
+	return table.concat({ info, ( info == "" and info or " " ), name }), v
 end
 
-function index.get_item_data( item_id, inventory_data, item_list )
-	local this_info = { id = item_id }
-	if( inventory_data ~= nil ) then
-		this_info.inv_id = inventory_data.id
-		this_info.inv_kind = inventory_data.kind
+function index.get_item_data( item_id, inv_info, item_list )
+	local info = { id = item_id }
+	if( pen.vld( inv_info )) then
+		info.inv_id = inv_info.id
+		info.inv_kind = inv_info.kind
 	end
 	
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
-	if( item_comp == nil ) then return {} end
+	if( not( pen.vld( item_comp, true ))) then return {} end
 	
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
-	if( abil_comp ~= nil ) then
-		this_info.AbilityC = abil_comp
-		-- this_info.charges = {
+	if( pen.vld( abil_comp, true  )) then
+		info.AbilityC = abil_comp
+		-- info.charges = {
 		-- 	ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
 		-- 	ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
 		-- 	ComponentGetValue2( abil_comp, "amount_in_inventory" ),
 		-- }
-		this_info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
-		this_info.is_throwing = ComponentGetValue2( abil_comp, "throw_as_item" )
-		if( this_info.is_throwing ) then
+		info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
+		info.is_throwing = ComponentGetValue2( abil_comp, "throw_as_item" )
+		info.uses_rmb = EntityHasTag( item_id, "index_has_rbm" ) or info.is_throwing
+		if( info.is_throwing ) then
 			pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "LuaComponent" ), function( i, comp )
-				local path = ComponentGetValue2( comp, "script_kick" ) or ""
-				if( path ~= "" ) then
-					this_info.is_kicking = true
-					return true
-				end
+				local path = ComponentGetValue2( comp, "script_kick" )
+				if( not( pen.vld( path ))) then return end
+				info.is_kicking = true
+				return true
 			end)
 		end
-		this_info.uses_rmb = EntityHasTag( item_id, "index_has_rbm" ) or this_info.is_throwing
-	end
-	if( item_comp ~= nil ) then
-		this_info.ItemC = item_comp
-
-		local invs = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
-		local inv_name = pen.magic_storage( item_id, "preferred_inventory", "value_string" )
-			or ComponentGetValue2( item_comp, "preferred_inventory" )
-		this_info.inv_type = invs[inv_name] or 0
-		
-		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
-		if( pen.vld( ui_pic )) then this_info.pic = ui_pic end
-		
-		this_info.desc = index.full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
-		-- this_info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
-		this_info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
-		
-		this_info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
-		this_info.is_permanent = ComponentGetValue2( item_comp, "permanently_attached" )
-		this_info.is_locked = this_info.is_permanent
-		if( EntityHasTag( item_id, "index_unlocked" )) then
-			this_info.is_locked = false
-		elseif( EntityHasTag( item_id, "index_locked" )) then
-			this_info.is_locked = true
-		end
-
-		this_info.charges = pen.magic_storage( item_id, "current_charges", "value_int" )
-			or ComponentGetValue2( item_comp, "uses_remaining" )
-
-		local callback_list = {
-			-- "on_check",
-			-- "on_info_name",
-			"on_data",
-			"on_processed",
-			"on_processed_forced",
-			"ctrl_script",
-
-			"on_inv_check",
-			"on_inv_swap",
-			"on_inventory",
-			"on_tooltip",
-			"on_slot",
-
-			"on_equip",
-			"on_action",
-			"on_pickup",
-			"on_drop",
-
-			"on_gui_pause",
-			"on_gui_world",
-		}
-		index.M.cbk_tbl = index.M.cbk_tbl or {} --cache this
-		index.M.cbk_tbl[ item_id ] = index.M.cbk_tbl[ item_id ] or {}
-		for k,callback in ipairs( callback_list ) do
-			if( index.M.cbk_tbl[ item_id ][ callback ] == nil ) then
-				local func_path = pen.magic_storage( item_id, callback, "value_string" )
-				if( func_path ~= nil ) then index.M.cbk_tbl[ item_id ][ callback ] = dofile_once( func_path ) end
-			end
-			this_info[ callback ] = index.M.cbk_tbl[ item_id ][ callback ]
-		end
 	end
 	
-	for k,cat in ipairs( index.D.item_cats ) do
-		if( cat.on_check( item_id )) then
-			this_info.cat = k
-			this_info.is_wand = cat.is_wand or false
-			this_info.is_potion = cat.is_potion or false
-			this_info.is_spell = cat.is_spell or false
-			this_info.is_quickest = cat.is_quickest or false
-			this_info.is_hidden = cat.is_hidden or false
-			this_info.do_full_man = cat.do_full_man or false
-			this_info.advanced_pic = cat.advanced_pic or false
-			break
-		end
+	info.ItemC = item_comp
+	local inv_name = pen.magic_storage( item_id, "preferred_inventory", "value_string" )
+	info.inv_cat = index.INVS[ inv_name or ComponentGetValue2( item_comp, "preferred_inventory" )] or 0
+	
+	local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
+	if( pen.vld( ui_pic )) then info.pic = ui_pic end
+	
+	info.desc = index.full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
+	-- info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
+	info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+	
+	info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
+	info.is_permanent = ComponentGetValue2( item_comp, "permanently_attached" )
+	info.is_locked = info.is_permanent
+	if( EntityHasTag( item_id, "index_unlocked" )) then
+		info.is_locked = false
+	elseif( EntityHasTag( item_id, "index_locked" )) then
+		info.is_locked = true
 	end
-	this_info.name, this_info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
-	if( this_info.cat == nil ) then
+
+	info.charges = pen.magic_storage( item_id, "current_charges", "value_int" )
+	info.charges = info.charges	or ComponentGetValue2( item_comp, "uses_remaining" )
+
+	index.M.cbk_tbl = index.M.cbk_tbl or {} --cache this
+	index.M.cbk_tbl[ item_id ] = index.M.cbk_tbl[ item_id ] or {}
+
+	local callback_list = {
+		-- "on_check", "on_info_name",
+		
+		"on_data", "on_processed",
+		"on_processed_forced", "ctrl_script",
+
+		"on_inv_check", "on_inv_swap",
+		"on_inventory", "on_tooltip", "on_slot",
+
+		"on_equip", "on_action",
+		"on_pickup", "on_drop",
+
+		"on_gui_pause", "on_gui_world" }
+	for k,callback in ipairs( callback_list ) do
+		info[ callback ] = pen.cache({ "callback_tbl", item_id, callback }, function()
+			local func_path = pen.magic_storage( item_id, callback, "value_string" )
+			if( pen.vld( func_path )) then return dofile_once( func_path ) end
+		end)
+	end
+	
+	pen.t.loop( index.D.item_cats, function( k, cat )
+		if( not( cat.on_check( item_id ))) then return end
+		info.cat = k
+		info.is_wand = cat.is_wand or false
+		info.is_potion = cat.is_potion or false
+		info.is_spell = cat.is_spell or false
+		info.is_quickest = cat.is_quickest or false
+		info.is_hidden = cat.is_hidden or false
+		info.do_full_man = cat.do_full_man or false
+		info.advanced_pic = cat.advanced_pic or false
+		return true
+	end)
+
+	info.name, info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
+	if( not( pen.vld( info.cat ))) then
 		return {}
-	elseif(( this_info.name or "" ) == "" ) then
-		this_info.name = index.D.item_cats[ this_info.cat ].name
+	elseif( not( pen.vld( info.name ))) then
+		info.name = index.D.item_cats[ info.cat ].name
 	end
-	this_info.name = pen.capitalizer( this_info.name )
+	info.name = pen.capitalizer( info.name )
 	
-	dofile_once( "data/scripts/gun/gun.lua" )
-	dofile_once( "data/scripts/gun/gun_enums.lua" )
-	dofile_once( "data/scripts/gun/gun_actions.lua" )
-	this_info = index.cat_callback( this_info, "on_data", {
-		item_id, this_info, item_list or {}
-	}, { this_info })
-	
-	local wand_id = ( this_info.in_wand or false ) and this_info.in_wand or item_id
-	this_info.in_hand = pen.get_item_owner( wand_id )
-	return this_info
+	-- dofile_once( "data/scripts/gun/gun.lua" )
+	-- dofile_once( "data/scripts/gun/gun_enums.lua" )
+	-- dofile_once( "data/scripts/gun/gun_actions.lua" )
+	info = index.cat_callback( info, "on_data", item_list or {}, { info })
+	info.in_hand = pen.get_item_owner( ( info.in_wand or false ) and info.in_wand or item_id )
+	return info
 end
 
 function index.get_items( hooman )
 	local item_tbl = {}
-	for k = 1,2 do
-		local tbl = { "invs", "invs_i" }
-		for i,inv_info in pairs( index.D[ tbl[k]]) do
+	pen.t.loop({ "invs", "invs_i" }, function( k, inv )
+		for i,inv_info in pairs( index.D[ inv ]) do
 			if( k == 2 ) then index.D.invs[i] = inv_info end
-			pen.child_play( inv_info.id, function( parent, child, j )
+			pen.child_play( inv_info.id, function( parent, child, e )
 				local new_info = index.get_item_data( child, inv_info, item_tbl )
-				if( new_info.id ~= nil ) then
-					if( not( EntityHasTag( new_info.id, "index_processed" ))) then
-						index.cat_callback( new_info, "on_processed", { new_info.id, new_info })
-						ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
-						EntityAddTag( new_info.id, "index_processed" )
-					end
-					index.cat_callback( new_info, "on_processed_forced", { new_info.id, new_info })
-					index.register_item_pic( new_info, new_info.advanced_pic )
-					table.insert( item_tbl, new_info )
+				if( not( pen.vld( new_info.id, true ))) then return end
+
+				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
+					index.cat_callback( new_info, "on_processed", true )
+					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
+					EntityAddTag( new_info.id, "index_processed" )
 				end
+
+				index.cat_callback( new_info, "on_processed_forced", true )
+				-- index.register_item_pic( new_info, new_info.advanced_pic )
+				table.insert( item_tbl, new_info )
 			end, inv_info.sort )
 		end
-	end
-
+	end)
 	index.D.item_list = item_tbl
 end
 
 function index.vanilla_pick_up( hooman, item_id )
 	local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
-	if( pick_comp ~= nil ) then
-		EntitySetComponentIsEnabled( hooman, pick_comp, true )
-		GamePickUpInventoryItem( hooman, item_id, true )
-		EntitySetComponentIsEnabled( hooman, pick_comp, true )
-	end
+	if( not( pen.vld( pick_comp, true ))) then return end
+	EntitySetComponentIsEnabled( hooman, pick_comp, true )
+	GamePickUpInventoryItem( hooman, item_id, true )
+	EntitySetComponentIsEnabled( hooman, pick_comp, true )
 end
 
-function index.pick_up_item( hooman, this_info, do_the_sound, is_silent )
-	local entity_id = this_info.id
-	local gonna_pause, is_shopping = 0, this_info.cost ~= nil
-
-	local callback = index.cat_callback( this_info, "on_pickup" )
-	if( callback ~= nil ) then
-		gonna_pause = callback( entity_id, this_info, false )
-	end
+function index.pick_up_item( hooman, info, is_audible, is_silent )
+	local callback = index.cat_callback( info, "on_pickup" )
+	if( callback ~= nil ) then gonna_pause = callback( info, false ) end
+	local item_id, gonna_pause, is_shopping = info.id, 0, pen.vld( info.cost )
+	
 	if( gonna_pause == 0 ) then
-		if( not( is_silent or false )) then
-			this_info.name = this_info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( this_info.ItemC, "item_name" ))
-			GamePrint( GameTextGet( "$log_pickedup", this_info.name ))
-			if( do_the_sound or is_shopping ) then
-				play_sound({ "data/audio/Desktop/event_cues.bank", is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create" })
+		if( not( is_silent )) then
+			info.name = info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( info.ItemC, "item_name" ))
+			GamePrint( GameTextGet( "$log_pickedup", info.name ))
+			if( is_audible or is_shopping ) then
+				index.play_sound({
+					"data/audio/Desktop/event_cues.bank",
+					is_shopping and "event_cues/shop_item/create" or "event_cues/pick_item_generic/create"
+				})
 			end
 		end
 
-		local _,slot = ComponentGetValue2( this_info.ItemC, "inventory_slot" )
-		EntityAddChild( index.D.invs_p[ slot < 0 and "q" or "f" ], entity_id )
+		local _,slot = ComponentGetValue2( info.ItemC, "inventory_slot" )
+		EntityAddChild( index.D.invs_p[ slot < 0 and "q" or "f" ], item_id )
 
 		if( is_shopping ) then
 			if( not( index.D.Wallet.money_always )) then
-				index.D.Wallet.money = index.D.Wallet.money - this_info.cost
+				index.D.Wallet.money = index.D.Wallet.money - info.cost
 				ComponentSetValue2( index.D.Wallet.comp, "money", index.D.Wallet.money )
 			end
 			
-			pen.t.loop( EntityGetAllComponents( entity_id ), function( i, comp )
-				if( ComponentHasTag( comp, "shop_cost" )) then EntityRemoveComponent( entity_id, comp ) end
+			pen.t.loop( EntityGetAllComponents( item_id ), function( i, comp )
+				if( ComponentHasTag( comp, "shop_cost" )) then EntityRemoveComponent( item_id, comp ) end
 			end)
 		end
 
-		this_info.xy = { EntityGetTransform( entity_id )}
-		pen.lua_callback( entity_id, { "script_item_picked_up", "item_pickup" }, { entity_id, hooman, this_info.name })
-		if( callback ~= nil ) then
-			callback( entity_id, this_info, true )
-		end
-		if( EntityGetIsAlive( entity_id )) then
-			ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-			ComponentSetValue2( this_info.ItemC, "mFramePickedUp", index.D.frame_num )
+		info.xy = { EntityGetTransform( item_id )}
+		pen.lua_callback( item_id, { "script_item_picked_up", "item_pickup" }, { item_id, hooman, info.name })
+		if( callback ~= nil ) then callback( info, true ) end
+		if( EntityGetIsAlive( item_id )) then
+			ComponentSetValue2( info.ItemC, "has_been_picked_by_player", true )
+			ComponentSetValue2( info.ItemC, "mFramePickedUp", index.D.frame_num )
 
-			index.inventory_man( entity_id, this_info, false )
+			index.inventory_man( info, false )
 		end
 	elseif( gonna_pause == 1 ) then
 		--engage the pause
 	end
 end
 
-function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
-	local this_item = this_info.id
-	local has_no_cancer = not( this_info.is_kicking or false )
+function index.drop_item( h_x, h_y, info, throw_force, do_action )
+	local item_id = info.id
+	local has_no_cancer = not( info.is_kicking or false )
 	if( not( has_no_cancer )) then
-		local owner_id = pen.get_item_owner( this_item, true )
+		local owner_id = pen.get_item_owner( item_id, true )
 		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( owner_id, "ControlsComponent" )
-		if( ctrl_comp ~= nil ) then
+		if( pen.vld( ctrl_comp, true )) then
 			local inv_comp = pen.reset_active_item( owner_id )
-			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", pen.get_item_num( this_info.inv_id, this_item ))
+			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", pen.get_item_num( info.inv_id, item_id ))
 			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", index.D.frame_num + 1 )
 		else has_no_cancer = true end
 	end
-	if( has_no_cancer ) then EntityRemoveFromParent( this_item ) end
 
+	if( has_no_cancer ) then EntityRemoveFromParent( item_id ) end
 	local p_d_x, p_d_y = index.D.pointer_world[1] - h_x, index.D.pointer_world[2] - h_y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
+
 	local from_x, from_y = 0, 0
-	if(( this_info.in_hand or 0 ) > 0 ) then
-		from_x, from_y = EntityGetTransform( this_item )
-		pen.reset_active_item( this_info.in_hand )
+	if( pen.vld( info.in_hand, true )) then
+		from_x, from_y = EntityGetTransform( item_id )
+		pen.reset_active_item( info.in_hand )
 	else
 		index.D.throw_pos_rad = index.D.throw_pos_rad + index.D.throw_pos_size
 		from_x, from_y = h_x + math.cos( angle )*index.D.throw_pos_rad, h_y + math.sin( angle )*index.D.throw_pos_rad
@@ -1128,48 +777,44 @@ function index.drop_item( h_x, h_y, this_info, throw_force, do_action )
 		index.D.throw_pos_rad = index.D.throw_pos_rad - index.D.throw_pos_size
 		from_x, from_y = h_x + math.cos( angle )*index.D.throw_pos_rad, h_y + math.sin( angle )*index.D.throw_pos_rad
 	end
+
 	local extra_v_force = 0
-	local vel_comp = EntityGetFirstComponentIncludingDisabled( this_item, "VelocityComponent" )
-	if( vel_comp ~= nil ) then
-		extra_v_force = ComponentGetValue2( vel_comp, "gravity_y" )/4
-	end
+	local vel_comp = EntityGetFirstComponentIncludingDisabled( item_id, "VelocityComponent" )
+	if( pen.vld( vel_comp, true )) then extra_v_force = ComponentGetValue2( vel_comp, "gravity_y" )/4 end
+
 	local force = p_delta*throw_force
 	local force_x, force_y = math.cos( angle )*force, math.sin( angle )*force
 	force_y = force_y - math.max( 0.25*math.abs( force_y ), ( extra_v_force + throw_force )/2 )
 	local to_x, to_y = from_x + force_x, from_y + force_y
 
-	EntitySetTransform( this_item, from_x, from_y, nil, 1, 1 )
-	-- EntityApplyTransform( this_item, from_x, from_y )
-	if( has_no_cancer ) then index.inventory_man( this_item, this_info, false ) end
-	
-	pen.t.loop( EntityGetComponentIncludingDisabled( this_item, "SpriteComponent", "enabled_in_world" ), function( i, comp )
+	EntitySetTransform( item_id, from_x, from_y, nil, 1, 1 )
+	-- EntityApplyTransform( item_id, from_x, from_y )
+	if( has_no_cancer ) then index.inventory_man( info, false ) end
+	pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "SpriteComponent", "enabled_in_world" ), function( i, comp )
 		ComponentSetValue2( comp, "z_index", -1 + ( i - 1 )*0.0001 )
-		EntityRefreshSprite( this_item, comp )
+		EntityRefreshSprite( item_id, comp )
 	end)
 	
-	ComponentSetValue2( this_info.ItemC, "inventory_slot", -5, -5 )
-	ComponentSetValue2( this_info.ItemC, "play_hover_animation", false )
-	ComponentSetValue2( this_info.ItemC, "has_been_picked_by_player", true )
-	ComponentSetValue2( this_info.ItemC, "next_frame_pickable", index.D.frame_num + 30 )
+	ComponentSetValue2( info.ItemC, "inventory_slot", -5, -5 )
+	ComponentSetValue2( info.ItemC, "play_hover_animation", false )
+	ComponentSetValue2( info.ItemC, "has_been_picked_by_player", true )
+	ComponentSetValue2( info.ItemC, "next_frame_pickable", index.D.frame_num + 30 )
 
 	if( p_delta > 2 ) then
-		local shape_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsImageShapeComponent" )
-		if( shape_comp ~= nil ) then
+		local shape_comp = EntityGetFirstComponentIncludingDisabled( item_id, "PhysicsImageShapeComponent" )
+		if( pen.vld( shape_comp, true )) then
 			local phys_mult = 1.75
-			local throw_comp = EntityGetFirstComponentIncludingDisabled( this_item, "PhysicsThrowableComponent" )
-			if( throw_comp ~= nil ) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
+			local throw_comp = EntityGetFirstComponentIncludingDisabled( item_id, "PhysicsThrowableComponent" )
+			if( pen.vld( throw_comp, true )) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
 			
-			local mass = pen.get_mass( this_item )
-			PhysicsApplyForce( this_item, phys_mult*force_x*mass, phys_mult*force_y*mass )
-			PhysicsApplyTorque( this_item, phys_mult*5*mass )
-		elseif( vel_comp ~= nil ) then
-			ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y )
-		end
+			local mass = pen.get_mass( item_id )
+			PhysicsApplyTorque( item_id, phys_mult*5*mass )
+			PhysicsApplyForce( item_id, phys_mult*force_x*mass, phys_mult*force_y*mass )
+		elseif( pen.vld( vel_comp, true )) then ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y ) end
 	end
-
-	if( has_no_cancer and do_action ) then
-		pen.lua_callback( this_item, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
-	end
+	
+	if( not( has_no_cancer and do_action )) then return end
+	pen.lua_callback( item_id, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
 end
 
 --GUI backend
@@ -1338,7 +983,7 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 		end
 
 		index.M.dragger_x, index.M.dragger_y = new_x, new_y
-		index.D.dragger.inv_type = info.inv_type
+		index.D.dragger.inv_cat = info.inv_cat
 		index.D.dragger.is_quickest = info.is_quickest
 		pic_x, pic_y = new_x, new_y
 		
@@ -1512,14 +1157,14 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	return data.is_active, clicked, r_clicked
 end
 
-function index.new_vanilla_worldtip( tid, item_id, this_info, pic_x, pic_y, no_space, cant_buy, tip_func )
+function index.new_vanilla_worldtip( tid, this_info, pic_x, pic_y, no_space, cant_buy, tip_func )
 	-- if( not( cant_buy )) then return end
 	pic_x, pic_y = unpack( index.D.xys.hp )
 	pic_x, pic_y = pic_x - 43, pic_y - 1
-	tip_func( tid, item_id, this_info, pic_x, pic_y, pen.LAYERS.TIPS, true )
+	tip_func( tid, this_info, pic_x, pic_y, pen.LAYERS.TIPS, true )
 end
 
-function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world, is_advanced )
+function index.new_vanilla_wtt( tid, this_info, pic_x, pic_y, pic_z, in_world, is_advanced )
 	if( this_info.wand_info == nil ) then return end
 	
 	--[[
@@ -1543,7 +1188,7 @@ function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 	local scale = 2--index.D.no_wand_scaling and 1 or 2
 	local spell_list, got_spells = {permas={},normies={}}, false
 	if( not( is_advanced )) then
-		local spells = EntityGetAllChildren( item_id ) or {}
+		local spells = EntityGetAllChildren( this_info.id ) or {}
 		if( #spells > 0 ) then
 			for i,spell in ipairs( spells ) do
 				local kid_info = pen.t.get( index.D.item_list, spell, nil, nil, {})
@@ -1739,7 +1384,7 @@ function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 			pen.new_image( stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
 
 			local clr = {170,170,170}
-			if( index.D.active_item ~= item_id and index.D.active_info.wand_info ~= nil ) then
+			if( index.D.active_item ~= this_info.id and index.D.active_info.wand_info ~= nil ) then
 				local is_better = nil
 				local old_v, old_is_special = stat.v( index.D.active_info.wand_info )
 				if( is_special ~= nil or old_is_special ~= nil ) then
@@ -1812,7 +1457,7 @@ function index.new_vanilla_wtt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ptt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world )
+function index.new_vanilla_ptt( tid, this_info, pic_x, pic_y, pic_z, in_world )
 	if( this_info.matter_info == nil ) then return end
 	
 	local total_cap, scale = this_info.matter_info[2][1], 1.5
@@ -1874,7 +1519,7 @@ function index.new_vanilla_ptt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_stt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world )
+function index.new_vanilla_stt( tid, this_info, pic_x, pic_y, pic_z, in_world )
 	if( this_info.spell_info == nil ) then return end
 	
 	--the pinned tip check should be within the tip code itself
@@ -2149,11 +1794,11 @@ function index.new_vanilla_stt( tid, item_id, this_info, pic_x, pic_y, pic_z, in
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ttt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world )
-	return new_vanilla_itt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world, true )
+function index.new_vanilla_ttt( tid, this_info, pic_x, pic_y, pic_z, in_world )
+	return new_vanilla_itt( tid, this_info, pic_x, pic_y, pic_z, in_world, true )
 end
 
-function index.new_vanilla_itt( tid, item_id, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
+function index.new_vanilla_itt( tid, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
 	if( not( pen.vld( this_info.pic ))) then return end
 	if( not( pen.vld( this_info.name ))) then return end
 	if( not( pen.vld( this_info.desc ))) then return end
@@ -2404,7 +2049,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, this_info, is_active, 
 								frame = index.D.frame_num,
 							})
 						end
-						play_sound( slot_sfxes[ this_info.id > 0 and "move_item" or "move_empty" ])
+						index.play_sound( slot_sfxes[ this_info.id > 0 and "move_item" or "move_empty" ])
 						index.slot_swap( index.D.dragger.item_id, slot_data )
 						index.D.dragger.item_id = -1
 					end
@@ -2521,7 +2166,7 @@ function index.slot_setup( pic_x, pic_y, slot_data, can_drag, is_full, is_quick 
 	local w, h, clicked, r_clicked, is_hovered = index.D.slot_func( pic_x, pic_y, slot_data, this_info, this_info.in_hand > 0, can_drag, is_full, is_quick )
 	if( this_info.cat ~= nil ) then
 		index.cat_callback( this_info, "on_inventory", {
-			this_info.id, this_info, pic_x, pic_y, {
+			this_info, pic_x, pic_y, {
 				can_drag = can_drag,
 				is_dragged = index.D.dragger.item_id > 0 and index.D.dragger.item_id == this_info.id,
 				in_hand = this_info.in_hand > 0,
@@ -2604,8 +2249,8 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 			index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
 		end
 		if( is_hovered ) then
-			index.cat_callback( this_info, "on_tooltip",
-				{ nil, this_info.id, this_info, pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
+			index.cat_callback( this_info, "on_tooltip", --will nil even work
+				{ nil, this_info, pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
 		end
 		pen.new_image( pic_x, pic_y - 1, pic_z,
 			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })
@@ -2667,3 +2312,5 @@ index.FRAMER = {
 	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE },
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
+
+index.INVS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }

@@ -45,7 +45,7 @@
 		value_int="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent
-		name="dragger_inv_type"
+		name="dragger_inv_cat"
 		value_float="0"
 	></VariableStorageComponent>
 	<VariableStorageComponent

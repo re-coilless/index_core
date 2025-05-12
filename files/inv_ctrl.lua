@@ -179,7 +179,7 @@ index.D = {
 
     dragger = {
         item_id = pen.magic_storage( controller_id, "dragger_item_id", "value_int" ),
-        inv_type = pen.magic_storage( controller_id, "dragger_inv_type", "value_float" ),
+        inv_cat = pen.magic_storage( controller_id, "dragger_inv_cat", "value_float" ),
         is_quickest = pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool" ),
         swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
     },
@@ -326,14 +326,14 @@ end
 
 --assignment to slots
 local nuke_em = {}
-for i,this_info in ipairs( index.D.item_list ) do
-    index.D.item_list[i] = index.set_to_slot( this_info )
-    if( this_info.inv_slot == nil ) then table.insert( nuke_em, i ) end
+for i,info in ipairs( index.D.item_list ) do
+    index.D.item_list[i] = index.set_to_slot( info )
+    if( info.inv_slot == nil ) then table.insert( nuke_em, i ) end
 
-    local ctrl_func = index.cat_callback( this_info, "ctrl_script" )
+    local ctrl_func = index.cat_callback( info, "ctrl_script" )
     if( not( pen.vld( ctrl_func ))) then
-        index.inventory_man( this_info.id, this_info, ( this_info.in_hand or 0 ) > 0 )
-    else ctrl_func( this_info.id, this_info ) end
+        index.inventory_man( info, ( info.in_hand or 0 ) > 0 )
+    else ctrl_func( info ) end
 end
 if( pen.vld( nuke_em )) then
     for i = #nuke_em,1,-1 do
@@ -472,7 +472,7 @@ if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
         end
         pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", false )
         pen.magic_storage( controller_id, "dragger_item_id", "value_int", index.D.dragger.item_id or 0 )
-        pen.magic_storage( controller_id, "dragger_inv_type", "value_float", index.D.dragger.inv_type or 0 )
+        pen.magic_storage( controller_id, "dragger_inv_cat", "value_float", index.D.dragger.inv_cat or 0 )
         pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool", index.D.dragger.is_quickest or false )
     end
     index.G.slot_state = false

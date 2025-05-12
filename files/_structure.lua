@@ -85,7 +85,7 @@ local ITEM_CATS = {
                 damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            index.D.invs_i[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
+            index.D.invs_i[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
                 local is_perma, inv_slot = {false,false}, {0,0}
                 for k = 1,2 do
                     local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
@@ -224,7 +224,7 @@ local ITEM_CATS = {
             local v1, v2 = index.get_entity_name( item_id, item_comp )
             local name, cap = v1, ""
             if( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil ) then
-                name, cap = get_potion_info( item_id, v1, barrel_size, pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" )))
+                name, cap = index.get_potion_info( item_id, v1, pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" )), barrel_size )
             end
             return name..( cap or "" )
         end,
@@ -262,7 +262,7 @@ local ITEM_CATS = {
             end
 
             if( this_info.is_true_potion ) then
-                this_info.name, this_info.fullness = get_potion_info( item_id, this_info.raw_name, this_info.matter_info[1], math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[2][2])
+                this_info.name, this_info.fullness = index.get_potion_info( item_id, this_info.raw_name, math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[1], this_info.matter_info[2][2])
             end
             if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
             
@@ -360,7 +360,7 @@ local ITEM_CATS = {
                     if( this_info.matter_info[3]) then
                         if( this_info.matter_info[2][1] > 0 ) then
                             play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
-                            index.chugger_3000( index.D.player_id, this_info.id, this_info.matter_info[2][1], this_info.matter_info[2][2], index.D.shift_action and 1 or 0.1 )
+                            pen.magic_chugger( this_info.matter_info[2][2], index.D.player_id, this_info.id, this_info.matter_info[2][1], index.D.shift_action and 1 or 0.1 )
                         else play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
                     end
                 end,
@@ -389,7 +389,7 @@ local ITEM_CATS = {
                             if( content_total > 0 ) then
                                 GameEntityPlaySoundLoop( index.M.john_pouring, "spray", 1 )
                                 if( index.D.frame_num%5 == 0 ) then
-                                    index.chugger_3000( index.D.pointer_world, this_info.id, cap_max, this_info.matter_info[2][2])
+                                    pen.magic_chugger( this_info.matter_info[2][2], index.D.pointer_world, this_info.id, cap_max )
                                 end
                             end
                         elseif( this_info.bottle_info ~= nil ) then
@@ -477,7 +477,7 @@ local ITEM_CATS = {
             this_info.ActionC = action_comp
 
             local spell_id = ComponentGetValue2( action_comp, "action_id" )
-            this_info.spell_info = index.get_action_data( spell_id )
+            this_info.spell_info = pen.get_spell_data( spell_id )
             this_info.pic = this_info.spell_info.sprite
             this_info.spell_id = spell_id
             
@@ -494,7 +494,7 @@ local ITEM_CATS = {
 
             if( GameGetGameEffectCount( index.D.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0 ) then
                 if( this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_entity_file_as_projectile_info_proxy" )) then
-                    this_info.inv_type = 0
+                    this_info.inv_cat = 0
                 end
             end
 
@@ -563,7 +563,7 @@ local ITEM_CATS = {
         end,
         on_data = function( item_id, this_info, item_list_wip )
             if( EntityHasTag( item_id, "this_is_sampo" )) then
-                this_info.inv_type = 0
+                this_info.inv_cat = 0
 
                 if( EntityGetRootEntity( item_id ) == index.D.player_id ) then
                     index.D.sampo = item_id

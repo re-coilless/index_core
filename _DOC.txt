@@ -1,7 +1,4 @@
-penman time
-remove vanilla utils lib call?
 conjurer wands are in reversed order
-don't forget to change api version in compat.xml
 if the pointer is dragged outside the box while dropping, it throws it
 
 wand slot scrolling
@@ -16,14 +13,13 @@ SessionNumbersSetValue( key:string, value:string )
 PhysicsComponentSetTransform( component_id:int, x:number, y:number, angle:number, vel_x:number, vel_y:number, angular_vel:number )
 GameSetPostFxTextureParameter( parameter_name:string, texture_filename:string, filtering_mode:int, wrapping_mode:int, update_texture:bool = false )
 LoadRagdoll( filename:string, pos_x:float, pos_y:float, material:string ="meat", scale_x:float=1, impulse_x:float=0, impulse_y:float=0 )
-ModImageSetPixel( id:int, x:int, y:int, color:uint )
 PhysicsKeepInWorldComponent
 CharacterData/CharacterCollision dont_update_velocity_and_xform - use this for custom speed controller
 
 [WARNING] THIS ENTIRE DOC IS HOPELESSLY OBSOLETE!!!
 
 slot_info.inv_kind - the kind of inventory the item is in rn
-slot_info.inv_type - all the inventory kinds this item can be inserted into
+slot_info.inv_cat - all the inventory categories this item can be inserted into
 check dragger_done_externally and if it goes false after you set it to true - this is the moment to swap
 
 https://en.m.wikipedia.org/wiki/Patron_saints_of_places
