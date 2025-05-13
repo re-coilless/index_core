@@ -158,7 +158,7 @@ index.D = {
     tip_func = inv.tooltip,
     box_func = inv.box,
     wand_func = inv.wand,
-
+    
     orbs = GameGetOrbCountThisRun(),
     icon_data = effect_tbl, perk_data = perk_tbl,
 
@@ -374,7 +374,7 @@ if( global_callback ~= nil ) then
     inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
     if( inv.full_inv ~= nil ) then
-        index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
+        -- index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
     end
     if( inv.applet_strip ~= nil ) then
         index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )

@@ -1,26 +1,25 @@
 dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "mods/penman/_libman.lua" )
+dofile_once( "data/scripts/lib/utilities.lua" )
 
 index = index or {}
-index.G = index.G or {} --persistent table
-index.D = index.D or {} --data table
-index.M = index.M or {} --all cases of this have to be made through pen.animate
-
--- index.register_item_pic
--- index.get_thresholded_effect
--- index.get_effect_duration
--- index.get_effect_timer
--- index.get_stain_perc
+index.G = index.G or {} --global params
+index.D = index.D or {} --frame-iterated data
+index.M = index.M or {} --interframe memory values
 
 -- _structure.lua
 -- _elements.lua
+-- index.new_generic_inventory
+-- index.check_dragger_buffer
+-- index.swap_anim
+-- [GUI]
+-- index.new_generic_bossbar
 
---completetly redo the image handling to rely on penman
 --make sure the minimum z_layers offsets are 0.01
 --transition to globals
-
+--display slot number on hover with dragger
 --opening inv should have it be animated (lower the full part from the top)
---stains and such a kind stinky
+--stains and such are kinda stinky
 --make index.new_vanilla_hp prettier
 --min hp bar length must be of a typical bar size (reduce the internal size instead)
 --use this for spell type color https://davidmathlogic.com/colorblind/#%23000000-%23E69F00-%2356B4E9-%23009E73-%23F0E442-%230072B2-%23D55E00-%23CC79A7
@@ -108,8 +107,8 @@ function index.get_status_data( hooman )
 	pen.t.loop( ComponentGetValue2( status_comp, "ingestion_effects" ), function( effect_id, duration )
 		if( duration == 0 ) then return end
 		
-		local raw_info = pen.t.get( status_effects, effect_id, "real_id", nil, nil, {})
-		local effect_info = index.get_thresholded_effect( raw_info, duration )
+		local effect_info = index.get_thresholded_effect(
+			pen.t.get( status_effects, { effect_id }, "real_id", nil, nil, {}), duration )
 		local time = index.get_effect_duration( duration, effect_info )
 		if( effect_info.id == nil or time == 0 ) then return end
 		
@@ -160,7 +159,7 @@ function index.get_status_data( hooman )
 		local perc = index.get_stain_perc( duration )
 		if( perc == 0 ) then return end
 		local effect_info = index.get_thresholded_effect(
-			pen.t.get( status_effects, effect_id, "real_id", nil, nil, {}), duration )
+			pen.t.get( status_effects, { effect_id }, "real_id", nil, nil, {}), duration )
 		if( not( pen.vld( effect_info.id ))) then return end
 
 		table.insert( effect_tbl.stains, {
@@ -229,7 +228,7 @@ function index.get_status_data( hooman )
 
 				icon_info.amount = ComponentGetValue2( effect[2], "frames" )
 				local effect_info = index.get_thresholded_effect(
-					pen.t.get( status_effects, effect[3], "real_id", nil, nil, {}), icon_info.amount )
+					pen.t.get( status_effects, { effect[3]}, "real_id", nil, nil, {}), icon_info.amount )
 				if( not( pen.vld( effect_info.id ))) then return end
 
 				icon_info.main_info = effect_info
@@ -279,6 +278,121 @@ function index.get_status_data( hooman )
 	return effect_tbl, perk_tbl
 end
 
+function index.full_stopper( text )
+	if( not( pen.vld( text ))) then return "" end
+	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
+	return text
+end
+function index.hud_text_fix( key )
+	local txt = GameTextGetTranslatedOrNot( key ) or ""
+	local _,pos = string.find( txt, ":", 1, true )
+	if( pos ~= nil ) then txt = string.sub( txt, 1, pos-1 ) end
+	return txt..":\n"
+end
+function index.hud_num_fix( a, b, zeros )
+	zeros = zeros or 0
+	return table.concat({
+		string.format( "%."..zeros.."f", a ),
+		"/",
+		string.format( "%."..zeros.."f", b ),
+	})
+end
+
+function index.get_stain_perc( perc )
+	local some_cancer = 14/99 --idk fucking why
+	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
+end
+function index.get_effect_timer( secs, no_units )
+	if(( secs or -1 ) < 0 ) then return "" end
+
+	local is_tiny = secs < 1
+	secs = string.format( "%."..pen.b2n( is_tiny ).."f", secs )
+	if( not( no_units )) then secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" ) end
+	return is_tiny and string.sub( secs, 2 ) or secs
+end
+function index.get_effect_duration( frames, info, eps )
+	frames = frames - 60*(( info or {}).ui_timer_offset_normalized or 0 )
+	if( math.abs( frames*60 ) <= ( eps or index.G.settings.min_effect_duration )) then frames = 0 end
+	return frames < 0 and -1 or frames
+end
+function index.get_thresholded_effect( effects, frames )
+	local final_id = #effects
+	if( final_id < 2 ) then return effects[1] or {} end
+	table.sort( effects, function( a, b )
+		return ( a.min_threshold_normalized or 0 ) < ( b.min_threshold_normalized or 0 )
+	end)
+	
+	for i,effect in ipairs( effects ) do
+		if( frames < 60*( effect.min_threshold_normalized or 0 )) then
+			final_id = math.max( i-1, 1 ); break
+		end
+	end
+	return effects[ final_id ]
+end
+
+---Extracts offsets from SpriteComponent.
+function index.register_item_pic( info )
+	if( not( pen.vld( info.pic ))) then return end
+	local force_update = EntityHasTag( info.id, "index_update" )
+	if( force_update ) then EntityRemoveTag( info.id, "index_update" ) end
+
+	return pen.cache({ "index_pic_data", info.pic }, function()
+		local anim_data = pen.magic_storage( info.id, "index_pic_anim", "value_string" ) --this should contain the anim anme and nothing else
+		if( pen.vld( anim_data )) then data.anim = pen.t.pack( anim_data ) end
+		local w, h = pen.get_pic_dims( info.pic, force_update )
+		local data = { dims = { w, h }, xy = { 0, 0 }}
+
+		local off_data = pen.magic_storage( info.id, "index_pic_offset", "value_string" )
+		if( not( pen.vld( off_data ))) then
+			-- data.xy = { data.dims[1]/2, data.dims[2]/2 }
+			local pic_comp = EntityGetFirstComponentIncludingDisabled( info.id, "SpriteComponent", "item" )
+				or EntityGetFirstComponentIncludingDisabled( info.id, "SpriteComponent", "enabled_in_hand" )
+			if( pen.vld( pic_comp, true )) then
+				data.xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
+			end
+		else data.xy = pen.t.pack( off_data ) end
+
+		return data
+	end, { reset_count = 0, force_update = force_update })
+end
+
+function index.swap_anim( item_id, end_x, end_y ) 
+	local anim_info, anim_id = pen.t.get( index.G.slot_anim, item_id )
+	if( anim_info ~= 0 and anim_info.id ~= nil ) then
+		local delta = index.D.frame_num - anim_info.frame
+		local stop_it = false
+		if( delta > 10 ) then
+			stop_it = true
+		elseif( delta > 1 ) then
+			delta = delta - 1
+			local k = 3.35
+			local v = k*math.sin( delta*math.pi/k )/( math.pi*delta )/delta
+			local d_x = v*( end_x - anim_info.x )
+			local d_y = v*( end_y - anim_info.y )
+			end_x, end_y = end_x - d_x, end_y - d_y
+		else end_x, end_y = anim_info.x, anim_info.y end
+		if( stop_it ) then table.remove( index.G.slot_anim, anim_id ) end
+	end
+
+	return end_x, end_y
+end
+
+function index.check_dragger_buffer( id ) --kinda sus
+	index.M.dragger_buffer = index.M.dragger_buffer or {0,0}
+	if( GameGetFrameNum() - index.M.dragger_buffer[2] > 2 ) then
+		index.M.dragger_buffer = {0,0}
+	end
+	
+	local will_do = true
+	local will_force = false
+	local will_update = true
+	if( index.M.dragger_buffer[1] ~= 0 ) then
+		will_do = index.M.dragger_buffer[1] == id
+		will_update, will_force = will_do, will_do
+	end
+	return will_do, will_force, will_update
+end
+
 ------------------------------------------------------		[INVENTORY]		------------------------------------------------------
 
 function index.is_inv_empty( slot_state )
@@ -292,13 +406,15 @@ end
 
 function index.cat_callback( info, callback, input, fallback, do_default )
 	local func_local = info[ callback ]
-	if( not( pen.vld( input ))) then
-		return func_local or index.D.item_cats[ info.cat ][ name ]
-	elseif( type( input ) ~= "table" ) then input = { info, input } end
+	if( type( input or 1 ) ~= "table" ) then
+		return func_local or index.D.item_cats[ info.cat ][ callback ] end
+	table.insert( input, 1, info )
 
-	local out, is_real = fallback or {}, pen.vld( func_local )
+	local out = fallback or {}
+	local is_real = pen.vld( func_local )
+	if( do_default == nil ) then do_default = not( is_real ) end
 	if( is_real ) then out = { func_local( unpack( input ))} end
-	if( is_real or do_default ) then
+	if( do_default ) then
 		local func_main = index.D.item_cats[ info.cat ][ callback ]
 		if( func_main ~= nil ) then out = { func_main( unpack( input ))} end
 	end
@@ -317,13 +433,11 @@ function index.get_valid_invs( inv_cat, is_quickest )
 	return inv_kinds
 end
 
-function index.get_inv_info( inv_id, size, kind, check_func, update_func, gui_func, sort_func )
-	local kind_path = pen.magic_storage( inv_id, "index_kind", "value_string" )
-	if( kind_path ~= nil ) then
-		local is_path = string.find( kind_path, "%.lua$" ) ~= nil
-		kind = is_path and dofile( kind_path ) or pen.t.pack( kind_data )
-	end
-
+function index.get_inv_info( inv_id, size, kind, kind_func, check_func, update_func, gui_func, sort_func )
+	local kind_data = pen.magic_storage( inv_id, "index_kind", "value_string" )
+	if( kind_data ~= nil ) then kind = pen.t.pack( kind_data ) end
+	local kind_path = pen.magic_storage( inv_id, "index_kind_func", "value_string" )
+	if( kind_path ~= nil ) then kind_func = dofile( kind_path ) end
 	local size_data = pen.magic_storage( inv_id, "index_size", "value_string" )
 	if( size_data ~= nil ) then size = pen.t.pack( size_data, true ) end
 	local gui_path = pen.magic_storage( inv_id, "index_gui", "value_string" )
@@ -342,6 +456,7 @@ function index.get_inv_info( inv_id, size, kind, check_func, update_func, gui_fu
 	return {
 		id = inv_id,
 		kind = kind or inv_ts[ EntityGetName( inv_id )] or { "universal" },
+		kind_func = kind_func,
 		size = size,
 		func = gui_func,
 		check = check_func,
@@ -353,15 +468,15 @@ end
 function index.inv_check( item_info, info )
 	if(( item_info.id or 0 ) < 0 ) then return true end
 	if( item_info.id == info.inv_id ) then return false end
-
+	
 	local kind_memo = info.kind
 	local inv_info = index.D.invs[ info.inv_id ]
-	info.kind = pen.get_hybrid_function( inv_info.kind, info )
+	info.kind = pen.vld( inv_info.kind_func ) and inv_info.kind_func( info ) or inv_info.kind
 	
 	local is_universal = pen.t.get( info.kind, "universal" ) ~= 0
 	local is_valid = pen.vld( pen.t.get( index.get_valid_invs( item_info.inv_cat, item_info.is_quickest ), info.kind, nil, nil, {}))
 	local is_fit = ( is_universal or is_valid ) and ( inv_info.check == nil or inv_info.check( item_info, info ))
-	if( is_fit ) then is_fit = index.cat_callback( item_info, "on_inv_check", info, { is_fit }) end
+	if( is_fit ) then is_fit = index.cat_callback( item_info, "on_inv_check", { info }, { is_fit }) end
 	
 	info.kind = kind_memo
 	return is_fit
@@ -377,10 +492,10 @@ end
 
 function index.inventory_boy( info, in_hand )
 	local item_id = info.id
-	local in_wand = peb.vld( info.in_wand, true )
+	local in_wand = pen.vld( info.in_wand, true )
 	if( in_wand or in_hand == nil ) then
 		local wand_id = in_wand and info.in_wand or item_id
-		in_hand = pen.get_item_owner( wand_id ) > 0
+		in_hand = pen.vld( pen.get_item_owner( wand_id ), true )
 	end
 	
 	local hooman = EntityGetRootEntity( item_id )
@@ -429,7 +544,7 @@ function index.set_to_slot( info, is_player )
 			pen.t.loop( inv_list, function( _,inv_id )
 				local inv_info = index.D.invs[ inv_id ]
 				local is_universal = pen.t.get( inv_info.kind, "universal" ) ~= 0
-				local is_valid = peb.vld( pen.t.get( valid_invs, inv_info.kind, nil, nil, {}))
+				local is_valid = pen.vld( pen.t.get( valid_invs, inv_info.kind, nil, nil, {}))
 				if( not( is_universal or is_valid )) then return end
 				
 				for i,slot in pairs( index.D.slot_state[ inv_id ]) do
@@ -515,8 +630,8 @@ function index.slot_swap( item_in, slot_info )
 	end
 	
 	pen.t.loop( idata, function( i, d )
-		if( not( pen.vld( d.id, true ))) then
-		index.cat_callback( d, "on_inv_swap", slot_info )
+		if( not( pen.vld( d.id, true ))) then return end
+		index.cat_callback( d, "on_inv_swap", { slot_info })
 	end)
 	for i,deadman in pairs( reset ) do
 		if( pen.vld( deadman, true )) then pen.reset_active_item( deadman ) end
@@ -650,10 +765,9 @@ function index.get_item_data( item_id, inv_info, item_list )
 		info.is_quickest = cat.is_quickest or false
 		info.is_hidden = cat.is_hidden or false
 		info.do_full_man = cat.do_full_man or false
-		info.advanced_pic = cat.advanced_pic or false
 		return true
 	end)
-
+	
 	info.name, info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
 	if( not( pen.vld( info.cat ))) then
 		return {}
@@ -665,8 +779,8 @@ function index.get_item_data( item_id, inv_info, item_list )
 	-- dofile_once( "data/scripts/gun/gun.lua" )
 	-- dofile_once( "data/scripts/gun/gun_enums.lua" )
 	-- dofile_once( "data/scripts/gun/gun_actions.lua" )
-	info = index.cat_callback( info, "on_data", item_list or {}, { info })
-	info.in_hand = pen.get_item_owner( ( info.in_wand or false ) and info.in_wand or item_id )
+	info = index.cat_callback( info, "on_data", { item_list or {}}, { info })
+	info.in_hand = pen.get_item_owner(( info.in_wand or false ) and info.in_wand or item_id )
 	return info
 end
 
@@ -680,13 +794,13 @@ function index.get_items( hooman )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
 				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
-					index.cat_callback( new_info, "on_processed", true )
+					index.cat_callback( new_info, "on_processed", {})
 					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 					EntityAddTag( new_info.id, "index_processed" )
 				end
 
-				index.cat_callback( new_info, "on_processed_forced", true )
-				-- index.register_item_pic( new_info, new_info.advanced_pic )
+				index.cat_callback( new_info, "on_processed_forced", {})
+				index.register_item_pic( new_info )
 				table.insert( item_tbl, new_info )
 			end, inv_info.sort )
 		end
@@ -704,7 +818,7 @@ end
 
 function index.pick_up_item( hooman, info, is_audible, is_silent )
 	local callback = index.cat_callback( info, "on_pickup" )
-	if( callback ~= nil ) then gonna_pause = callback( info, false ) end
+	if( pen.vld( callback )) then gonna_pause = callback( info, false ) end
 	local item_id, gonna_pause, is_shopping = info.id, 0, pen.vld( info.cost )
 	
 	if( gonna_pause == 0 ) then
@@ -812,153 +926,17 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 			PhysicsApplyForce( item_id, phys_mult*force_x*mass, phys_mult*force_y*mass )
 		elseif( pen.vld( vel_comp, true )) then ComponentSetValue2( vel_comp, "mVelocity", force_x, force_y ) end
 	end
-	
+
 	if( not( has_no_cancer and do_action )) then return end
 	pen.lua_callback( item_id, { "script_throw_item", "throw_item" }, { from_x, from_y, to_x, to_y })
 end
 
---GUI backend
-function index.slot_z( id, z )
-	return index.D.dragger.item_id == id and z-2 or z
+------------------------------------------------------		[GUI]		------------------------------------------------------
+
+function index.slot_z( dragged_id, pic_z )
+	return index.D.dragger.item_id == dragged_id and pic_z - 2 or pic_z
 end
 
-function index.full_stopper( text )
-	if( not( pen.vld( text ))) then return "" end
-	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
-	return text
-end
-
-function index.check_dragger_buffer( id ) --kinda sus
-	index.M.dragger_buffer = index.M.dragger_buffer or {0,0}
-	if( GameGetFrameNum() - index.M.dragger_buffer[2] > 2 ) then
-		index.M.dragger_buffer = {0,0}
-	end
-	
-	local will_do = true
-	local will_force = false
-	local will_update = true
-	if( index.M.dragger_buffer[1] ~= 0 ) then
-		will_do = index.M.dragger_buffer[1] == id
-		will_update, will_force = will_do, will_do
-	end
-	return will_do, will_force, will_update
-end
-
-function index.hud_text_fix( key )
-	local txt = tostring( GameTextGetTranslatedOrNot( key ))
-	local _,pos = string.find( txt, ":", 1, true )
-	if( pos ~= nil ) then txt = string.sub( txt, 1, pos-1 ) end
-	return txt..":@"
-end
-
-function index.hud_num_fix( a, b, zeros )
-	zeros = zeros or 0
-	return table.concat({
-		string.format( "%."..zeros.."f", a ),
-		"/",
-		string.format( "%."..zeros.."f", b ),
-	})
-end
-
-function index.get_stain_perc( perc )
-	local some_cancer = 14/99
-	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
-end
-
-function index.get_effect_timer( secs, no_units )
-	if(( secs or -1 ) >= 0 ) then --maybe ignore 0?
-		local is_tiny = secs < 1
-		secs = string.format( "%."..pen.b2n( is_tiny ).."f", secs )
-		if( not( no_units or false )) then
-			secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" )
-		end
-		return is_tiny and string.sub( secs, 2 ) or secs
-	else return "" end
-end
-
-function index.get_effect_duration( duration, effect_info, eps )
-	duration = duration - 60*(( effect_info or {}).ui_timer_offset_normalized or 0 )
-	if( math.abs( duration*60 ) <= ( eps or index.G.settings.min_effect_duration )) then duration = 0 end
-	return duration < 0 and -1 or duration
-end
-
-function index.get_thresholded_effect( effects, v )
-	if( #effects < 2 ) then return effects[1] or {} end
-	table.sort( effects, function( a, b )
-		return ( a.min_threshold_normalized or 0 ) < ( b.min_threshold_normalized or 0 )
-	end)
-	
-	local final_id = #effects
-	for i,effect in ipairs( effects ) do
-		if( v < 60*( effect.min_threshold_normalized or 0 )) then
-			final_id = math.max( i-1, 1 ); break
-		end
-	end
-	return effects[ final_id ]
-end
-
-function index.swap_anim( item_id, end_x, end_y ) --pen.animate
-	local anim_info, anim_id = pen.t.get( index.G.slot_anim, item_id )
-	if( anim_info ~= 0 and anim_info.id ~= nil ) then
-		local delta = index.D.frame_num - anim_info.frame
-		local stop_it = false
-		if( delta > 10 ) then
-			stop_it = true
-		elseif( delta > 1 ) then
-			delta = delta - 1
-			local k = 3.35
-			local v = k*math.sin( delta*math.pi/k )/( math.pi*delta )/delta
-			local d_x = v*( end_x - anim_info.x )
-			local d_y = v*( end_y - anim_info.y )
-			end_x, end_y = end_x - d_x, end_y - d_y
-		else end_x, end_y = anim_info.x, anim_info.y end
-		if( stop_it ) then table.remove( index.G.slot_anim, anim_id ) end
-	end
-
-	return end_x, end_y
-end
-
-function index.register_item_pic( this_info, is_advanced ) --leave xml getting to penman
-	if( not( pen.vld( this_info.pic ))) then return end
-	
-	local forced_update = EntityHasTag( this_info.id, "index_update" )
-	pen.cache({ "index_pic_data", this_info.pic }, function()
-		local data = { xy = { 0, 0 }, xml_xy = { 0, 0 }}
-
-		local is_xml = string.find( this_info.pic, "%.xml$" ) ~= nil and is_advanced
-		if( forced_update ) then EntityRemoveTag( this_info.id, "index_update" ) end
-		local anim_data = pen.magic_storage( this_info.id, "index_pic_anim", "value_string" ) --this should contain the anim anme and nothing else
-		if( pen.vld( anim_data )) then data.anim = pen.t.pack( anim_data ) end
-		
-		if( is_xml ) then
-			local xml = pen.lib.nxml.parse( pen.magic_read( this_info.pic ))
-			local xml_kid = xml:first_of( "RectAnimation" )
-			if( xml_kid.attr.has_offset ) then
-				data.xml_xy = { -xml_kid.attr.offset_x, -xml_kid.attr.offset_y }
-			else data.xml_xy = { -xml.attr.offset_x, -xml.attr.offset_y } end
-			
-			data.dims = { xml_kid.attr.frame_width, xml_kid.attr.frame_height }
-			if( xml_kid.attr.shrink_by_one_pixel ) then
-				data.dims[1], data.dims[2] = data.dims[1] + 1, data.dims[2] + 1
-			end
-		else data.dims = { pen.get_pic_dims( this_info.pic )} end
-
-		local off_data = pen.magic_storage( this_info.id, "index_pic_offset", "value_string" )
-		if( pen.vld( off_data )) then
-			data.xy = pen.t.pack( off_data )
-		elseif( not( is_xml )) then
-			if( is_advanced ) then
-				local pic_comp = EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "item" )
-					or EntityGetFirstComponentIncludingDisabled( this_info.id, "SpriteComponent", "enabled_in_hand" )
-				if( pen.vld( pic_comp, true )) then
-					data.xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
-				end
-			else data.xy = { data.dims[1]/2, data.dims[2]/2 } end
-		end
-	end, { reset_count = 0, reset_now = forced_update })
-end
-
---GUI frontend
 function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 	if( index.G.slot_state ) then return pic_x, pic_y end
 	local will_do, will_force, will_update = index.check_dragger_buffer( id )
@@ -998,8 +976,7 @@ function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 	pen.new_image( pic_x, pic_y, pic_z,
 		"mods/index_core/files/pics/vanilla_box.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
 
-	local temp = 0
-	local steps = { 10, 4, 2, 1 }
+	local temp, steps = 0, { 10, 4, 2, 1 }
 	pen.new_image( pic_x - 2, pic_y - 2, pic_z,
 		"mods/index_core/files/pics/vanilla_box_a1.xml", { alpha = alpha })
 	pen.new_image( pic_x + dims[1], pic_y - 2, pic_z,
@@ -1157,14 +1134,14 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	return data.is_active, clicked, r_clicked
 end
 
-function index.new_vanilla_worldtip( tid, this_info, pic_x, pic_y, no_space, cant_buy, tip_func )
+function index.new_vanilla_worldtip( this_info, tid, pic_x, pic_y, no_space, cant_buy, tip_func )
 	-- if( not( cant_buy )) then return end
 	pic_x, pic_y = unpack( index.D.xys.hp )
 	pic_x, pic_y = pic_x - 43, pic_y - 1
-	tip_func( tid, this_info, pic_x, pic_y, pen.LAYERS.TIPS, true )
+	tip_func( this_info, tid, pic_x, pic_y, pen.LAYERS.TIPS, true )
 end
 
-function index.new_vanilla_wtt( tid, this_info, pic_x, pic_y, pic_z, in_world, is_advanced )
+function index.new_vanilla_wtt( this_info, tid, pic_x, pic_y, pic_z, in_world, is_advanced )
 	if( this_info.wand_info == nil ) then return end
 	
 	--[[
@@ -1237,17 +1214,17 @@ function index.new_vanilla_wtt( tid, this_info, pic_x, pic_y, pic_z, in_world, i
 	local pic_data = pen.cache({ "index_pic_data", this_info.pic })
 	if( pic_data and pic_data.dims ) then
 		local dims = { scale*pic_data.dims[1], scale*pic_data.dims[2]}
-		local drift = { -scale*pic_data.xy[2], dims[1]/2 + scale*pic_data.xml_xy[1]}
+		local drift = { -scale*pic_data.xy[2], dims[1]/2 }
 		if( this_info.tt_spacing[2][2] < dims[1]) then
 			this_info.tt_spacing[2][3] = this_info.tt_spacing[2][3] + ( dims[1] - this_info.tt_spacing[2][2])/2
 			this_info.tt_spacing[2][2] = dims[1]
 		end
 		this_info.tt_spacing[4] = { this_info.tt_spacing[2][1] + drift[1] - 15, this_info.tt_spacing[2][2]/2 + drift[2]}
-		local total_size = this_info.tt_spacing[4][1] + dims[2] + scale*pic_data.xml_xy[2]
+		local total_size = this_info.tt_spacing[4][1] + dims[2]
 		if( total_size > this_info.tt_spacing[2][1] - 1 ) then
 			this_info.tt_spacing[4][1] = this_info.tt_spacing[4][1] - ( total_size - this_info.tt_spacing[2][1] + 1 )
 		end
-	else index.register_item_pic( this_info, this_info.advanced_pic ) end
+	else index.register_item_pic( this_info ) end
 	if( got_spells ) then
 		local p_size, n_size = 0, 0
 		if( #spell_list.permas > 0 ) then
@@ -1438,8 +1415,7 @@ function index.new_vanilla_wtt( tid, this_info, pic_x, pic_y, pic_z, in_world, i
 					_,_,is_hovered = pen.new_image( spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001,
 						index.D.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
 					if( is_hovered ) then
-						index.cat_callback( spell, "on_tooltip", {
-							"wtt_spell", spell.id, spell, spell_x + 9*counter - 2, pic_y + 10, pic_z - 1 })
+						index.cat_callback( spell, "on_tooltip", { "wtt_spell", spell_x + 9*counter - 2, pic_y + 10, pic_z - 1 })
 					end
 					
 					counter = counter + 1
@@ -1457,7 +1433,7 @@ function index.new_vanilla_wtt( tid, this_info, pic_x, pic_y, pic_z, in_world, i
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ptt( tid, this_info, pic_x, pic_y, pic_z, in_world )
+function index.new_vanilla_ptt( this_info, tid, pic_x, pic_y, pic_z, in_world )
 	if( this_info.matter_info == nil ) then return end
 	
 	local total_cap, scale = this_info.matter_info[2][1], 1.5
@@ -1519,7 +1495,7 @@ function index.new_vanilla_ptt( tid, this_info, pic_x, pic_y, pic_z, in_world )
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_stt( tid, this_info, pic_x, pic_y, pic_z, in_world )
+function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z, in_world )
 	if( this_info.spell_info == nil ) then return end
 	
 	--the pinned tip check should be within the tip code itself
@@ -1794,11 +1770,11 @@ function index.new_vanilla_stt( tid, this_info, pic_x, pic_y, pic_z, in_world )
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ttt( tid, this_info, pic_x, pic_y, pic_z, in_world )
-	return new_vanilla_itt( tid, this_info, pic_x, pic_y, pic_z, in_world, true )
+function index.new_vanilla_ttt( this_info, tid, pic_x, pic_y, pic_z, in_world )
+	return new_vanilla_itt( this_info, tid, pic_x, pic_y, pic_z, in_world, true )
 end
 
-function index.new_vanilla_itt( tid, this_info, pic_x, pic_y, pic_z, in_world, do_magic )
+function index.new_vanilla_itt( this_info, tid, pic_x, pic_y, pic_z, in_world, do_magic )
 	if( not( pen.vld( this_info.pic ))) then return end
 	if( not( pen.vld( this_info.name ))) then return end
 	if( not( pen.vld( this_info.desc ))) then return end
@@ -1849,10 +1825,7 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, alpha, angle, hov_scale, 
 	angle = angle or 0
 	scale_up = scale_up or false
 	
-	local pic_data = pen.cache({ "index_pic_data", pic }) or {
-		xy = { 0, 0 },
-		xml_xy = { 0, 0 },
-	}
+	local pic_data = pen.cache({ "index_pic_data", pic }) or { xy = { 0, 0 }}
 	
 	local w, h = unpack( pic_data.dims or { pen.get_pic_dims( pic )})
 	local off_x, off_y = 0, 0
@@ -2093,7 +2066,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, this_info, is_active, 
 				pic_x, pic_y = pic_x + 10, pic_y + 10
 			end
 			
-			pic_x, pic_y = index.swap_anim( this_info.id, pic_x, pic_y )
+			pic_x, pic_y = index.swap_anim( this_info.id, pic_x, pic_y ) --pen.animate
 			this_info, suppress_charges, suppress_action = cat_tbl.on_slot( this_info.id, this_info, pic_x, pic_y, {
 				is_lmb = clicked,
 				is_rmb = r_clicked,
@@ -2166,7 +2139,7 @@ function index.slot_setup( pic_x, pic_y, slot_data, can_drag, is_full, is_quick 
 	local w, h, clicked, r_clicked, is_hovered = index.D.slot_func( pic_x, pic_y, slot_data, this_info, this_info.in_hand > 0, can_drag, is_full, is_quick )
 	if( this_info.cat ~= nil ) then
 		index.cat_callback( this_info, "on_inventory", {
-			this_info, pic_x, pic_y, {
+			pic_x, pic_y, {
 				can_drag = can_drag,
 				is_dragged = index.D.dragger.item_id > 0 and index.D.dragger.item_id == this_info.id,
 				in_hand = this_info.in_hand > 0,
@@ -2194,9 +2167,6 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 		this_info.w_spacing[2] = drift
 		if( pic_data.xy ) then
 			drift = drift + scale*pic_data.xy[1]
-		end
-		if( pic_data.xml_xy ) then
-			drift = drift - scale*pic_data.xml_xy[1]
 		end
 		this_info.w_spacing[1] = drift
 
@@ -2249,8 +2219,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 			index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
 		end
 		if( is_hovered ) then
-			index.cat_callback( this_info, "on_tooltip", --will nil even work
-				{ nil, this_info, pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
+			index.cat_callback( this_info, "on_tooltip", { "", pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
 		end
 		pen.new_image( pic_x, pic_y - 1, pic_z,
 			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })

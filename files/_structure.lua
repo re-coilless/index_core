@@ -45,7 +45,6 @@ local ITEM_CATS = {
         is_wand = true,
         is_quickest = true,
         do_full_man = true,
-        advanced_pic = true,
 
         on_check = function( item_id )
             local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
@@ -55,37 +54,37 @@ local ITEM_CATS = {
             local name = index.get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
             return name == "" and default_name or name
         end,
-        on_data = function( item_id, this_info, item_list_wip )
-            this_info.wand_info = {
-                shuffle_deck_when_empty = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-                actions_per_round = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "actions_per_round" ),
-                deck_capacity = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "deck_capacity" ),
-                spread_degrees = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "spread_degrees" ),
-                mana_max = ComponentGetValue2( this_info.AbilityC, "mana_max" ),
-                mana_charge_speed = ComponentGetValue2( this_info.AbilityC, "mana_charge_speed" ),
-                mana = ComponentGetValue2( this_info.AbilityC, "mana" ),
+        on_data = function( info, item_list_wip )
+            info.wand_info = {
+                shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
+                actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
+                deck_capacity = ComponentObjectGetValue2( info.AbilityC, "gun_config", "deck_capacity" ),
+                spread_degrees = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "spread_degrees" ),
+                mana_max = ComponentGetValue2( info.AbilityC, "mana_max" ),
+                mana_charge_speed = ComponentGetValue2( info.AbilityC, "mana_charge_speed" ),
+                mana = ComponentGetValue2( info.AbilityC, "mana" ),
 
-                never_reload = ComponentGetValue2( this_info.AbilityC, "never_reload" ),
-                reload_time = ComponentObjectGetValue2( this_info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "reload_time" ),
-                delay_time = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-                reload_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mReloadNextFrameUsable" ) - index.D.frame_num, 0 ),
-                delay_frame = math.max( ComponentGetValue2( this_info.AbilityC, "mNextFrameUsable" ) - index.D.frame_num, 0 ),
+                never_reload = ComponentGetValue2( info.AbilityC, "never_reload" ),
+                reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) + ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
+                delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
+                reload_frame = math.max( ComponentGetValue2( info.AbilityC, "mReloadNextFrameUsable" ) - index.D.frame_num, 0 ),
+                delay_frame = math.max( ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - index.D.frame_num, 0 ),
 
-                speed_multiplier = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "speed_multiplier" ),
-                lifetime_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "lifetime_add" ),
-                bounces = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "bounces" ),
+                speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
+                lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
+                bounces = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "bounces" ),
 
-                crit_chance = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-                crit_mult = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+                crit_chance = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_chance" ),
+                crit_mult = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
 
-                damage_electricity_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-                damage_explosion_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-                damage_fire_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_fire_add" ),
-                damage_melee_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_melee_add" ),
-                damage_projectile_add = ComponentObjectGetValue2( this_info.AbilityC, "gunaction_config", "damage_projectile_add" ),
+                damage_electricity_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_electricity_add" ),
+                damage_explosion_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_explosion_add" ),
+                damage_fire_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_fire_add" ),
+                damage_melee_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_melee_add" ),
+                damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            index.D.invs_i[ item_id ] = index.get_inv_info( item_id, { this_info.wand_info.deck_capacity, 1 }, { "full" }, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
+            index.D.invs_i[ info.id ] = index.get_inv_info( info.id, { info.wand_info.deck_capacity, 1 }, { "full" }, nil, function( item_info, inv_info ) return item_info.is_spell or false end, function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end, nil, function( a, b )
                 local is_perma, inv_slot = {false,false}, {0,0}
                 for k = 1,2 do
                     local item_comp = EntityGetFirstComponentIncludingDisabled( k == 1 and a or b, "ItemComponent" )
@@ -97,10 +96,10 @@ local ITEM_CATS = {
                 return ( is_perma[1] and not( is_perma[2])) or ( not( is_perma[2]) and inv_slot[1] < inv_slot[2])
             end)
             
-            return this_info
+            return info
         end,
-        on_processed_forced = function( item_id, this_info )
-            local children = EntityGetAllChildren( item_id ) or {}
+        on_processed_forced = function( info )
+            local children = EntityGetAllChildren( info.id ) or {}
             if( #children > 0 ) then
                 table.sort( children, function( a, b )
                     local inv_slot = {0,0}
@@ -139,73 +138,74 @@ local ITEM_CATS = {
             end
         end,
 
-        on_inventory = function( item_id, this_info, pic_x, pic_y, john_bool )
+        on_inventory = function( info, pic_x, pic_y, john_bool )
             if( index.D.gmod.allow_wand_editing and john_bool.is_quick and index.D.is_opened ) then
                 pic_x, pic_y = unpack( index.D.wand_inventory == nil and index.D.xys.full_inv or index.D.wand_inventory )
-                w, h = index.D.wand_func( pic_x + 2*pen.b2n( john_bool.in_hand ), pic_y, this_info, john_bool.in_hand )
+                w, h = index.D.wand_func( pic_x + 2*pen.b2n( john_bool.in_hand ), pic_y, info, john_bool.in_hand )
                 index.D.wand_inventory = { pic_x, pic_y + h }
             end
         end,
         on_tooltip = new_vanilla_wtt,
-        on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0,0
-            if((( pen.cache({ "index_pic_data", this_info.pic }) or {}).xy or {})[3] == nil ) then
+            if((( pen.cache({ "index_pic_data", info.pic }) or {}).xy or {})[3] == nil ) then
                 w, h = pen.get_pic_dims( index.D.slot_pic.bg ) end
-            index.new_slot_pic( pic_x - w/8, pic_y + h/8, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, 1, math.rad( -45 ), hov_scale, true )
+            index.new_slot_pic( pic_x - w/8, pic_y + h/8,
+                index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, 1, math.rad( -45 ), hov_scale, true )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                hov_func( nil, item_id, this_info, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS )
+                hov_func( info, nil, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS )
             end
             
-            if( this_info.wand_info.actions_per_round > 0 and this_info.charges < 0 ) then
-                this_info.charges = 0
+            if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
+                info.charges = 0
 
-                local slot_data, was_there = index.D.slot_state[ item_id ], false
+                local slot_data, was_there = index.D.slot_state[ info.id ], false
                 for i,col in ipairs( slot_data ) do
                     for e,slot in ipairs( col ) do
                         if( slot ) then
                             local slot_info = pen.t.get( index.D.item_list, slot, nil, nil, {})
                             if( slot_info.is_spell ) then
                                 if( slot_info.charges > 0 ) then
-                                    this_info.charges = slot_info.charges
+                                    info.charges = slot_info.charges
                                     break
-                                elseif( this_info.charges == 0 and slot_info.charges < 0 ) then
+                                elseif( info.charges == 0 and slot_info.charges < 0 ) then
                                     if( slot_info.spell_info.type ~= 2 and slot_info.spell_info.type ~= 3 ) then
-                                        this_info.charges = -1
+                                        info.charges = -1
                                     end
                                 end
                                 if( not( was_there )) then was_there = slot_info.charges == 0 end
                             end
                         end
                     end
-                    if( this_info.charges > 0 ) then break end
+                    if( info.charges > 0 ) then break end
                 end
 
-                if( this_info.charges == 0 and was_there ) then
-                    this_info.charges = 0.1
+                if( info.charges == 0 and was_there ) then
+                    info.charges = 0.1
                 end
             end
 
-            return this_info
+            return info
         end,
         
-        on_pickup = function( item_id, this_info, is_post )
+        on_pickup = function( info, is_post )
             local func_tbl = {
-                function( item_id, this_info )
+                function( info )
                     return 0
                 end,
-                function( item_id, this_info )
-                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
-                        EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( this_info.xy ))
-                        ComponentSetValue2( this_info.ItemC, "play_spinning_animation", true )
+                function( info )
+                    if( not( ComponentGetValue2( info.ItemC, "has_been_picked_by_player" ))) then
+                        EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( info.xy ))
+                        ComponentSetValue2( info.ItemC, "play_spinning_animation", true )
                     end
                 end,
             }
-            return func_tbl[ is_post and 2 or 1 ]( item_id, this_info )
+            return func_tbl[ is_post and 2 or 1 ]( info )
         end,
 
         on_gui_world = new_vanilla_worldtip,
-        -- on_gui_pause = function( item_id, this_info ) --should know the state (if is picked or not)
+        -- on_gui_pause = function( info ) --should know the state (if is picked or not)
         --     return
         -- end,
     },
@@ -228,21 +228,21 @@ local ITEM_CATS = {
             end
             return name..( cap or "" )
         end,
-        on_data = function( item_id, this_info, item_list_wip )
-            this_info.is_true_potion = EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ) ~= nil
+        on_data = function( info, item_list_wip )
+            info.is_true_potion = EntityGetFirstComponentIncludingDisabled( info.id, "PotionComponent" ) ~= nil
 
-            local matter_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialInventoryComponent" )
-            this_info.MatterC = matter_comp
-            this_info.matter_info = {
+            local matter_comp = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialInventoryComponent" )
+            info.MatterC = matter_comp
+            info.matter_info = {
                 ComponentGetValue2( matter_comp, "max_capacity" ),
                 { pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" ))},
-                ComponentGetValue2( this_info.ItemC, "drinkable" ),
+                ComponentGetValue2( info.ItemC, "drinkable" ),
             }
 
-            local sucker_comp = EntityGetFirstComponentIncludingDisabled( item_id, "MaterialSuckerComponent" )
+            local sucker_comp = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialSuckerComponent" )
             if( sucker_comp ~= nil ) then
-                this_info.SuckerC = sucker_comp
-                this_info.bottle_info = {
+                info.SuckerC = sucker_comp
+                info.bottle_info = {
                     ComponentGetValue2( sucker_comp, "barrel_size" ),
                     ComponentGetValue2( sucker_comp, "num_cells_sucked_per_frame" ),
                     ComponentGetValue2( sucker_comp, "material_type" ),
@@ -250,31 +250,32 @@ local ITEM_CATS = {
                     ComponentGetValue2( sucker_comp, "suck_static_materials" ),
                 }
             end
-            this_info.matter_info[1] = this_info.bottle_info == nil and this_info.matter_info[1] or this_info.bottle_info[1]
+            info.matter_info[1] = info.bottle_info == nil and info.matter_info[1] or info.bottle_info[1]
 
             local loop_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AudioLoopComponent" )
             if( loop_comp ~= nil ) then
-                this_info.SprayC = loop_comp
-                this_info.spray_info = {
+                info.SprayC = loop_comp
+                info.spray_info = {
                     ComponentGetValue2( loop_comp, "file" ),
                     ComponentGetValue2( loop_comp, "event_name" ),
                 }
             end
 
-            if( this_info.is_true_potion ) then
-                this_info.name, this_info.fullness = index.get_potion_info( item_id, this_info.raw_name, math.max( this_info.matter_info[2][1], 0 ), this_info.matter_info[1], this_info.matter_info[2][2])
+            if( info.is_true_potion ) then
+                info.name, info.fullness = index.get_potion_info(
+                    info.id, info.raw_name, math.max( info.matter_info[2][1], 0 ), info.matter_info[1], info.matter_info[2][2])
             end
-            if( this_info.matter_info[1] < 0 ) then this_info.matter_info[1] = this_info.matter_info[2][1] end
+            if( info.matter_info[1] < 0 ) then info.matter_info[1] = info.matter_info[2][1] end
             
-            this_info.potion_cutout = pen.magic_storage( item_id, "potion_cutout", "value_int" )
-                or ( 3 - pen.b2n( this_info.matter_info[1] < this_info.matter_info[2][1]))
+            info.potion_cutout = pen.magic_storage( info.id, "potion_cutout", "value_int" )
+            info.potion_cutout = info.potion_cutout or ( 3 - pen.b2n( info.matter_info[1] < info.matter_info[2][1]))
 
-            return this_info
+            return info
         end,
         
-        on_inventory = function( item_id, this_info, pic_x, pic_y, john_bool )
-            local cap_max = this_info.matter_info[1]
-            local mtrs = this_info.matter_info[2]
+        on_inventory = function( info, pic_x, pic_y, john_bool )
+            local cap_max = info.matter_info[1]
+            local mtrs = info.matter_info[2]
             local content_total = mtrs[1]
             local content_tbl = mtrs[2]
             
@@ -300,25 +301,25 @@ local ITEM_CATS = {
             end
         end,
         on_tooltip = new_vanilla_ptt,
-        on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
-                hov_func( nil, item_id, this_info, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS )
+                hov_func( info, nil, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS )
             end
 
-            local cap_max = this_info.matter_info[1]
-            local content_total = this_info.matter_info[2][1]
-            if( content_total == 0 ) then this_info.charges = 0 end
+            local cap_max = info.matter_info[1]
+            local content_total = info.matter_info[2][1]
+            if( content_total == 0 ) then info.charges = 0 end
 
             local nuke_it, target_angle = true, 0
             if( john_bool.is_dragged ) then
                 if( drag_func ~= nil and index.D.drag_action ) then
-                    nuke_it, target_angle = unpack( drag_func( item_id, this_info ))
+                    nuke_it, target_angle = unpack( drag_func( info ))
                 end
             elseif( rmb_func ~= nil and john_bool.is_rmb and index.D.is_opened and john_bool.is_quick ) then
-                rmb_func( item_id, this_info )
+                rmb_func( info )
             end
 
-            local pic_data = pen.cache({ "index_pic_data", this_info.pic })
+            local pic_data = pen.cache({ "index_pic_data", info.pic })
             if( not( nuke_it )) then
                 if( pic_data.memo_xy == nil ) then
                     pic_data.memo_xy = pic_data.xy
@@ -331,7 +332,7 @@ local ITEM_CATS = {
                     pic_data.xy = pic_data.memo_xy
                     pic_data.memo_xy = nil
                 end
-                if( index.D.dragger.item_id == 0 or index.D.dragger.item_id == item_id ) then
+                if( index.D.dragger.item_id == 0 or index.D.dragger.item_id == info.id ) then
                     if( EntityGetIsAlive( index.M.john_pouring or 0 )) then
                         EntityKill( index.M.john_pouring )
                         index.M.john_pouring = nil
@@ -345,26 +346,27 @@ local ITEM_CATS = {
                 pic_y = pic_y + pen.estimate( "sucking_drift", 0, 0.2 )
             end
             
-            local z = index.slot_z( this_info.id, pen.LAYERS.ICONS )
+            local z = index.slot_z( info.id, pen.LAYERS.ICONS )
             local ratio = math.min( content_total/cap_max, 1 )
-            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, this_info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
-            pen.new_image( pic_x, pic_y, z - 0.001, this_info.pic,
-                { color = pen.magic_uint( GameGetPotionColorUint( this_info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
+            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
+            pen.new_image( pic_x, pic_y, z - 0.001, info.pic,
+                { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
-            return this_info, content_total ~= 0, true
+            return info, content_total ~= 0, true
         end,
 
         on_action = function( type )
             local func_tbl = {
-                [1] = function( item_id, this_info )
-                    if( this_info.matter_info[3]) then
-                        if( this_info.matter_info[2][1] > 0 ) then
-                            play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
-                            pen.magic_chugger( this_info.matter_info[2][2], index.D.player_id, this_info.id, this_info.matter_info[2][1], index.D.shift_action and 1 or 0.1 )
-                        else play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
+                [1] = function( info )
+                    if( info.matter_info[3]) then
+                        if( info.matter_info[2][1] > 0 ) then
+                            index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
+                            pen.magic_chugger( info.matter_info[2][2],
+                                index.D.player_id, info.id, info.matter_info[2][1], index.D.shift_action and 1 or 0.1 )
+                        else index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
                     end
                 end,
-                [2] = function( item_id, this_info )
+                [2] = function( info )
                     local out = { true, 0 }
 
                     local x, y = unpack( index.D.player_xy )
@@ -372,16 +374,16 @@ local ITEM_CATS = {
                     if( not( RaytraceSurfaces( x, y, p_x, p_y ))) then
                         if( not( EntityGetIsAlive( index.M.john_pouring or 0 ))) then
                             index.M.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y )
-                            if( this_info.spray_info ~= nil ) then
+                            if( info.spray_info ~= nil ) then
                                 local loop_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "AudioLoopComponent" )
-                                ComponentSetValue2( loop_comp, "file", this_info.spray_info[1])
-                                ComponentSetValue2( loop_comp, "event_name", this_info.spray_info[2])
+                                ComponentSetValue2( loop_comp, "file", info.spray_info[1])
+                                ComponentSetValue2( loop_comp, "event_name", info.spray_info[2])
                             end
                         end
                         EntitySetTransform( index.M.john_pouring, p_x, p_y )
 
-                        local cap_max = this_info.matter_info[1]
-                        local content_total = this_info.matter_info[2][1]
+                        local cap_max = info.matter_info[1]
+                        local content_total = info.matter_info[2][1]
                         if( index.D.shift_action ) then
                             out[1] = false
                             out[2] = 45 + 90*( 1 - math.min( content_total/cap_max, 1 ))
@@ -389,20 +391,20 @@ local ITEM_CATS = {
                             if( content_total > 0 ) then
                                 GameEntityPlaySoundLoop( index.M.john_pouring, "spray", 1 )
                                 if( index.D.frame_num%5 == 0 ) then
-                                    pen.magic_chugger( this_info.matter_info[2][2], index.D.pointer_world, this_info.id, cap_max )
+                                    pen.magic_chugger( info.matter_info[2][2], index.D.pointer_world, info.id, cap_max )
                                 end
                             end
-                        elseif( this_info.bottle_info ~= nil ) then
+                        elseif( info.bottle_info ~= nil ) then
                             out[1] = false
 
                             local sucker_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "MaterialSuckerComponent" )
                             if( EntityGetName( index.M.john_pouring ) ~= "done" ) then
                                 EntitySetName( index.M.john_pouring, "done" )
-                                ComponentSetValue2( sucker_comp, "barrel_size", this_info.bottle_info[1])
-                                ComponentSetValue2( sucker_comp, "num_cells_sucked_per_frame", this_info.bottle_info[2])
-                                ComponentSetValue2( sucker_comp, "material_type", this_info.bottle_info[3])
-                                ComponentSetValue2( sucker_comp, "suck_tag", this_info.bottle_info[4])
-                                ComponentSetValue2( sucker_comp, "suck_static_materials", this_info.bottle_info[5])
+                                ComponentSetValue2( sucker_comp, "barrel_size", info.bottle_info[1])
+                                ComponentSetValue2( sucker_comp, "num_cells_sucked_per_frame", info.bottle_info[2])
+                                ComponentSetValue2( sucker_comp, "material_type", info.bottle_info[3])
+                                ComponentSetValue2( sucker_comp, "suck_tag", info.bottle_info[4])
+                                ComponentSetValue2( sucker_comp, "suck_static_materials", info.bottle_info[5])
                             end
 
                             local do_sound = false
@@ -418,9 +420,9 @@ local ITEM_CATS = {
                                                 local count = temp - content_total
                                                 content_total = temp
 
-                                                local _,pre_mtr = pen.t.get( this_info.matter_info[2][2], mtr[1])
-                                                pre_mtr = this_info.matter_info[2][2][ pre_mtr or -1 ] or {0,0}
-                                                AddMaterialInventoryMaterial( item_id, name, pre_mtr[2] + count )
+                                                local _,pre_mtr = pen.t.get( info.matter_info[2][2], mtr[1])
+                                                pre_mtr = info.matter_info[2][2][ pre_mtr or -1 ] or {0,0}
+                                                AddMaterialInventoryMaterial( info.id, name, pre_mtr[2] + count )
                                                 
                                                 do_sound = true
                                             end
@@ -428,14 +430,15 @@ local ITEM_CATS = {
                                         end
                                     end
                                 end
-                                this_info.matter_info[2][1] = content_total
+                                info.matter_info[2][1] = content_total
                             end
                             EntitySetComponentIsEnabled( index.M.john_pouring, sucker_comp, content_total < cap_max )
                             if( do_sound and index.D.frame_num%5 == 0 ) then
-                                if( this_info.bottle_info[3] == 0 ) then
-                                    play_sound({ "data/audio/Desktop/materials.bank", "collision/glass_potion/liquid_container_hit" }, p_x, p_y )
-                                elseif( this_info.bottle_info[3] == 1 ) then
-                                    play_sound({ "data/audio/Desktop/materials.bank", "collision/snow" }, p_x, p_y )
+                                if( info.bottle_info[3] == 0 ) then
+                                    index.play_sound(
+                                        { "data/audio/Desktop/materials.bank", "collision/glass_potion/liquid_container_hit" }, p_x, p_y )
+                                elseif( info.bottle_info[3] == 1 ) then
+                                    index.play_sound({ "data/audio/Desktop/materials.bank", "collision/snow" }, p_x, p_y )
                                 end
                             end
                         end
@@ -446,17 +449,17 @@ local ITEM_CATS = {
             }
             return func_tbl[ type ]
         end,
-        on_pickup = function( item_id, this_info, is_post )
+        on_pickup = function( info, is_post )
             local func_tbl = {
-                function( item_id, this_info ) return 0 end,
-                function( item_id, this_info )
-                    if( not( ComponentGetValue2( this_info.ItemC, "has_been_picked_by_player" ))) then
-                        local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( this_info.xy ))
-                        ComponentGetValue2( EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" ), "emitted_material_name", CellFactory_GetName( this_info.matter_info[2][2][1][1]))
+                function( info ) return 0 end,
+                function( info )
+                    if( not( ComponentGetValue2( info.ItemC, "has_been_picked_by_player" ))) then
+                        local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( info.xy ))
+                        ComponentGetValue2( EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" ), "emitted_material_name", CellFactory_GetName( info.matter_info[2][2][1][1]))
                     end
                 end,
             }
-            return func_tbl[ is_post and 2 or 1 ]( item_id, this_info )
+            return func_tbl[ is_post and 2 or 1 ]( info )
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -468,68 +471,67 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return EntityHasTag( item_id, "card_action" ) or EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ) ~= nil
         end,
-        on_data = function( item_id, this_info, item_list_wip )
-            if( this_info.is_permanent ) then
-                this_info.charges = -1
-            end
+        on_data = function( info, item_list_wip )
+            if( info.is_permanent ) then info.charges = -1 end
 
-            local action_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" )
-            this_info.ActionC = action_comp
+            local action_comp = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
+            info.ActionC = action_comp
 
             local spell_id = ComponentGetValue2( action_comp, "action_id" )
-            this_info.spell_info = pen.get_spell_data( spell_id )
-            this_info.pic = this_info.spell_info.sprite
-            this_info.spell_id = spell_id
+            info.spell_info = pen.get_spell_data( spell_id )
+            info.pic = info.spell_info.sprite
+            info.spell_id = spell_id
             
-            this_info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( this_info.spell_info.name ))
-            this_info.name = this_info.tip_name..( this_info.charges >= 0 and " ("..this_info.charges..")" or "" )
-            this_info.tip_name = string.upper( this_info.tip_name )
-            this_info.desc = index.full_stopper( GameTextGetTranslatedOrNot( this_info.spell_info.description ))
+            info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( info.spell_info.name ))
+            info.name = info.tip_name..( info.charges >= 0 and " ("..info.charges..")" or "" )
+            info.tip_name = string.upper( info.tip_name )
+            info.desc = index.full_stopper( GameTextGetTranslatedOrNot( info.spell_info.description ))
             
-            local parent_id = EntityGetParent( item_id )
+            local parent_id = EntityGetParent( info.id )
             if( parent_id > 0 and index.D.invs[ parent_id ] ~= nil ) then
                 parent_id = pen.t.get( item_list_wip, parent_id, nil, nil, {})
-                if( parent_id.is_wand ) then this_info.in_wand = parent_id.id end
+                if( parent_id.is_wand ) then info.in_wand = parent_id.id end
             end
 
             if( GameGetGameEffectCount( index.D.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0 ) then
-                if( this_info.AbilityC ~= nil and ComponentGetValue2( this_info.AbilityC, "use_entity_file_as_projectile_info_proxy" )) then
-                    this_info.inv_cat = 0
+                if( info.AbilityC ~= nil and ComponentGetValue2( info.AbilityC, "use_entity_file_as_projectile_info_proxy" )) then
+                    info.inv_cat = 0
                 end
             end
 
-            return this_info
+            return info
         end,
-        on_processed = function( item_id, this_info )
-            local pic_comp = EntityGetFirstComponentIncludingDisabled( item_id, "SpriteComponent", "item_unidentified" )
-            if( pic_comp ~= nil ) then EntityRemoveComponent( item_id, pic_comp ) end
+        on_processed = function( info )
+            local pic_comp = EntityGetFirstComponentIncludingDisabled( info.id, "SpriteComponent", "item_unidentified" )
+            if( pic_comp ~= nil ) then EntityRemoveComponent( info.id, pic_comp ) end
         end,
 
-        on_inv_check = function( this_info, inv_info )
+        on_inv_check = function( info, inv_info )
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
-        on_inv_swap = function( this_info, slot_data )
-            if( index.D.active_item == this_info.id ) then
+        on_inv_swap = function( info, slot_data )
+            if( index.D.active_item == info.id ) then
                 pen.reset_active_item( index.D.player_id )
             end
         end,
         on_tooltip = new_vanilla_stt,
-        on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
             local angle, is_considered, anim_speed = 0, john_bool.is_dragged or john_bool.is_hov, index.D.spell_anim_frames
             if( john_bool.can_drag ) then
                 angle = -math.rad( 5 )*( is_considered and 1.5 or ( anim_speed == 0 and 0 or math.sin(( index.D.frame_num%anim_speed )*math.pi/anim_speed )))
             end
-            local pic_z = index.slot_z( this_info.id, pen.LAYERS.ICONS )
-            index.new_slot_pic( pic_x, pic_y, pic_z, this_info.pic, nil, angle, hov_scale )
+            local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
+            index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, nil, angle, hov_scale )
             if( is_considered ) then pen.colourer( nil, {185,220,223}) end
-            new_spell_frame( pic_x, pic_y, pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), this_info.spell_info.type, is_considered and 1 or 0.6, angle )
+            new_spell_frame( pic_x, pic_y,
+                pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), info.spell_info.type, is_considered and 1 or 0.6, angle )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( nil, item_id, this_info, pic_x, pic_y, pen.LAYERS.TIPS )
+                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
             end
 
-            return this_info
+            return info
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -542,15 +544,15 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = new_vanilla_ttt,
-        on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
+        on_slot = function( info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
             
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( nil, item_id, this_info, pic_x, pic_y, pen.LAYERS.TIPS )
+                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
             end
 
-            return this_info, true
+            return info, true
         end,
 
         on_gui_world = new_vanilla_worldtip,
@@ -561,39 +563,39 @@ local ITEM_CATS = {
         on_check = function( item_id )
             return true
         end,
-        on_data = function( item_id, this_info, item_list_wip )
-            if( EntityHasTag( item_id, "this_is_sampo" )) then
-                this_info.inv_cat = 0
+        on_data = function( info, item_list_wip )
+            if( EntityHasTag( info.id, "this_is_sampo" )) then
+                info.inv_cat = 0
 
-                if( EntityGetRootEntity( item_id ) == index.D.player_id ) then
-                    index.D.sampo = item_id
+                if( EntityGetRootEntity( info.id ) == index.D.player_id ) then
+                    index.D.sampo = info.id
                 end
             end
-            return this_info
+            return info
         end,
         
         on_tooltip = new_vanilla_itt,
-        on_slot = function( item_id, this_info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( this_info.id, pen.LAYERS.ICONS ), this_info.pic, nil, nil, hov_scale )
+        on_slot = function( info, pic_x, pic_y, john_bool, rmb_func, drag_func, hov_func, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
 
             if( john_bool.is_opened and john_bool.is_hov and hov_func ~= nil ) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( nil, item_id, this_info, pic_x, pic_y, pen.LAYERS.TIPS )
+                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
             end
             
-            return this_info
+            return info
         end,
 
-        on_pickup = function( item_id, this_info, is_post )
+        on_pickup = function( info, is_post )
             local func_tbl = {
-                function( item_id, this_info )
-                    if( EntityGetFirstComponentIncludingDisabled( item_id, "OrbComponent" ) ~= nil ) then
-                        index.vanilla_pick_up( index.D.player_id, item_id )
+                function( info )
+                    if( pen.vld( EntityGetFirstComponentIncludingDisabled( info.id, "OrbComponent" ), true )) then
+                        index.vanilla_pick_up( index.D.player_id, info.id )
                     else return 0 end
                 end,
                 function() end,
             }
-            return func_tbl[ is_post and 2 or 1 ]( item_id, this_info )
+            return func_tbl[ is_post and 2 or 1 ]( info )
         end,
 
         on_gui_world = new_vanilla_worldtip,
