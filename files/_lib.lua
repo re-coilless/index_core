@@ -665,9 +665,9 @@ function index.get_potion_info( entity_id, name, volume, max_volume, matters )
 	local cnt = 1
 	local info = pen.t.loop_concat( matters, function( i, mtr )
 		if( cnt > 3 ) then return end
-		if( not( i == 1 or mtr[2] > 5 )) then return end
+		if( i ~= 1 and mtr[2] <= 5 ) then return end
 		cnt = cnt + 1
-		return { i == 1 and "" or "+", pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))}
+		return { i == 1 and "" or " + ", pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1]))), nil }
 	end) or ""
 	
 	local v = nil
