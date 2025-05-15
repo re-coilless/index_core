@@ -7,21 +7,15 @@ index.G = index.G or {} --global params
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- _structure.lua
--- _elements.lua
--- index.new_generic_inventory
 -- index.check_dragger_buffer
 -- index.swap_anim
--- [GUI]
+-- index.new_dragger_shell
 -- index.new_generic_bossbar
 
 --make sure the minimum z_layers offsets are 0.01
 --transition to globals
 --display slot number on hover with dragger
---opening inv should have it be animated (lower the full part from the top)
 --stains and such are kinda stinky
---make index.new_vanilla_hp prettier
---min hp bar length must be of a typical bar size (reduce the internal size instead)
 --use this for spell type color https://davidmathlogic.com/colorblind/#%23000000-%23E69F00-%2356B4E9-%23009E73-%23F0E442-%230072B2-%23D55E00-%23CC79A7
 
 ------------------------------------------------------		[BACKEND]		------------------------------------------------------
@@ -998,6 +992,7 @@ function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 			"mods/index_core/files/pics/vanilla_box_c"..pic_id..".xml", { alpha = alpha })
 		temp = temp + steps[ pic_id ]
 	end
+
 	temp = 0
 	while( temp < dims[2]) do
 		local pic_id = 4
@@ -1032,7 +1027,7 @@ function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, a
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
-function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
+function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data ) --min hp bar length must be of a typical bar size (reduce the internal size instead)
     local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
     if( not( pen.vld( dmg_comp, true ))) then return 0,0,0,0,0 end
 	
@@ -1098,29 +1093,30 @@ end
 function index.new_pickup_info( screen_h, screen_w, pickup_info, xys )
 	pickup_info.color = pickup_info.color or {}
 
-	if(( pickup_info.desc or "" ) ~= "" ) then
+	if( pen.vld( pickup_info.desc )) then
 		if( type( pickup_info.desc ) ~= "table" ) then
-			pickup_info.desc = { pickup_info.desc, false }
-		end
-		if( pickup_info.desc[1] ~= "" ) then
-			local is_elaborate = type( pickup_info.desc[2]) == "string" and pickup_info.desc[2] ~= ""
+			pickup_info.desc = { pickup_info.desc, false } end
+		if( pen.vld( pickup_info.desc[1] )) then
+			local clr = ( pickup_info.desc[2] == true ) and "RED" or "YELLOW"
 			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 44 })
-			local clr = ( pickup_info.desc[2] == true ) and {208,70,70} or {255,255,178}
+			local is_elaborate = type( pickup_info.desc[2]) == "string" and pen.vld( pickup_info.desc[2])
 			pen.new_text( pic_x, pic_y, pen.LAYERS.WORLD_UI, pickup_info.desc[1], {
-				is_centered_x = true, has_shadow = true, color = pickup_info.color[1] or clr })
+				is_centered_x = true, has_shadow = true, color = pickup_info.color[1] or pen.PALETTE.VNL[ clr ]})
 			if( is_elaborate ) then
 				pen.new_text( pic_x, pic_y + 12, pen.LAYERS.WORLD_UI, pickup_info.desc[2], {
-					is_centered_x = true, has_shadow = true, color = pickup_info.color[2] or {207,207,207}})
+					is_centered_x = true, has_shadow = true, color = pickup_info.color[2] or pen.PALETTE.VNL.LGREY})
 			end
 		end
 	end
-	if( pickup_info.id > 0 and not( index.D.is_opened ) and ( index.D.in_world_pickups or EntityHasTag( pickup_info.id, "index_txt" ))) then
-		if(( pickup_info.txt or "" ) ~= "" ) then
-			local x, y = EntityGetTransform( pickup_info.id )
-			local pic_x, pic_y = pen.world2gui( x, y )
-			pen.new_text( pic_x + 2, pic_y + 3, pen.LAYERS.WORLD_FRONT, pickup_info.txt, {
-				is_centered_x = true, has_shadow = true, color = {207,207,207}})
-		end
+
+	if( index.D.is_opened ) then return end
+	if( not( pen.vld( pickup_info.id, true ))) then return end
+	if( not( index.D.in_world_pickups or EntityHasTag( pickup_info.id, "index_txt" ))) then return end
+	if( pen.vld( pickup_info.txt )) then
+		local x, y = EntityGetTransform( pickup_info.id )
+		local pic_x, pic_y = pen.world2gui( x, y )
+		pen.new_text( pic_x, pic_y + 3, pen.LAYERS.WORLD_FRONT, pickup_info.txt, {
+			is_centered_x = true, has_shadow = true, color = pen.PALETTE.VNL.LGREY })
 	end
 end
 
@@ -1129,19 +1125,19 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	local clicked, r_clicked = false, false
 	pic_z = pen.get_hybrid_table( pic_z or { pen.LAYERS.TIPS, pen.LAYERS.MAIN_DEEP })
 	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z[1], data )
-	if( pic_z[2] ~= nil and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.YELLOW, s_x, s_y, 0.75 ) end
+	if( pen.vld( pic_z[2]) and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.RUNIC, s_x, s_y, 0.75 ) end
 	( func or index.D.tip_func )( text, data, func )
 	return data.is_active, clicked, r_clicked
 end
 
-function index.new_vanilla_worldtip( this_info, tid, pic_x, pic_y, no_space, cant_buy, tip_func )
+function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func ) --anchor tips around in-world items if setting is toggled
 	-- if( not( cant_buy )) then return end
 	pic_x, pic_y = unpack( index.D.xys.hp )
-	pic_x, pic_y = pic_x - 43, pic_y - 1
-	tip_func( this_info, tid, pic_x, pic_y, pen.LAYERS.TIPS, true )
+	pic_x, pic_y = pic_x - 44, pic_y
+	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.TIPS )
 end
 
-function index.new_vanilla_wtt( this_info, tid, pic_x, pic_y, pic_z, in_world, is_advanced )
+function index.new_vanilla_wtt( this_info, tid, pic_x, pic_y, pic_z, is_advanced )
 	if( this_info.wand_info == nil ) then return end
 	
 	--[[
@@ -1433,70 +1429,102 @@ function index.new_vanilla_wtt( this_info, tid, pic_x, pic_y, pic_z, in_world, i
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ptt( this_info, tid, pic_x, pic_y, pic_z, in_world )
-	if( this_info.matter_info == nil ) then return end
+function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show matter_desc on advanced tip key hold
+	if( not( pen.vld( info.pic ))) then return end
+	if( not( pen.vld( info.name ))) then return end
+	if( not( pen.vld( info.desc ))) then return end
+	if( not( pen.vld( info.matter_info ))) then return end
 	
-	local total_cap, scale = this_info.matter_info[2][1], 1.5
-	local new_desc, extra_desc = this_info.desc, ""
-	if( this_info.matter_info[3] and total_cap > 0 ) then
-		new_desc = new_desc.."@"..GameTextGet( "$item_description_potion_usage", "[RMB]" )
-	end
-	if( total_cap > 0 ) then
-		new_desc = new_desc.."@ @"..GameTextGetTranslatedOrNot( "$inventory_capacity" ).." = "..total_cap.."/"..this_info.matter_info[1]
-		for i,m in ipairs( this_info.matter_info[2][2]) do
-			local count = 100*m[2]/total_cap
-			extra_desc = extra_desc..( i > 1 and "@\t" or "\t" )..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( m[1])))..": "..( count < 1 and "<" or "" )..math.max( math.floor( count + 0.5 ), 1 ).."%"
-		end
-	end
+	local pic_scale, spacer = 1.5, "\t"
+	local matter = info.matter_info.matter
 
-	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name, true )},
-		{},
-		{ pen.get_pic_dims( this_info.pic )},
-		{ 0, 0 },
-		{},
-	}
-	_,this_info.tt_spacing[2] = pen.liner( new_desc, unpack( pen.get_tip_dims( new_desc, this_info.tt_spacing[1][1], 500 )), -1 )
-	if( extra_desc ~= "" ) then _,this_info.tt_spacing[4] = pen.liner( extra_desc, 999, -1 ) end
-	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = scale*this_info.tt_spacing[3][1], scale*this_info.tt_spacing[3][2]
-	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1], this_info.tt_spacing[4][1]) + 5
-	local size_y = math.max( this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + this_info.tt_spacing[4][2] + ( extra_desc ~= "" and 11 or 5 ), this_info.tt_spacing[3][2] + 3 )
-	this_info.tt_spacing[5] = { size_x, size_y }
-
-	index.D.tip_func( tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[5][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[5][2] + 2 }, { function( pic_x, pic_y, pic_z, inter_alpha, this_data )
-		pic_x = pic_x + 2
-		pen.new_shadowed_text( pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
-		pen.new_shadowed_text( pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, new_desc, { alpha = inter_alpha })
-		pen.new_shadowed_text( pic_x + 1, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 9, pic_z, extra_desc, { alpha = inter_alpha })
+	local desc = info.desc
+	local matter_desc = ""
+	if( matter[1] > 0 ) then
+		if( info.matter_info.may_drink ) then
+			desc = desc.."\n"..GameTextGet( "$item_description_potion_usage", "[RMB]" ) end
+		desc = desc.."\n"..GameTextGetTranslatedOrNot( "$inventory_capacity" ).." = "..matter[1].."/"..info.matter_info.volume
 		
-		local icon_x, icon_y = pic_x + this_info.tt_spacing[5][1], pic_y + ( this_info.tt_spacing[5][2] - this_info.tt_spacing[3][2])/2
-		if( total_cap > 0 ) then
-			local _,line_dims = pen.liner( "\t", 999 )
-			local line_w, line_h = line_dims[1] - 3, line_dims[2]
-			for i,m in ipairs( this_info.matter_info[2][2]) do
-				local t_x, t_y = pic_x + 1 + line_w, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + line_h*(i-1) + 9
-				local perc = math.max( line_w*m[2]/total_cap, 1 )
-				pen.new_pixel( t_x, t_y, pic_z + tonumber( "0.0001"..i ),
-					pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, inter_alpha )
-				if( line_w - perc > 0.25 ) then
-					pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), pen.PALETTE.W, -0.5, line_h, 0.75*inter_alpha )
-				end
-			end
-			index.new_vanilla_box( pic_x + 2, pic_y + this_info.tt_spacing[1][2] + this_info.tt_spacing[2][2] + 10, pic_z + 0.001, {line_w-2,line_h*#this_info.matter_info[2][2]-2}, inter_alpha )
-			
-			local cut = scale*this_info.potion_cutout
-			local step = ( this_info.tt_spacing[3][2] - 2*cut )*math.max( math.min( 1 - total_cap/this_info.matter_info[1], 1 ), 0 ) + cut
-			pen.new_cutout( icon_x, icon_y + step, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] - cut, function( v )
-				pen.new_image( 0, -step, v[1],
-					v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
-			end, { pic_z - 1, this_info.pic, scale, scale, 0.8*inter_alpha, CellFactory_GetName( this_info.matter_info[2][2][1][1])})
+		for i,m in ipairs( matter[2]) do
+			if( #matter[2] == 1 ) then break end
+			local count = 100*m[2]/matter[1]
+			local temp = pen.liner( pen.capitalizer(
+				GameTextGetTranslatedOrNot( CellFactory_GetUIName( m[1]))), 75, -1, nil, { aggressive = true })[1]
+			matter_desc = matter_desc..( i == 1 and "" or "\n" )..spacer..
+				temp..": "..( count < 1 and "<" or "" )..math.max( math.floor( count + 0.5 ), 1 ).."%"
 		end
-		pen.new_image( icon_x, icon_y, pic_z, this_info.pic, { s_x = scale, s_y = scale, alpha = inter_alpha })
-	end, this_info }, true, in_world )
+	end
+
+	local icon_w, icon_h = pen.get_pic_dims( info.pic )
+	icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
+
+	local title_w, title_h = pen.get_text_dims( info.name, true )
+	local desc_w, desc_h = unpack( pen.get_tip_dims( desc, math.max( title_w + 2, 100 ), -1, -2 ))
+	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+	
+	if( pen.vld( matter_desc )) then
+		local _,matter_wh = pen.liner( matter_desc, nil, nil, nil, { line_offset = -2 })
+		size_y = size_y + matter_wh[2] + 7
+	end
+
+	index.D.tip_func( "", {
+		tid = tid, info = info,
+		is_left = true, is_active = true,
+		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
+	}, function( t, d )
+		local info = d.info
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
+		
+		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
+		pen.new_shadowed_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, info.name, {
+			dims = { size_x - icon_w - 3, size_y }, fully_featured = true, alpha = inter_alpha, color = pen.PALETTE.VNL.YELLOW })
+		pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z, desc, {
+			dims = { size_x - icon_w - 5, size_y }, fully_featured = true, alpha = inter_alpha, line_offset = -2 })
+		
+		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
+		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
+		local scale_x, scale_y = size_x - inter_size, size_y - inter_size
+		
+		local gui, uid = pen.gui_builder()
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
+		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
+		
+		local icon_x, icon_y = pos_x + scale_x - ( d.edging + icon_w ), pos_y + ( scale_y - icon_h )/2
+		pen.new_image( icon_x, icon_y, pic_z, info.pic, { s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha })
+		
+		local cut = pic_scale*info.potion_cutout
+		local step = ( icon_h - 2*cut )*math.max( math.min( 1 - matter[1]/info.matter_info.volume, 1 ), 0 ) + cut
+		pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v )
+			pen.new_image( 0, -step, v[1],
+				v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
+		end, { pic_z - 1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
+
+		if( not( pen.vld( matter_desc ))) then return end
+		
+		local line_w, line_h = pen.get_text_dims( spacer, true )
+		for i,m in ipairs( matter[2]) do
+			local perc = math.max(( line_w + 2 )*m[2]/matter[1], 1 )
+			local t_x, t_y = pic_x + d.edging + 3 + line_w, pic_y + title_h + desc_h + line_h*( i - 1 ) + 9
+			pen.new_pixel( t_x, t_y, pic_z + tonumber( "0.0001"..i ),
+				pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, inter_alpha )
+			if(( line_w + 2 ) - perc > 0.25 ) then
+				pen.new_pixel( t_x - perc, t_y, pic_z + tonumber( "0.0001"..i ), pen.PALETTE.W, -0.5, line_h, 0.75*inter_alpha )
+			end
+		end
+		pen.new_shadowed_text( pic_x + d.edging + 7, pic_y + d.edging + title_h + desc_h + 6.5, pic_z, matter_desc, {
+			line_offset = -2, dims = { size_x, size_y }, fully_featured = true, alpha = inter_alpha })
+		index.new_vanilla_box( pic_x + d.edging + 2, pic_y + title_h + desc_h + 10,
+			pic_z + 0.001, { line_w, line_h*#matter[2] - 2 }, inter_alpha )
+	end)
 end
 
-function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z, in_world )
-	if( this_info.spell_info == nil ) then return end
+function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
+	if( not( pen.vld( info.pic ))) then return end
+	if( not( pen.vld( info.name ))) then return end
+	if( not( pen.vld( info.desc ))) then return end
+	if( not( pen.vld( info.spell_info ))) then return end
 	
 	--the pinned tip check should be within the tip code itself
 	--hold alt to display advanced tooltip (list every damage type, additional info, all the shit is in frames)
@@ -1770,55 +1798,63 @@ function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z, in_world )
 	end, this_info }, true, in_world )
 end
 
-function index.new_vanilla_ttt( this_info, tid, pic_x, pic_y, pic_z, in_world )
-	return new_vanilla_itt( this_info, tid, pic_x, pic_y, pic_z, in_world, true )
+function index.new_vanilla_ttt( info, tid, pic_x, pic_y, pic_z )
+	return index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, true )
 end
 
-function index.new_vanilla_itt( this_info, tid, pic_x, pic_y, pic_z, in_world, do_magic )
-	if( not( pen.vld( this_info.pic ))) then return end
-	if( not( pen.vld( this_info.name ))) then return end
-	if( not( pen.vld( this_info.desc ))) then return end
+function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, do_magic )
+	if( not( pen.vld( info.pic ))) then return end
+	if( not( pen.vld( info.name ))) then return end
+	if( not( pen.vld( info.desc ))) then return end
 	
-	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name, true )},
-		{},
-		{ pen.get_pic_dims( this_info.pic )},
-		{},
-	}
-	_,this_info.tt_spacing[2] = pen.liner( this_info.desc,
-		unpack( pen.get_tip_dims( this_info.desc, this_info.tt_spacing[1][1], 500 )), -1 )
-	this_info.tt_spacing[3][1], this_info.tt_spacing[3][2] = 1.5*this_info.tt_spacing[3][1], 1.5*this_info.tt_spacing[3][2]
-	local size_x = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 5
-	local size_y = math.max( this_info.tt_spacing[1][2] + 5 + this_info.tt_spacing[2][2], this_info.tt_spacing[3][2] + 3 )
-	this_info.tt_spacing[4] = { size_x, size_y }
+	local pic_scale = 1.5
 
-	index.D.tip_func( tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[4][1] + 5 + this_info.tt_spacing[3][1], this_info.tt_spacing[4][2] + 2 }, { function( pic_x, pic_y, pic_z, inter_alpha, this_data )
-		pic_x = pic_x + 2
-		pen.new_shadowed_text( pic_x, pic_y, pic_z, this_info.name, { color = do_magic and {121,201,153} or {255,255,178}, alpha = inter_alpha })
-		if( do_magic ) then
-			local storage_rune = pen.magic_storage( this_info.id, "runic_cypher" )
-			if( storage_rune == nil ) then
-				storage_rune = EntityAddComponent( this_info.id, "VariableStorageComponent",
-				{
-					name = "runic_cypher",
-					value_float = "0",
-				})
-			end
-			local runic_state = ComponentGetValue2( storage_rune, "value_float" )
-			if( runic_state ~= 1 ) then
-				pen.new_text( pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z,
-					table.concat({ "{>runic>{", this_info.desc, "}<runic<}" }), {
-					fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state )})
-			end
-			if( runic_state >= 0 ) then
-				pen.new_text( pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z + 0.001,
-					this_info.desc, { fully_featured = true, has_shadow = true, alpha = inter_alpha*runic_state })
-				ComponentSetValue2( storage_rune, "value_float", pen.estimate( "runic"..this_info.id, 1, 0.01, 0.001 ))
-			end
-		else pen.new_shadowed_text( pic_x, pic_y + this_info.tt_spacing[1][2] + 5, pic_z, this_info.desc, { alpha = inter_alpha }) end
-		pic_x, pic_y = pic_x + this_info.tt_spacing[4][1], pic_y + ( this_info.tt_spacing[4][2] - this_info.tt_spacing[3][2])/2
-		pen.new_image( pic_x, pic_y, pic_z, this_info.pic, { s_x = 1.5, s_y = 1.5, alpha = inter_alpha })
-	end, this_info }, true, in_world )
+	local desc = info.desc
+	local icon_w, icon_h = pen.get_pic_dims( info.pic )
+	icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
+
+	local title_w, title_h = pen.get_text_dims( info.name, true )
+	local desc_w, desc_h = unpack( pen.get_tip_dims( desc, math.max( title_w + 2, 100 ), -1, -2 ))
+	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+
+	index.D.tip_func( "", {
+		tid = tid, info = info,
+		is_left = true, is_active = true,
+		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
+	}, function( t, d )
+		local info = d.info
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
+		
+		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
+		pen.new_shadowed_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, info.name, {
+			dims = { size_x - icon_w - 3, size_y }, fully_featured = true, alpha = inter_alpha,
+			color = pen.PALETTE.VNL[ do_magic and "RUNIC" or "YELLOW" ]})
+		
+		local runic_state = do_magic and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
+		if( runic_state ~= 1 ) then
+			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
+				"{>runic>{"..info.desc.."}<runic<}", { dims = { size_x - icon_w - 5, size_y },
+				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
+			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, 1, 0.01, 0.001 ))
+		end
+		if( runic_state >= 0 ) then
+			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, desc, {
+				dims = { size_x - icon_w - 5, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
+		end
+
+		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
+		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
+		local scale_x, scale_y = size_x - inter_size, size_y - inter_size
+		
+		local gui, uid = pen.gui_builder()
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
+		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
+		
+		local icon_x, icon_y = pos_x + scale_x - ( d.edging + icon_w ), pos_y + ( scale_y - icon_h )/2
+		pen.new_image( icon_x, icon_y, pic_z, info.pic, { s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha })
+	end)
 end
 
 function index.new_slot_pic( pic_x, pic_y, pic_z, pic, alpha, angle, hov_scale, fancy_shadow )

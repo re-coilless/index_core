@@ -52,7 +52,7 @@ local ITEM_CATS = {
         end,
         on_info_name = function( item_id, item_comp, default_name )
             local name = index.get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
-            return pen.vld( name ) and default_name or name
+            return pen.vld( name ) and name or default_name
         end,
         on_data = function( info, item_list_wip )
             info.wand_info = {
@@ -143,7 +143,7 @@ local ITEM_CATS = {
             w, h = index.D.wand_func( pic_x + 2*pen.b2n( state_tbl.in_hand ), pic_y, info, state_tbl.in_hand )
             index.D.wand_inventory = { pic_x, pic_y + h }
         end,
-        on_tooltip = new_vanilla_wtt,
+        on_tooltip = index.new_vanilla_wtt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = 0, 0
             if((( pen.cache({ "index_pic_data", info.pic }) or {}).xy or {})[3] == nil ) then
@@ -195,7 +195,7 @@ local ITEM_CATS = {
             })[ is_post and 2 or 1 ]( info )
         end,
 
-        on_gui_world = new_vanilla_worldtip,
+        on_gui_world = index.new_vanilla_worldtip,
         -- on_gui_pause = function( info ) --should know if is picked or not
         --     return
         -- end,
@@ -284,7 +284,7 @@ local ITEM_CATS = {
                 pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, w, 0.5 )
             end
         end,
-        on_tooltip = new_vanilla_ptt,
+        on_tooltip = index.new_vanilla_ptt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 hov_func( info, nil, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS ) end
@@ -428,7 +428,7 @@ local ITEM_CATS = {
             })[ is_post and 2 or 1 ]( info )
         end,
 
-        on_gui_world = new_vanilla_worldtip,
+        on_gui_world = index.new_vanilla_worldtip,
     },
     {
         name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
@@ -453,7 +453,7 @@ local ITEM_CATS = {
             info.tip_name = string.upper( info.tip_name )
             
             local parent_id = EntityGetParent( info.id )
-            if( pen.vld( parent_id, true ) and pen.bld( index.D.invs[ parent_id ])) then
+            if( pen.vld( parent_id, true ) and pen.vld( index.D.invs[ parent_id ])) then
                 parent_id = pen.t.get( item_list_wip, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then info.in_wand = parent_id.id end
             end
@@ -475,7 +475,7 @@ local ITEM_CATS = {
         on_inv_swap = function( info, slot_data )
             if( index.D.active_item == info.id ) then pen.reset_active_item( index.D.player_id ) end
         end,
-        on_tooltip = new_vanilla_stt,
+        on_tooltip = index.new_vanilla_stt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             local angle, anim_speed = 0, index.D.spell_anim_frames
             local is_considered = state_tbl.is_dragged or state_tbl.is_hov
@@ -500,7 +500,7 @@ local ITEM_CATS = {
             return info
         end,
 
-        on_gui_world = new_vanilla_worldtip,
+        on_gui_world = index.new_vanilla_worldtip,
     },
     {
         name = "tablet",
@@ -509,7 +509,7 @@ local ITEM_CATS = {
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ), true )
         end,
         
-        on_tooltip = new_vanilla_ttt,
+        on_tooltip = index.new_vanilla_ttt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
             
@@ -521,7 +521,7 @@ local ITEM_CATS = {
             return info, true
         end,
 
-        on_gui_world = new_vanilla_worldtip,
+        on_gui_world = index.new_vanilla_worldtip,
     },
     {
         name = GameTextGetTranslatedOrNot( "$mat_item_box2d" ),
@@ -534,7 +534,7 @@ local ITEM_CATS = {
             return info
         end,
         
-        on_tooltip = new_vanilla_itt,
+        on_tooltip = index.new_vanilla_itt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
 
@@ -557,7 +557,7 @@ local ITEM_CATS = {
             })[ is_post and 2 or 1 ]( info )
         end,
 
-        on_gui_world = new_vanilla_worldtip,
+        on_gui_world = index.new_vanilla_worldtip,
     },
 }
 
@@ -598,7 +598,7 @@ local GUI_STRUCT = {
     pickup = index.new_generic_pickup,
     pickup_info = index.new_pickup_info,
     drop = index.new_generic_drop,
-
+    
     extra = index.new_generic_extra,
     custom = {
         aa_readme = function( screen_w, screen_h, xys )

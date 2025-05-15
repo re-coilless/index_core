@@ -4,80 +4,69 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
     local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
     local pic_x, pic_y = root_x, root_y
     
-    local this_data = index.D.item_list
-    if( this_data ~= nil ) then
+    local function check_shortcut( id, is_quickest )
+        if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
+    end
+
+    local data = index.D.item_list
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        
         if( index.D.is_opened ) then
             pen.new_image( 0, 0, pen.LAYERS.BACKGROUND,
                 index.D.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
             
-            if( not( index.D.gmod.can_see )) then
+            if( not( index.D.gmod.can_see )) then --opening inv should have it be animated (lower the full part from the top)
                 local delta = math.max(( index.M.inv_alpha or index.D.frame_num ) - index.D.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
                 pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1,
                     "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
             end
         end
-        
-        local function check_shortcut( id, is_quickest )
-            if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
-        end
-        local w, h, step = 0, 0, 1
-        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
 
         local cat_wands = pic_x
-        local inv_id = index.D.invs_p.q
-        local slot_data = index.D.slot_state[ inv_id ].quickest
-        for i,slot in ipairs( slot_data ) do
+        local w, h, step = 0, 0, 1
+        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
+        for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quickest ) do
             w, h = index.slot_setup( pic_x, pic_y, {
-                inv_id = inv_id,
-                id = slot,
-                inv_slot = {i,-1},
+                inv_slot = { i, -1 },
+                inv_id = index.D.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, true ),
             }, index.D.is_opened, false, true )
-            pic_x, pic_y = pic_x + w + step, pic_y
+            pic_x = pic_x + w + step
         end
-        
         pic_x = pic_x + index.D.inv_spacings[1]
+
         local cat_items = pic_x
-        slot_data = index.D.slot_state[ inv_id ].quick
-        for i,slot in ipairs( slot_data ) do
+        for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quick ) do
             w, h = index.slot_setup( pic_x, pic_y, {
-                inv_id = inv_id,
-                id = slot,
-                inv_slot = {i,-2},
+                inv_slot = { i, -2 },
+                inv_id = index.D.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, false ),
             }, index.D.is_opened, false, true )
-            pic_x, pic_y = pic_x + w + step, pic_y
+            pic_x = pic_x + w + step
         end
 
         if( index.D.is_opened ) then
+            pic_x = pic_x + index.D.inv_spacings[2]
             pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
-
-            pic_x = pic_x + index.D.inv_spacings[2]
             pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
         end
-        if( index.D.gmod.show_full ) then
-            if( index.D.is_opened or index.D.always_show_full ) then
-                local core_y = pic_y
-                inv_id = index.D.invs_p.f
-                slot_data = index.D.slot_state[ inv_id ]
-                for i,col in ipairs( slot_data ) do
-                    local count = not( index.D.gmod.show_fullest or false ) and 1 or #col
-                    for e = 1,count do
-                        local slot = col[e]
-                        w, h = index.slot_setup( pic_x, pic_y, {
-                            inv_id = inv_id,
-                            id = slot,
-                            inv_slot = {i,e},
-                        }, index.D.is_opened, true, index.D.is_opened )
-                        pic_x, pic_y = pic_x, pic_y + h + step
-                    end
-                    pic_x, pic_y = pic_x + w + step, core_y
+
+        if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
+            for i,col in ipairs( index.D.slot_state[ index.D.invs_p.f ]) do
+                for e = 1,( not( index.D.gmod.show_fullest or false ) and 1 or #col ) do
+                    w, h = index.slot_setup( pic_x, pic_y, {
+                        inv_slot = { i, e },
+                        inv_id = index.D.invs_p.f, id = col[e],
+                    }, index.D.is_opened, true, index.D.is_opened )
+                    pic_y = pic_y + h + step
                 end
+                pic_x, pic_y = pic_x + w + step, root_y
             end
         end
 
@@ -92,17 +81,15 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         -- if( InputIsKeyJustDown( 41--[[escape]])) then
         --     index.D.inv_toggle = index.D.is_opened
         -- else
-        if( index.D.Controls.inv[2]) then
-            index.D.inv_toggle = true
-        end
-    end
-    
+        if( index.D.Controls.inv[2]) then index.D.inv_toggle = true end
+    end)
     return { root_x, root_y }, { pic_x, pic_y }
 end
 
 function index.new_generic_applets( screen_w, screen_h, xys )
     local data = index.D.applets
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
+
     local function applet_setup( pic_x, type )
         local is_left = type == 1
         local sign = is_left and -1 or 1
@@ -195,7 +182,6 @@ function index.new_generic_applets( screen_w, screen_h, xys )
             if( index.D.gmod.show_full and #data.r > 1 ) then pic_x_r = applet_setup( pic_x_r, 2 ) end
         elseif( #data.l > 1 ) then pic_x_l = applet_setup( pic_x_l, 1 ) end
     end)
-
     return { pic_x_l, pic_y }, { pic_x_r, pic_y }
 end
 
@@ -221,7 +207,9 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         index.tipping( pic_x - ( length + 2 ), pic_y - 1, nil, length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
+
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", index.D.hp_flashing_intensity*red_shift, 0, 0, 0 )
+
     return { pic_x, pic_y }
 end
 
@@ -282,10 +270,10 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         if( index.D.gmod.menu_capable ) then return end
         index.M.mana_shake = index.M.mana_shake or {}
 
-        local value = {0,0}
+        local value = { 0, 0 }
         local potion_info = {}
         local throw_it_back = nil
-        if( data.wand_info ~= nil ) then
+        if( pen.vld( data.wand_info )) then
             local mana = data.wand_info.mana
             local mana_max = data.wand_info.mana_max
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
@@ -296,8 +284,8 @@ function index.new_generic_mana( screen_w, screen_h, xys )
             local shake_frame = index.D.frame_num - ( index.M.mana_shake[ index.D.active_item ] or index.D.frame_num )
             throw_it_back = index.M.mana_shake[ index.D.active_item ] ~= nil and -shake_frame or nil
             if( shake_frame >= 20 ) then index.M.mana_shake[ index.D.active_item ] = nil end
-        elseif( data.matter_info ~= nil and data.matter_info[1] >= 0 ) then
-            value = { math.max( data.matter_info[2][1], 0 ), data.matter_info[1]}
+        elseif( pen.vld( data.matter_info ) and data.matter_info.volume >= 0 ) then
+            value = { math.max( data.matter_info.matter[1], 0 ), data.matter_info.volume }
             potion_info = { pic = "data/ui_gfx/hud/potion.png" }
             if( index.D.fancy_potion_bar ) then
                 potion_info.color = pen.magic_uint( GameGetPotionColorUint( index.D.active_item ))
@@ -449,7 +437,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys ) --huge thanks to P
         end
 
         local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
-        if( func_path ~= nil ) then bar_func = dofile_once( func_path ) end
+        if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
         local _,step = bar_func( pic_x, pic_y, pen.LAYERS.WORLD_BACK, boss, {
             low_hp = 0, low_hp_min = 0,
             length_mult = 2, height = 13,
@@ -725,7 +713,6 @@ function index.new_generic_perks( screen_w, screen_h, xys )
 
         pic_y = pic_y + 5
     end)
-
     return { pic_x, pic_y }
 end
 
@@ -946,7 +933,8 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         elseif( pen.vld( guiing )) then
             local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
             local pic_x, pic_y = pen.world2gui( i_x, i_y )
-            ignore_default = guiing( pickup_data.info, pic_x, pic_y, no_space, cant_buy, index.cat_callback( pickup_data.info, "on_tooltip" ))
+            ignore_default = guiing(
+                pickup_data.info, nil, pic_x, pic_y, no_space, cant_buy, index.cat_callback( pickup_data.info, "on_tooltip" ))
         end
         
         if( not( ignore_default )) then info_func( screen_h, screen_w, pickup_data, xys ) end
@@ -1011,119 +999,86 @@ function index.new_generic_drop( this_item )
         local this_info = pen.t.get( index.D.item_list, this_item )
         local inv_data = index.D.invs[ this_info.inv_id ] or {}
         local callback = index.cat_callback( this_info, "on_drop" )
-        if( callback ~= nil ) then
-            do_default = callback( this_item, this_info, false )
-        end
-        if( inv_data.update ~= nil ) then
-            if( inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
-                local reset_id = pen.get_item_owner( p, true )
-                if( reset_id > 0 ) then
-                    pen.reset_active_item( reset_id )
-                end
-            end
+        if( pen.vld( callback )) then do_default = callback( this_item, this_info, false ) end
+        if( pen.vld( inv_data.update ) and inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
+            local reset_id = pen.get_item_owner( p, true )
+            if( reset_id > 0 ) then pen.reset_active_item( reset_id ) end
         end
         if( do_default ) then
             local x, y = unpack( index.D.player_xy )
             index.drop_item( x, y, this_info, index.D.throw_force, not( index.D.no_action_on_drop ))
         end
-        if( callback ~= nil ) then
-            callback( this_item, this_info, true )
-        end
+        if( pen.vld( callback )) then callback( this_item, this_info, true ) end
     else index.play_sound( "error" ) end
 end
 
 function index.new_generic_extra( screen_w, screen_h, xys )
-    if( #index.D.invs_e > 0 ) then
-        for i,extra_inv in ipairs( index.D.invs_e ) do
-            local inv_data = index.D.invs[ extra_inv ]
-            local x, y = EntityGetTransform( extra_inv )
-            local pic_x, pic_y = pen.world2gui( x, y )
-            inv_data.func( pic_x, pic_y, inv_data, xys, index.D.slot_func )
-        end
+    if( pen.vld( index.D.invs_e )) then return end
+    for i,extra_inv in ipairs( index.D.invs_e ) do
+        local x, y = EntityGetTransform( extra_inv )
+        local pic_x, pic_y = pen.world2gui( x, y )
+        inv_data.func( pic_x, pic_y, index.D.invs[ extra_inv ], xys, index.D.slot_func )
     end
 end
 
 function index.new_generic_modder( screen_w, screen_h, xys )
     local mode_data = index.D.gmod
-    if( mode_data ~= nil and index.D.is_opened and ( not( index.D.gmod.is_hidden ) or index.D.gmod.force_show )) then
-        local check = true
-        local w,h = pen.get_text_dims( mode_data.name, true )
-        local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
-        if( not( mode_data.show_full )) then
-            pic_x, pic_y = xys.inv_root[1], xys.full_inv[2]
-            pic_x = pic_x + 7 + w
-            pic_y = pic_y + 13
-        elseif( xys.applets_r[1] <= ( pic_x + 5 )) then
-            check = false
-        end
-        if( check ) then
-            local gonna_reset, gonna_highlight = false
-            local arrow_left_c, arrow_right_c, arrow_left_a, arrow_right_a = {255,255,255}, {255,255,255}, 0.3, 0.3
-            local arrow_hl_c = {255,255,178}
+    if( not( pen.vld( mode_data )) or not( index.D.is_opened )) then return end
+    if( index.D.gmod.is_hidden and not( index.D.gmod.force_show )) then return end
+    
+    local w,h = pen.get_text_dims( mode_data.name, true )
+    local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
+    if( not( mode_data.show_full )) then
+        pic_x = xys.inv_root[1] + 7 + w
+        pic_y = xys.full_inv[2] + 13
+    elseif( xys.applets_r[1] <= ( pic_x + 5 )) then return end
+    
+    local new_mode = index.D.global_mode
+    local gonna_reset, gonna_highlight, arrow_left_a, arrow_right_a = false, false, 0.3, 0.3
+    local arrow_left_c, arrow_right_c, arrow_hl_c = {255,255,255}, {255,255,255}, pen.PALETTE.VNL.YELLOW
+    local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.LAYERS.TIPS )
+    if( is_hovered ) then arrow_left_c, arrow_left_a = arrow_hl_c, 1 end
+    gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
+    if( clicked or index.get_input( "invmode_previous" )) then new_mode, arrow_left_a = new_mode - 1, 1 end
 
-            local new_mode = index.D.global_mode
-            local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.LAYERS.TIPS )
-            gonna_reset = gonna_reset or r_clicked
-            gonna_highlight = gonna_highlight or is_hovered
-            if( is_hovered ) then
-                arrow_left_c = arrow_hl_c
-                arrow_left_a = 1
-            end
-            if( clicked or index.get_input( "invmode_previous" )) then
-                new_mode = new_mode - 1
-                arrow_left_a = 1
-            end
-            clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 10, pic_y - 11, 15, 10, pen.LAYERS.TIPS )
-            gonna_reset = gonna_reset or r_clicked
-            gonna_highlight = gonna_highlight or is_hovered
-            if( is_hovered ) then
-                arrow_right_c = arrow_hl_c
-                arrow_right_a = 1
-            end
-            if( clicked or index.get_input( "invmode_next" )) then
-                new_mode = new_mode + 1
-                arrow_right_a = 1
-            end
-            is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11,
-                pen.LAYERS.TIPS, w + 6, 10, mode_data.name.."@"..mode_data.desc, { pos = { tip_x - 44, tip_y }, is_left = mode_data.show_full })
-            gonna_reset = gonna_reset or r_clicked
-            gonna_highlight = gonna_highlight or is_hovered
+    clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 10, pic_y - 11, 15, 10, pen.LAYERS.TIPS )
+    if( is_hovered ) then arrow_right_c, arrow_right_a = arrow_hl_c, 1 end
+    gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
+    if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
 
-            local alpha = gonna_highlight and 1 or 0.3
-            if( gonna_reset ) then
-                for i,gmod in ipairs( index.D.gmods ) do
-                    if( gmod.is_default ) then
-                        new_mode = i
-                        break
-                    end
-                end
-            end
-            if( index.D.global_mode ~= new_mode ) then
-                local total_count = #mode_data.gmods
-                local go_ahead = true
-                while( go_ahead ) do
-                    if( new_mode < 1 ) then
-                        new_mode = total_count
-                    elseif( new_mode > total_count ) then
-                        new_mode = 1
-                    end
-                    go_ahead = mode_data.gmods[ new_mode ].is_hidden or false
-                    if( go_ahead ) then
-                        new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 )
-                    end
-                end
+    local tip_x, tip_y = unpack( xys.hp )
+    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS,
+        w + 6, 10, mode_data.name.."\n"..mode_data.desc, { pos = { tip_x - 44, tip_y }, is_left = mode_data.show_full })
+    gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
-                index.play_sound( gonna_reset and "reset" or "click" )
-                pen.magic_storage( index.D.main_id, "global_mode", "value_int", new_mode )
-            end
-            
-            pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, mode_data.name, { alpha = alpha })
-            index.D.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
-            
-            pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
-                "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
-            pen.new_image( pic_x - 2, pic_y - 10, pen.LAYERS.MAIN_BACK,
-                "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
+    local alpha = gonna_highlight and 1 or 0.3
+    if( gonna_reset ) then
+        for i,gmod in ipairs( index.D.gmods ) do
+            if( gmod.is_default ) then new_mode = i; break end
         end
     end
+
+    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, mode_data.name, { alpha = alpha })
+    index.D.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
+    
+    pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
+        "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
+    pen.new_image( pic_x - 2, pic_y - 10, pen.LAYERS.MAIN_BACK,
+        "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
+
+    if( index.D.global_mode == new_mode ) then return end
+
+    local go_ahead = true
+    while( go_ahead ) do
+        if( new_mode < 1 ) then
+            new_mode = #mode_data.gmods
+        elseif( new_mode > #mode_data.gmods ) then
+            new_mode = 1
+        end
+        go_ahead = mode_data.gmods[ new_mode ].is_hidden or false
+        if( go_ahead ) then new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 ) end
+    end
+
+    index.play_sound( gonna_reset and "reset" or "click" )
+    pen.magic_storage( index.D.main_id, "global_mode", "value_int", new_mode )
 end
