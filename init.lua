@@ -28,11 +28,14 @@ function OnModInit()
 	-- end
 	
 	pen.lib.font_builder( "data/fonts/font_pixel.xml", {
-		[176] = { pos = { 2, 0, 2 }, rect_w = 11, rect_h = 2 },
+		[176] = { pos = { 2, 0, 2 }, rect_h = 11, rect_w = 2 },
+	}, "mods/index_core/files/pics/font_atlas.png" )
+	pen.lib.font_builder( "data/fonts/font_pixel_noshadow.xml", {
+		[176] = { pos = { 5, 0, 2 }, rect_h = 11, rect_w = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
 	pen.lib.font_builder( "data/fonts/font_small_numbers.xml", {
-		[66] = { pos = { 15, 0, 6 }, rect_w = 6, rect_h = 6 },
-		[101] = { pos = { 22, 0, 4 }, rect_w = 6, rect_h = 4 },
+		[66] = { pos = { 15, 0, 6 }, rect_h = 6, rect_w = 6 },
+		[101] = { pos = { 22, 0, 4 }, rect_h = 6, rect_w = 4 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
 
 	local shader_file = "data/shaders/post_final.frag"

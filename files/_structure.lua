@@ -217,8 +217,8 @@ local ITEM_CATS = {
             local cap = ""
             local name = index.get_entity_name( item_id, item_comp )
             if( pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ), true )) then
-                name, cap = index.get_potion_info(
-                    item_id, name, pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" )), barrel_size )
+                local v, m = pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" ))
+                name, cap = index.get_potion_info( item_id, name, v, barrel_size, m )
             end
             return name..( cap or "" )
         end,

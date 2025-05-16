@@ -387,6 +387,14 @@ function index.check_dragger_buffer( id ) --kinda sus
 	return will_do, will_force, will_update
 end
 
+function index.get_stat( main_value, added_value, default, allow_inf )
+	main_value, added_value = main_value or default, added_value or 0
+	local is_dft = main_value == default
+	local value = pen.get_short_num(
+		is_dft and added_value or ( main_value + added_value ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft )
+	return value, is_dft and ( added_value == 0 )
+end
+
 ------------------------------------------------------		[INVENTORY]		------------------------------------------------------
 
 function index.is_inv_empty( slot_state )
@@ -1137,299 +1145,182 @@ function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy
 	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.TIPS )
 end
 
-function index.new_vanilla_wtt( this_info, tid, pic_x, pic_y, pic_z, is_advanced )
-	if( this_info.wand_info == nil ) then return end
+function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
+	if( not( pen.vld( info.pic ))) then return end
+	if( not( pen.vld( info.name ))) then return end
+	if( not( pen.vld( info.wand_info ))) then return end
 	
-	--[[
-		this_info.wand_info.speed_multiplier
-		this_info.wand_info.lifetime_add
-		this_info.wand_info.bounces
+	local spells = { p = {}, n = {}}
+	pen.t.loop( EntityGetAllChildren( info.id ), function( i, spell )
+		local kid_info = pen.t.get( index.D.item_list, spell, nil, nil, {})
+		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_data( spell, info, index.D.item_list ) end
+		if( pen.vld( kid_info.id, true )) then table.insert( spells[ kid_info.is_permanent and "p" or "n" ], kid_info ) end
+	end)
+	for field,tbl in pairs( spells ) do
+		table.sort( spells[ field ], function( a, b )
+			local inv_slot = { 0, 0 }
+			pen.t.loop({ a.ItemC, b.ItemC }, function( i, comp )
+				if( pen.vld( comp, true )) then inv_slot[i] = ComponentGetValue2( comp, "inventory_slot" ) end
+			end)
+			return inv_slot[1] < inv_slot[2]
+		end)
+	end
 
-		this_info.wand_info.crit_chance
-		this_info.wand_info.crit_mult
+	local title_w, title_h = pen.get_text_dims( info.name, true )
+	title_w = title_w + ( info.wand_info.shuffle_deck_when_empty and 12 or 0 ) + 2
+	
+	local desc_w, desc_h = 0, 0
+	local will_desc = pen.vld( info.desc ) and index.D.tip_action
+	if( will_desc ) then
+		desc_w, desc_h = unpack( pen.get_tip_dims( info.desc or "", math.max( title_w, 100 ), -1, -2 ))
+		desc_h = desc_h + 5
+	end
+
+	local pic_data = index.register_item_pic( info )
+	local pic_scale = index.D.no_wand_scaling and 1 or 2
+	local pic_w, pic_h = pic_scale*pic_data.dims[1], pic_scale*pic_data.dims[2]
+	
+	local stats_w, stats_h = 60 + pic_h, 0
+	pen.t.loop( index.WAND_STATS, function( i, stat )
+		if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
+		if( pen.get_hybrid_function( stat.is_advanced, info ) and not( index.D.tip_action )) then return end
+		stats_h = stats_h + (( i ~= #index.WAND_STATS and stat.spacer ) and 11 or 8 )
+	end)
+	stats_h = math.max( stats_h + 2, pic_w + 4 )
+
+	local got_spells = ( pen.vld( spells.p ) or pen.vld( spells.n )) and not( index.D.tip_action or is_simple )
+	local size_x, size_y = 9*math.ceil( math.max( desc_w + 2, title_w, stats_w )/9 ), title_h + desc_h + stats_h + 5
+	if( got_spells ) then size_y = size_y + 10*math.ceil( 9*#spells.p/size_x ) + 10*math.ceil( 9*#spells.n/size_x ) + 5 end
+	if( pen.vld( spells.p )) then size_y = size_y + ( pen.vld( spells.n ) and 1 or 0 ) end
+
+	index.D.tip_func( "", {
+		tid = tid, info = info,
+		is_left = true, is_active = true,
+		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
+	}, function( t, d )
+		local info = d.info
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
-		this_info.wand_info.damage_electricity_add
-		this_info.wand_info.damage_explosion_add
-		this_info.wand_info.damage_fire_add
-		this_info.wand_info.damage_melee_add
-		this_info.wand_info.damage_projectile_add
-	]]
-	
-	--slot (has no alt mode but will stay open if alt is held)
-	--inventory (stats have tooltips, advanced stats replace the desc)
-	
-	local scale = 2--index.D.no_wand_scaling and 1 or 2
-	local spell_list, got_spells = {permas={},normies={}}, false
-	if( not( is_advanced )) then
-		local spells = EntityGetAllChildren( this_info.id ) or {}
-		if( #spells > 0 ) then
-			for i,spell in ipairs( spells ) do
-				local kid_info = pen.t.get( index.D.item_list, spell, nil, nil, {})
-				if( kid_info.id == nil ) then kid_info = index.get_item_data( spell, index.D.this_info, index.D.item_list ) end
-				if( kid_info.id ~= nil ) then
-					got_spells = true
-					table.insert( spell_list[ kid_info.is_permanent and "permas" or "normies" ], kid_info )
-				end
-			end
-
-			for field,tbl in pairs( spell_list ) do
-				table.sort( spell_list[ field ], function( a, b )
-					local inv_slot = {0,0}
-					for k = 1,2 do
-						local item_comp = k == 1 and a.ItemC or b.ItemC
-						if( item_comp ~= nil ) then inv_slot[k] = ComponentGetValue2( item_comp, "inventory_slot" ) end
-					end
-					return inv_slot[1] < inv_slot[2]
-				end)
-			end
+		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
+		pen.new_shadowed_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, info.name, {
+			dims = { size_x, size_y }, fully_featured = true, has_shadow = true, color = pen.PALETTE.VNL.YELLOW, alpha = inter_alpha })
+		if( will_desc ) then
+			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z, info.desc, {
+				dims = { desc_w, size_y }, fully_featured = true, has_shadow = true, alpha = inter_alpha, line_offset = -2 })
 		end
-	end
-
-	this_info.tt_spacing = {
-		{ pen.get_text_dims( this_info.name, true )},
-		{ 71, 57, 0 },
-		{ 0, 0 },
-		{},
-		{ 0, 0 },
-		{},
-	}
-	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ) + 3
-	if( is_advanced and pen.vld( this_info.desc )) then
-		_,this_info.tt_spacing[3] = pen.liner( this_info.desc,
-			math.floor( unpack( pen.get_tip_dims( this_info.desc ))*0.5 ), -1 )
-		this_info.tt_spacing[3] = { this_info.tt_spacing[3][1] + 4, this_info.tt_spacing[3][2] - 1 }
-		if( this_info.tt_spacing[2][2] < this_info.tt_spacing[3][2]) then
-			this_info.tt_spacing[2][3] = ( this_info.tt_spacing[3][2] - this_info.tt_spacing[2][2])/2
-			this_info.tt_spacing[2][2] = this_info.tt_spacing[3][2]
-		end
-	end
-	this_info.tt_spacing[6][1] = math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1] + this_info.tt_spacing[3][1])
-	this_info.tt_spacing[6][1] = math.ceil( this_info.tt_spacing[6][1]/9 )*9 + 3
-	this_info.tt_spacing[2][1] = this_info.tt_spacing[6][1] - this_info.tt_spacing[3][1]
-
-	local pic_data = pen.cache({ "index_pic_data", this_info.pic })
-	if( pic_data and pic_data.dims ) then
-		local dims = { scale*pic_data.dims[1], scale*pic_data.dims[2]}
-		local drift = { -scale*pic_data.xy[2], dims[1]/2 }
-		if( this_info.tt_spacing[2][2] < dims[1]) then
-			this_info.tt_spacing[2][3] = this_info.tt_spacing[2][3] + ( dims[1] - this_info.tt_spacing[2][2])/2
-			this_info.tt_spacing[2][2] = dims[1]
-		end
-		this_info.tt_spacing[4] = { this_info.tt_spacing[2][1] + drift[1] - 15, this_info.tt_spacing[2][2]/2 + drift[2]}
-		local total_size = this_info.tt_spacing[4][1] + dims[2]
-		if( total_size > this_info.tt_spacing[2][1] - 1 ) then
-			this_info.tt_spacing[4][1] = this_info.tt_spacing[4][1] - ( total_size - this_info.tt_spacing[2][1] + 1 )
-		end
-	else index.register_item_pic( this_info ) end
-	if( got_spells ) then
-		local p_size, n_size = 0, 0
-		if( #spell_list.permas > 0 ) then
-			p_size = 9*math.ceil( 9*( #spell_list.permas + 1 )/( this_info.tt_spacing[2][1] - 1 ))
-		end
-		if( #spell_list.permas > 0 and #spell_list.normies > 0 ) then p_size = p_size + 1 end
-		if( #spell_list.normies > 0 ) then
-			n_size = 9*math.ceil( 9*( #spell_list.normies )/( this_info.tt_spacing[2][1] - 1 ))
-		end
-		this_info.tt_spacing[5] = { p_size, n_size }
-	end
-	this_info.tt_spacing[6][2] = math.max( this_info.tt_spacing[3][2], this_info.tt_spacing[2][2] + ( got_spells and ( this_info.tt_spacing[5][1] + this_info.tt_spacing[5][2] + 4 ) or 0 )) + 14
-
-	index.D.tip_func( tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[6][1] + 2, this_info.tt_spacing[6][2] + 2 }, { function( pic_x, pic_y, pic_z, inter_alpha, this_data )
-		if( not( is_advanced ) and this_info.is_frozen ) then
-			pen.new_image( pic_x - 4, pic_y - 4, pic_z - 0.1,
+		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
+		
+		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
+		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
+		local scale_x, scale_y = size_x - inter_size, size_y - inter_size
+		
+		local gui, uid = pen.gui_builder()
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
+		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
+		
+		if( info.is_frozen ) then
+			pen.new_image( pos_x - 4, pos_y - 4, pic_z - 0.1,
 				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha })
 		end
-
-		pic_x = pic_x + 2
-		if( this_info.wand_info.shuffle_deck_when_empty ) then
-			pen.new_image( pic_x - 1, pic_y + 1, pic_z,
-				"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
-			pen.new_image( pic_x - 1, pic_y + 2, pic_z + 0.01,
-				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = {0,0,0}, alpha = inter_alpha })
-		end
-		pen.new_text( pic_x + ( this_info.wand_info.shuffle_deck_when_empty and 8 or 0 ), pic_y, pic_z, this_info.name, {
-			has_shadow = true, color = {255,255,178}, alpha = inter_alpha })
-		
-		local orig_y = pic_y
-		pic_y = pic_y + 13
-		pen.new_image( pic_x - 2, pic_y - 3, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[6][1], s_y = 1, alpha = 0.5*inter_alpha })
-		if( pen.vld( this_info.desc )) then
-			pen.new_image( pic_x + this_info.tt_spacing[2][1] - 2, pic_y - 2, pic_z,
-				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = this_info.tt_spacing[6][2] - 10, alpha = 0.5*inter_alpha })
-			pen.new_text( pic_x + this_info.tt_spacing[2][1] + 1, pic_y - 1, pic_z, this_info.desc, {
-				has_shadow = true, alpha = inter_alpha })
+		if( info.wand_info.shuffle_deck_when_empty ) then
+			pen.new_image( pos_x + scale_x - 8, pos_y + 1, pic_z,
+				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = pen.PALETTE.VNL.RED, alpha = inter_alpha, has_shadow = true })
 		end
 
-		local function get_generic_stat( v, v_add, dft, allow_inf )
-			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
-			local is_dft = v == dft
-			return pen.get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
-		end
-		local stats_tbl = {
-			{
-				pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
-				name = "$inventory_actionspercast",
-				bigger_better = true,
+		local t_x = pic_x + d.edging + 2
+		local t_y = pic_y + d.edging + title_h + desc_h + 5
 
-				v = function( w_info ) return w_info.actions_per_round or 0 end,
-				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_gun_capacity.png",
-				name = "$inventory_capacity",
-				bigger_better = true,
+		local real_stats_w = 0
+		pen.t.loop( index.WAND_STATS, function( i, stat )
+			if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
+			if( pen.get_hybrid_function( stat.is_advanced, info ) and not( index.D.tip_action )) then return end
 
-				v = function( w_info ) return w_info.deck_capacity or 0 end,
-				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-				name = "$inventory_spread",
-				extra_step = 2,
+			local value = stat.value( info, info.wand_info )
+			local txt, hl_type = stat.txt( value, info, info.wand_info )
+			local alpha = (( hl_type == true ) and 0.5 or 1 )*inter_alpha
+			pen.new_image( t_x + ( stat.off_x or 0 ), t_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
 
-				v = function( w_info ) return w_info.spread_degrees or 0 end,
-				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				custom_func = function( pic_x, pic_y, pic_z, txt ) --remove this (use ° symbol)
-					local dims = pen.new_text( pic_x, pic_y, pic_z, txt )
-					pen.new_image( pic_x + dims[1], pic_y, pic_z,
-						"mods/index_core/files/fonts/vanilla_shadow/degree.png" )
-				end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_mana_max.png",
-				name = "$inventory_manamax",
-				bigger_better = true,
-				
-				v = function( w_info ) return w_info.mana_max or 0 end,
-				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
-				name = "$inventory_manachargespeed",
-				bigger_better = true,
-				
-				v = function( w_info ) return w_info.mana_charge_speed or 0 end,
-				value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
-				name = "$inventory_castdelay",
-
-				v = function( w_info ) return w_info.delay_time or 0 end,
-				value = function( v )
-					local v, is_dft = get_generic_stat(( v or 0 )/60, nil, 0, false, true )
-					return v.."s", is_dft
-				end,
-				tip = 0,
-			},
-			{
-				pic = "data/ui_gfx/inventory/icon_gun_reload_time.png",
-				name = "$inventory_rechargetime",
-				extra_step = 2,
-
-				v = function( w_info )
-					if( w_info.never_reload ) then
-						return "Ø", true
-					else
-						return w_info.reload_time or 0
-					end
-				end,
-				value = function( v )
-					local v, is_dft = get_generic_stat(( v or 0 )/60, nil, 0, false, true )
-					return v.."s", is_dft
-				end,
-				tip = 0,
-			},
-		}
-		local stat_x, stat_y = pic_x, pic_y + this_info.tt_spacing[2][3] --allow adding custom displayed params to wands (with a spacer)
-		for i,stat in ipairs( stats_tbl ) do
-			local v, is_special = stat.v( this_info.wand_info )
-			local done_v, is_default = v, false
-			if( type( v ) ~= "string" ) then done_v, is_default = stat.value( v ) end
-
-			local alpha = ( is_default and 0.5 or 1 )*inter_alpha
-			pen.new_image( stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
-
-			local clr = {170,170,170}
-			if( index.D.active_item ~= this_info.id and index.D.active_info.wand_info ~= nil ) then
+			local clr = "GREY"
+			if( index.D.active_item ~= info.id and pen.vld( index.D.active_info.wand_info )) then
 				local is_better = nil
-				local old_v, old_is_special = stat.v( index.D.active_info.wand_info )
-				if( is_special ~= nil or old_is_special ~= nil ) then
-					is_better = is_special or not( old_is_special )
-				elseif( type( old_v ) ~= "string" ) then
-					if( old_v > v ) then
-						is_better = true
-					elseif( old_v < v ) then
-						is_better = false
-					end
-
-					if( is_better ~= nil and stat.bigger_better ) then
-						is_better = not( is_better )
-					end
+				local held_value = stat.value( index.D.active_info, index.D.active_info.wand_info )
+				local _,held_hl_type = stat.txt( held_value, index.D.active_info, index.D.active_info.wand_info )
+				if( held_hl_type == 1 or hl_type == 1 ) then
+					is_better = true
+				elseif( held_value ~= value ) then
+					is_better = held_value > value
 				end
+
 				if( is_better ~= nil ) then
-					clr, alpha = is_better and {70,208,70} or {208,70,70}, inter_alpha
+					if( stat.bigger_better ) then
+						is_better = not( is_better ) end
+					clr, alpha = is_better and "GREEN" or "RED", inter_alpha
 				end
 			end
 
-			stat.custom_func = stat.custom_func or pen.new_text
-			stat.custom_func( stat_x + 9, stat_y - 1, pic_z, done_v, { color = clr, alpha = alpha })
-			-- stat.desc or ""
+			local tip = pen.magic_translate( pen.get_hybrid_function( stat.name or "", info ))
+			if( pen.vld( tip )) then
+				if( pen.vld( stat.desc )) then
+					tip = table.concat({ tip, " = ", value, "\n{>color>{{-}|VNL|GREY|{-}",
+						pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info )), "}<color<}" }) end
+				local is_hovered = index.tipping(
+					t_x, t_y - 1, pic_z, 40, 7, tip, { tid = "wtt", is_left = true, fully_featured = true })
+				if( is_hovered ) then clr, alpha = "YELLOW", 1 end
+			end
+
+			local dims = ( stat.func or pen.new_shadowed_text )(
+				t_x + 9, t_y - 1, pic_z, txt, { color = pen.PALETTE.VNL[ clr ], alpha = alpha })
+			real_stats_w = math.max( real_stats_w, dims[1])
 			
-			stat_y = stat_y + 8 + ( stat.extra_step or 0 )
+			t_y = t_y + (( i ~= #index.WAND_STATS and stat.spacer ) and 11 or 8 )
+		end)
+		
+		real_stats_w = real_stats_w + 13
+		off_x, off_y = pen.rotate_offset( -pic_w/2, -pic_h/2, -math.rad( 90 ))
+		local icon_x, icon_y = pic_x + size_x - ( size_x - real_stats_w )/2 + off_x, t_y + 2 - ( stats_h )/2 + off_y
+		pen.new_image( icon_x, icon_y, pic_z + 0.001, info.pic, {
+			s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha, angle = -math.rad( 90 )})
+		
+		if( pen.vld( info.desc ) and not( index.D.tip_action )) then
+			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = inter_alpha })
 		end
 
-		if( #this_info.tt_spacing[4] > 0 ) then
-			pen.new_image( pic_x + this_info.tt_spacing[4][1], pic_y + this_info.tt_spacing[4][2], pic_z + 0.001,
-				this_info.pic, { s_x = scale, s_y = scale, alpha = inter_alpha, angle = -math.rad( 90 )})
-		end
-
-		pic_y = pic_y + this_info.tt_spacing[2][2] + 5
-		if( got_spells ) then
-			pen.new_image( pic_x - 2, pic_y - 3, pic_z,
-				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[2][1], s_y = 1, alpha = 0.5*inter_alpha })
-
-			local spell_x = pic_x
-			for i = 0,1 do
-				local tbl, counter = spell_list[ i == 0 and "permas" or "normies" ], 0
-				if( i == 0 and #tbl > 0 ) then
-					pen.new_image( spell_x, pic_y + 1, pic_z,
-						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { alpha = inter_alpha })
-					counter = counter + 1
-				end
-				local is_hovered = false
-				for k,spell in ipairs( tbl ) do
-					pen.new_image( spell_x + 9*counter, pic_y, pic_z,
-						spell.pic, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha })
-					if( counter%2 == i ) then pen.colourer( nil, {185,220,223}) end
-					_,_,is_hovered = pen.new_image( spell_x + 9*counter - 1, pic_y - 1, pic_z + 0.001,
-						index.D.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
-					if( is_hovered ) then
-						index.cat_callback( spell, "on_tooltip", { "wtt_spell", spell_x + 9*counter - 2, pic_y + 10, pic_z - 1 })
-					end
-					
-					counter = counter + 1
-					if( 9*( counter + 1 ) > this_info.tt_spacing[2][1]) then
-						pic_y, counter = pic_y + 9, 0
-					end
-				end
-				if( #tbl > 0 ) then pic_y = pic_y + 10 end
+		if( not( got_spells )) then return end
+		
+		t_x, t_y = t_x - 2, t_y + 8
+		pen.new_image( t_x - 1, t_y - 4, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
+		
+		pen.t.loop({ spells.p, spells.n }, function( i, tbl )
+			local cnt = 0
+			if( i == 1 and pen.vld( tbl )) then
+				pen.new_image( t_x + 0.5, t_y + 0.5, pic_z,
+					"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { alpha = inter_alpha })
+				cnt = cnt + 1
 			end
-		end
 
-		if( is_advanced ) then
-			-- pen.new_shadowed_text( pic_x - 3, orig_y + this_info.tt_spacing[6][2] + 3, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
-		end
-	end, this_info }, true, in_world )
+			for k,spell in ipairs( tbl ) do
+				pen.new_image( t_x + 9*cnt, t_y, pic_z, spell.pic, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha })
+				if( k%2 == ( i - 1 )) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
+				local _,_,is_hovered = pen.new_image( t_x + 9*cnt - 1, t_y - 1, pic_z + 0.001,
+					index.D.slot_pic.bg_alt, { s_x = 0.5, s_y = 0.5, alpha = inter_alpha, can_click = true })
+				if( is_hovered ) then
+					index.cat_callback( spell, "on_tooltip", { "wtt_spell", t_x + 9*cnt - 2, t_y + 10, pic_z - 1, true })
+				end
+				
+				cnt = cnt + 1
+				if( 9*( cnt + 1 ) > size_x ) then t_y, cnt = t_y + 10, 0 end
+			end
+			if( pen.vld( tbl )) then t_y = t_y + 11 end
+		end)
+	end)
 end
 
-function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show matter_desc on advanced tip key hold
+function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
 	if( not( pen.vld( info.desc ))) then return end
@@ -1454,7 +1345,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show mat
 				temp..": "..( count < 1 and "<" or "" )..math.max( math.floor( count + 0.5 ), 1 ).."%"
 		end
 	end
-
+	
 	local icon_w, icon_h = pen.get_pic_dims( info.pic )
 	icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
 
@@ -1462,7 +1353,8 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show mat
 	local desc_w, desc_h = unpack( pen.get_tip_dims( desc, math.max( title_w + 2, 100 ), -1, -2 ))
 	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
 	
-	if( pen.vld( matter_desc )) then
+	local will_matter = pen.vld( matter_desc ) and index.D.tip_action
+	if( will_matter ) then
 		local _,matter_wh = pen.liner( matter_desc, nil, nil, nil, { line_offset = -2 })
 		size_y = size_y + matter_wh[2] + 7
 	end
@@ -1480,7 +1372,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show mat
 		pen.new_shadowed_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, info.name, {
 			dims = { size_x - icon_w - 3, size_y }, fully_featured = true, alpha = inter_alpha, color = pen.PALETTE.VNL.YELLOW })
 		pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z, desc, {
-			dims = { size_x - icon_w - 5, size_y }, fully_featured = true, alpha = inter_alpha, line_offset = -2 })
+			dims = { desc_w + 2, size_y }, fully_featured = true, alpha = inter_alpha, line_offset = -2 })
 		
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
 		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
@@ -1501,7 +1393,12 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show mat
 				v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
 		end, { pic_z - 1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
 
-		if( not( pen.vld( matter_desc ))) then return end
+		if( pen.vld( matter_desc ) and not( index.D.tip_action )) then
+			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = inter_alpha })
+		end
+
+		if( not( will_matter )) then return end
 		
 		local line_w, line_h = pen.get_text_dims( spacer, true )
 		for i,m in ipairs( matter[2]) do
@@ -1520,7 +1417,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z ) --only show mat
 	end)
 end
 
-function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
+function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
 	if( not( pen.vld( info.desc ))) then return end
@@ -1528,9 +1425,8 @@ function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
 	
 	--the pinned tip check should be within the tip code itself
 	--hold alt to display advanced tooltip (list every damage type, additional info, all the shit is in frames)
-	--hold alt to pin current tooltip in-place (allows hovering + works for wand ones too)
 	--on alt add stuff to both columns with a spacer
-
+	
 	--[[
 		c.damage_total_add
 		icon_damage_projectile.png=c.damage_projectile_add
@@ -1611,23 +1507,32 @@ function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
 		c_proj.lightning.ray_energy
 	]]
 	
-	this_info.tt_spacing = {{}, {}}
-	this_info.tip_name,this_info.tt_spacing[1] = pen.liner( this_info.tip_name, 221 )
-	this_info.tt_spacing[1][1] = this_info.tt_spacing[1][1] + 9 + ( this_info.charges >= 0 and 33 or 0 )
-	_,this_info.tt_spacing[2] = pen.liner( this_info.desc, unpack( pen.get_tip_dims( this_info.desc, this_info.tt_spacing[1][1])), -1 )
-	local size_x = math.max( math.max( this_info.tt_spacing[1][1], this_info.tt_spacing[2][1]) + 6, 121 )
-	local size_y = this_info.tt_spacing[2][2] + 60
-	this_info.tt_spacing[3] = { size_x, size_y }
+	info.tt_spacing = {{}, {}}
+	info.tip_name,info.tt_spacing[1] = pen.liner( info.tip_name, 221 )
+	info.tt_spacing[1][1] = info.tt_spacing[1][1] + 9 + ( info.charges >= 0 and 33 or 0 )
+	_,info.tt_spacing[2] = pen.liner( info.desc, unpack( pen.get_tip_dims( info.desc, info.tt_spacing[1][1])), -1 )
+	local size_x = 121--math.max( math.max( info.tt_spacing[1][1], info.tt_spacing[2][1]) + 6, 121 )
+	local size_y = info.tt_spacing[2][2] + 60
+	info.tt_spacing[3] = { size_x, size_y }
+	
+	index.D.tip_func( "", {
+		tid = tid, info = info,
+		is_left = true, is_active = true,
+		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { info.tt_spacing[3][1], info.tt_spacing[3][2] },
+	}, function( t, d )
+		local info = d.info
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
+		
+		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
 
-	index.D.tip_func( tid, pic_z, { "", pic_x, pic_y, this_info.tt_spacing[3][1], this_info.tt_spacing[3][2]}, { function( pic_x, pic_y, pic_z, inter_alpha, this_data )
-		pic_x, pic_y = pic_x + 2, pic_y + 2
 		pen.new_image( pic_x, pic_y, pic_z - 0.001,
-			"data/ui_gfx/inventory/icon_action_type.png", { color = index.FRAMER[ this_info.spell_info.type ][2], alpha = 0.75*inter_alpha })
+			"data/ui_gfx/inventory/icon_action_type.png", { color = index.FRAMER[ info.spell_info.type ][2], alpha = 0.75*inter_alpha })
 		pen.new_image( pic_x, pic_y, pic_z,
 			"data/ui_gfx/inventory/icon_action_type.png", { alpha = inter_alpha })
 		pen.new_image( pic_x, pic_y + 1, pic_z + 0.001,
 			"data/ui_gfx/inventory/icon_action_type.png", { color = {0,0,0}, alpha = inter_alpha })
-		pen.new_shadowed_text( pic_x + 9, pic_y - 1, pic_z, this_info.tip_name[1], { color = {255,255,178}, alpha = inter_alpha })
+		pen.new_shadowed_text( pic_x + 9, pic_y - 1, pic_z, info.tip_name[1], { color = {255,255,178}, alpha = inter_alpha })
 		
 		--inventory_actiontype
 		-- inventory_actiontype_projectile
@@ -1641,141 +1546,31 @@ function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
 
 		-- inventory_usesremaining
 
-		if( this_info.charges >= 0 ) then --on hover - this_info.charges.."/"..this_info.max_uses
-			pen.new_image( pic_x + this_info.tt_spacing[3][1] - 13, pic_y, pic_z,
+		if( info.charges >= 0 ) then --on hover - info.charges.."/"..info.max_uses
+			pen.new_image( pic_x + info.tt_spacing[3][1] - 13, pic_y, pic_z,
 				"data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
-			local charges = pen.get_tiny_num( this_info.charges )
-			pen.new_shadowed_text( pic_x + this_info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
+			local charges = pen.get_tiny_num( info.charges )
+			pen.new_shadowed_text( pic_x + info.tt_spacing[3][1] - 14 - pen.get_text_dims( charges, true ), pic_y - 1, pic_z, charges, { color = {170,170,170}, alpha = inter_alpha })
 		end
 
 		pen.new_image( pic_x - 2, pic_y + 9, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
-		pen.new_shadowed_text( pic_x, pic_y + 11, pic_z, this_info.desc, { alpha = inter_alpha })
-		pic_y = pic_y + 13 + this_info.tt_spacing[2][2]
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
+		pen.new_shadowed_text( pic_x, pic_y + 11, pic_z, info.desc, { alpha = inter_alpha })
+		pic_y = pic_y + 13 + info.tt_spacing[2][2]
 		pen.new_image( pic_x - 2, pic_y, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = this_info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
-		pen.new_image( pic_x - 3 + math.floor( this_info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = info.tt_spacing[3][1] - 2, s_y = 1, alpha = 0.5*inter_alpha })
+		pen.new_image( pic_x - 3 + math.floor( info.tt_spacing[3][1]/2 ), pic_y + 1, pic_z,
 			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = 43, alpha = 0.5*inter_alpha })
 
-		local function get_generic_stat( v, v_add, dft, allow_inf )
-			v, v_add, allow_inf = v or dft, v_add or 0, allow_inf or false
-			local is_dft = v == dft
-			return pen.get_short_num( is_dft and v_add or ( v + v_add ), ( is_dft or not( allow_inf )) and 1 or nil, is_dft ), is_dft and (v_add==0)
-		end
-		local c, c_proj = this_info.spell_info.meta.state, this_info.spell_info.meta.state_proj
+		local c, c_proj = info.spell_info.meta.state, info.spell_info.meta.state_proj
 		local no_draw = ( c.draw_many or 0 ) == 0
-		local stats_tbl = {
-			{
-				{
-					pic = no_draw and "data/ui_gfx/inventory/icon_gun_charge.png" or "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
-					name = no_draw and "Projectile Count" or "Draw Extra",
-					
-					v = no_draw and ( c.proj_count or 0 ) or c.draw_many,
-					value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_mana_drain.png",
-					name = "$inventory_manadrain",
-					
-					v = this_info.spell_info.mana,
-					value = function( v ) return get_generic_stat( v, nil, 0 ) end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
-					name = "$inventory_mod_castdelay",
-
-					v = c.fire_rate_wait,
-					value = function( v )
-						local v, is_dft = get_generic_stat( nil, ( v or 0 )/60, 0, false, true )
-						return v.."s", is_dft
-					end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_reload_time.png",
-					name = "$inventory_mod_rechargetime",
-
-					v = ( this_info.spell_info.is_chainsaw or false ) and "Chainsaw" or c.reload_time,
-					value = function( v )
-						local v, is_dft = get_generic_stat( nil, ( v or 0 )/60, 0, false, true )
-						return v.."s", is_dft
-					end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-					name = "$inventory_mod_spread",
-					
-					v = c.spread_degrees,
-					value = function( v ) return get_generic_stat( nil, v, 0 ) end,
-					custom_func = function( pic_x, pic_y, pic_z, txt )
-						local dims = pen.new_shadowed_text( pic_x, pic_y, pic_z, txt )
-						pen.new_image( pic_x + dims[1], pic_y, pic_z,
-							"mods/index_core/files/fonts/vanilla_shadow/degree.png" )
-					end,
-					tip = 0,
-				},
-			},
-			{
-				{
-					pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
-					name = "$inventory_mod_damage",
-					
-					v = ( c.damage_null_all > 0 ) and "Ø" or c_proj.damage.total,
-					value = function( v ) return get_generic_stat( 25*( v or 0 ), 25*( c.damage_total_add or 0 ), 0 ) end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png", off_y = 1,
-					name = "$inventory_mod_critchance",
-
-					v = c_proj.crit.chance,
-					value = function( v )
-						local v, is_dft = get_generic_stat( v, c.damage_critical_chance, 0, false, true )
-						return v.."%", is_dft
-					end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_speed_multiplier.png", off_y = 1,
-					name = "$inventory_mod_speed",
-
-					v = c_proj.speed,
-					value = function( v )
-						local v_add = c.speed_multiplier
-						v, v_add, allow_inf = v or 0, v_add or 1
-						local is_dft = v == 0
-						return ( is_dft and "x" or "" )..pen.get_short_num( is_dft and v_add or ( v*v_add )), is_dft and ( v_add == 1 )
-					end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_bounces.png", off_y = -1,
-					name = "$inventory_mod_bounces",
-					
-					v = ( c_proj.inf_bounces or false ) and "∞" or c_proj.bounces,
-					value = function( v ) return get_generic_stat( v, c.bounces, 0 ) end,
-					tip = 0,
-				},
-				{
-					pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
-					name = "$inventory_mod_explosion_radius",
-
-					v = c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius,
-					value = function( v ) return get_generic_stat( v, c.explosion_radius, 0 ) end,
-					tip = 0,
-				},
-			},
-		}
-		for k,column in ipairs( stats_tbl ) do
-			local stat_x, stat_y = pic_x + ( k > 1 and math.floor( this_info.tt_spacing[3][1]/2 ) or 0 ), pic_y + 3
+		for k,column in ipairs( index.SPELL_STATS ) do
+			local stat_x, stat_y = pic_x + ( k > 1 and math.floor( info.tt_spacing[3][1]/2 ) or 0 ), pic_y + 3
 			for i,stat in ipairs( column ) do
 				--add custom stats to both columns (with a spacer)
 
 				local v, is_default = stat.v, false
-				if( type( v or 0 ) ~= "string" ) then v, is_default = stat.value( v ) end
+				if( type( v or 0 ) ~= "string" ) then v, is_default = stat.value( info.spell_info ) end
 				local alpha = ( is_default and 0.5 or 1 )*inter_alpha
 				pen.new_image( stat_x, stat_y + ( stat.off_y or 0 ), pic_z, stat.pic, { alpha = alpha })
 				stat.custom_func = stat.custom_func or pen.new_shadowed_text
@@ -1786,35 +1581,32 @@ function index.new_vanilla_stt( this_info, tid, pic_x, pic_y, pic_z )
 			end
 		end
 
-		pic_y = pic_y - this_info.tt_spacing[2][2] + this_info.tt_spacing[3][2] - 13
+		pic_y = pic_y - info.tt_spacing[2][2] + info.tt_spacing[3][2] - 13
 		if( not( in_world )) then
 			-- pen.new_shadowed_text( pic_x - 3, pic_y, pic_z, "hold "..get_binding_keys( "index_core", "az_tip_action", true ).."...", { color = {170,170,170}, alpha = inter_alpha })
 		end
-		if( this_info.spell_info.price > 0 ) then
-			local price = pen.get_short_num( this_info.spell_info.price )
-			pen.new_shadowed_text( pic_x + this_info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price, { color = {255,255,178}, alpha = inter_alpha })
-			pen.new_shadowed_text( pic_x + this_info.tt_spacing[3][1] - 7, pic_y, pic_z, "$", { alpha = inter_alpha })
+		if( info.spell_info.price > 0 ) then
+			local price = pen.get_short_num( info.spell_info.price )
+			pen.new_shadowed_text( pic_x + info.tt_spacing[3][1] - 8 - pen.get_text_dims( price, true ), pic_y, pic_z, price.."$", { fully_featured = true, color = {255,255,178}, alpha = inter_alpha })
 		end
-	end, this_info }, true, in_world )
+	end)
 end
 
-function index.new_vanilla_ttt( info, tid, pic_x, pic_y, pic_z )
-	return index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, true )
+function index.new_vanilla_ttt( info, tid, pic_x, pic_y, pic_z, is_simple )
+	return index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, true )
 end
 
-function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, do_magic )
+function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_magic )
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
 	if( not( pen.vld( info.desc ))) then return end
 	
 	local pic_scale = 1.5
-
-	local desc = info.desc
 	local icon_w, icon_h = pen.get_pic_dims( info.pic )
 	icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
 
 	local title_w, title_h = pen.get_text_dims( info.name, true )
-	local desc_w, desc_h = unpack( pen.get_tip_dims( desc, math.max( title_w + 2, 100 ), -1, -2 ))
+	local desc_w, desc_h = unpack( pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
 	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
 
 	index.D.tip_func( "", {
@@ -1834,13 +1626,13 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, do_magic )
 		local runic_state = do_magic and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
 		if( runic_state ~= 1 ) then
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
-				"{>runic>{"..info.desc.."}<runic<}", { dims = { size_x - icon_w - 5, size_y },
+				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
 				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
 			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, 1, 0.01, 0.001 ))
 		end
 		if( runic_state >= 0 ) then
-			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, desc, {
-				dims = { size_x - icon_w - 5, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
+			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
+				dims = { desc_w + 2, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
 		end
 
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
@@ -2307,6 +2099,7 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 	return step_x + 7, step_y + 7
 end
 
+index.INVS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
 index.FRAMER = {
 	[0] = { "data/ui_gfx/inventory/item_bg_projectile.png", pen.PALETTE.VNL.ACTION_PROJECTILE },
 	[1] = { "data/ui_gfx/inventory/item_bg_static_projectile.png", pen.PALETTE.VNL.ACTION_STATIC },
@@ -2318,4 +2111,233 @@ index.FRAMER = {
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER },
 }
 
-index.INVS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
+-- info.wand_info.speed_multiplier
+-- info.wand_info.lifetime_add
+-- info.wand_info.bounces
+
+-- info.wand_info.crit_chance
+-- info.wand_info.crit_mult
+
+-- info.wand_info.damage_electricity_add
+-- info.wand_info.damage_explosion_add
+-- info.wand_info.damage_fire_add
+-- info.wand_info.damage_melee_add
+-- info.wand_info.damage_projectile_add
+
+index.WAND_STATS = {
+	{
+		pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
+		name = "$inventory_actionspercast",
+		desc = "$inventory_actionspercast_tooltip",
+
+		-- spacer = false,
+		-- is_hidden = false,
+		-- is_advanced = false,
+		bigger_better = true,
+		value = function( info, w )
+			return w.actions_per_round or 0 end,
+		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+		-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_gun_capacity.png",
+		name = "$inventory_capacity",
+		desc = "$inventory_capacity_tooltip",
+
+		bigger_better = true,
+		value = function( info, w )
+			return w.deck_capacity or 0 end,
+		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
+		name = "$inventory_spread",
+		desc = "$inventory_spread_tooltip",
+		
+		spacer = true,
+		value = function( info, w )
+			return w.spread_degrees or 0 end,
+		txt = function( value, info, w )
+			local v, is_dft = index.get_stat( value, nil, 0 )
+			return v.."°", is_dft
+		end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_mana_max.png",
+		name = "$inventory_manamax",
+		desc = "$inventory_manamax_tooltip",
+
+		bigger_better = true,
+		value = function( info, w )
+			return w.mana_max or 0 end,
+		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
+		name = "$inventory_manachargespeed",
+		desc = "$inventory_manachargespeed_tooltip",
+
+		spacer = true,
+		bigger_better = true,
+		value = function( info, w )
+			return w.mana_charge_speed or 0 end,
+		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
+		name = "$inventory_castdelay",
+		desc = "$inventory_castdelay_tooltip",
+
+		value = function( info, w )
+			return w.delay_time or 0 end,
+		txt = function( value, info, w )
+			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
+			return v.."s", is_dft
+		end,
+	},
+	{
+		pic = "data/ui_gfx/inventory/icon_gun_reload_time.png",
+		name = "$inventory_rechargetime",
+		desc = "$inventory_rechargetime_tooltip",
+		
+		spacer = true,
+		value = function( info, w )
+			return w.reload_time or 0 end,
+		txt = function( value, info, w )
+			if( w.never_reload ) then return "Ø", 1 end
+			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
+			return v.."s", is_dft
+		end,
+	},
+}
+
+index.SPELL_STATS = { --custom descs
+	{
+		{
+			off_x = 0, off_y = 0,
+			pic = function( info )
+				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
+					return "data/ui_gfx/inventory/icon_gun_charge.png" end
+				return "data/ui_gfx/inventory/icon_gun_actions_per_round.png"
+			end,
+			name = function( info )
+				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
+					return "Projectile Count" end
+				return "Draw Extra"
+			end,
+			desc = function( info )
+				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
+					return "The number of individual projectiles this spell creates." end
+				return "The number of individual spells this card draws after being fired."
+			end,
+
+			-- spacer = false,
+			-- is_hidden = false,
+			value = function( info, c, c_proj )
+				return (( info.spell_info.meta.state.draw_many or 0 ) == 0 ) and ( c.proj_count or 0 ) or c.draw_many end,
+			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
+			-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
+		},
+		{
+			pic = "data/ui_gfx/inventory/icon_mana_drain.png",
+			name = "$inventory_manadrain",
+			
+			value = function( info, c, c_proj )
+				return info.spell_info.mana or 0 end,
+			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
+		},
+		{
+			off_y = 1,
+			pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png",
+			name = "$inventory_mod_castdelay",
+
+			value = function( info, c, c_proj )
+				return c.fire_rate_wait or 0 end,
+			txt = function( value, info, c, c_proj )
+				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
+				return v.."s", is_dft
+			end,
+		},
+		{
+			pic = "data/ui_gfx/inventory/icon_reload_time.png",
+			name = "$inventory_mod_rechargetime",
+
+			value = function( info, c, c_proj )
+				return c.reload_time or 0 end,
+			txt = function( value, info, c, c_proj )
+				if( info.spell_info.is_chainsaw ) then return "Chainsaw", 1 end
+				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
+				return v.."s", is_dft
+			end,
+		},
+		{
+			pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
+			name = "$inventory_mod_spread",
+			
+			value = function( info, c, c_proj )
+				return c.spread_degrees or 0 end,
+			txt = function( value, info, c, c_proj )
+				local v, is_dft = index.get_stat( nil, value, 0 )
+				return v.."°", is_dft
+			end,
+		},
+	},
+	{
+		{
+			pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
+			name = "$inventory_mod_damage",
+			
+			value = function( info, c, c_proj )
+				return c_proj.damage.total or 0 end,
+			txt = function( value, info, c, c_proj )
+				if( c.damage_null_all > 0 ) then return "Ø", 1 end
+				return index.get_stat( 25*value, 25*( c.damage_total_add or 0 ), 0 )
+			end,
+		},
+		{
+			off_y = 1,
+			pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png",
+			name = "$inventory_mod_critchance",
+
+			value = function( info, c, c_proj )
+				return c_proj.crit.chance or 0 end,
+			txt = function( value, info, c, c_proj )
+				local v, is_dft = index.get_stat( value, c.damage_critical_chance, 0, false, true )
+				return v.."%", is_dft
+			end,
+		},
+		{
+			off_y = 1,
+			pic = "data/ui_gfx/inventory/icon_speed_multiplier.png",
+			name = "$inventory_mod_speed",
+
+			value = function( info, c, c_proj )
+				return c_proj.speed or 0 end,
+			txt = function( value, info, c, c_proj )
+				local added_value = c.speed_multiplier or 1
+				local v, is_dft = ( is_dft and "x" or "" )..pen.get_short_num( is_dft and added_value or ( value*added_value )), value == 0
+				return v, is_dft and ( added_value == 1 )
+			end,
+		},
+		{
+			off_y = -1,
+			pic = "data/ui_gfx/inventory/icon_bounces.png",
+			name = "$inventory_mod_bounces",
+			
+			value = function( info, c, c_proj )
+				return c_proj.bounces or 0 end,
+			txt = function( value, info, c, c_proj )
+				if( c_proj.inf_bounces ) then return "∞", 1 end
+				return index.get_stat( value, c.bounces, 0 )
+			end,
+		},
+		{
+			pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
+			name = "$inventory_mod_explosion_radius",
+
+			value = function( info, c, c_proj )
+				return c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius or 0 end,
+			txt = function( value, info, c, c_proj ) return index.get_stat( value, c.explosion_radius, 0 ) end,
+		},
+	},
+}
