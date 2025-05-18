@@ -15,82 +15,90 @@ local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
 if( not( pen.vld( ctrl_bodies ))) then return pen.gui_builder( false ) end
 
-local controller_id = ctrl_bodies[1]
-local storage_reset = pen.magic_storage( controller_id, "reset_settings" )
-if( ComponentGetValue2( storage_reset, "value_bool" )) then
-    ComponentSetValue2( storage_reset, "value_bool", false )
-    index.G.settings = nil
+local function gg( g, dft )
+    index.M.settings_init = index.M.settings_init or {}
+    if(( GlobalsGetValue( "INDEX_GLOBAL_LOCK_SETTINGS", "bool0" ) == "bool0" ) and not( index.M.settings_init[g])) then
+        index.M.settings_init[g] = true
+        local setting_id, is_real = string.gsub( g, "^INDEX_SETTING_", "" )
+        if(( is_real or 0 ) > 0 ) then GlobalsSetValue( g, pen.v2s( pen.setting_get( "index_core."..setting_id ), nil, nil, true )) end
+    end
+    return pen.s2v( GlobalsGetValue( g, pen.v2s( dft, nil, nil, true )))
+end
+if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
+    GlobalsSetValue( index.GLOBAL_SYNC_SETTINGS, "bool0" )
+    index.G.settings, index.M.settings_init = nil, {}
 end
 
-index.G.settings = index.G.settings or {
-    player_core_off = pen.magic_storage( controller_id, "player_core_off", "value_float" ),
-    throw_pos_rad = pen.magic_storage( controller_id, "throw_pos_rad", "value_int" ),
-    throw_pos_size = pen.magic_storage( controller_id, "throw_pos_size", "value_int" ),
-    throw_force = pen.magic_storage( controller_id, "throw_force", "value_float" ),
-
-    quickest_size = pen.magic_storage( controller_id, "quickest_size", "value_int" ),
-    inv_spacings = pen.t.pack( pen.magic_storage( controller_id, "inv_spacings", "value_string" )),
-    effect_icon_spacing = pen.magic_storage( controller_id, "effect_icon_spacing", "value_int" ),
-    min_effect_duration = pen.magic_storage( controller_id, "min_effect_duration", "value_float" ),
-    spell_anim_frames = pen.magic_storage( controller_id, "spell_anim_frames", "value_int" ),
-
-    hp_threshold = pen.magic_storage( controller_id, "low_hp_flashing_threshold", "value_float" ),
-    hp_threshold_min = pen.magic_storage( controller_id, "low_hp_flashing_threshold_min", "value_float" ),
-    hp_flashing = pen.magic_storage( controller_id, "low_hp_flashing_period", "value_int" ),
-    hp_flashing_intensity = pen.magic_storage( controller_id, "low_hp_flashing_intensity", "value_float" ),
-
-    info_radius = pen.magic_storage( controller_id, "info_radius", "value_int" ),
-    info_threshold = pen.magic_storage( controller_id, "info_threshold", "value_float" ),
-    info_fading = pen.magic_storage( controller_id, "info_fading", "value_int" ),
-
-    loot_marker = pen.magic_storage( controller_id, "loot_marker", "value_string" ),
-    slot_pic = {
-        bg = pen.magic_storage( controller_id, "slot_pic_bg", "value_string" ),
-        bg_alt = pen.magic_storage( controller_id, "slot_pic_bg_alt", "value_string" ),
-        hl = pen.magic_storage( controller_id, "slot_pic_hl", "value_string" ),
-        active = pen.magic_storage( controller_id, "slot_pic_active", "value_string" ),
-        locked = pen.magic_storage( controller_id, "slot_pic_locked", "value_string" ),
-    },
-    sfxes = {
-        click = pen.t.pack( pen.magic_storage( controller_id, "sfx_click", "value_string" )),
-        select = pen.t.pack( pen.magic_storage( controller_id, "sfx_select", "value_string" )),
-        hover = pen.t.pack( pen.magic_storage( controller_id, "sfx_hover", "value_string" )),
-        open = pen.t.pack( pen.magic_storage( controller_id, "sfx_open", "value_string" )),
-        close = pen.t.pack( pen.magic_storage( controller_id, "sfx_close", "value_string" )),
-        error = pen.t.pack( pen.magic_storage( controller_id, "sfx_error", "value_string" )),
-        reset = pen.t.pack( pen.magic_storage( controller_id, "sfx_reset", "value_string" )),
-        move_empty = pen.t.pack( pen.magic_storage( controller_id, "sfx_move_empty", "value_string" )),
-        move_item = pen.t.pack( pen.magic_storage( controller_id, "sfx_move_item", "value_string" )),
-    },
-    
-    always_show_full = pen.magic_storage( controller_id, "always_show_full", "value_bool" ),
-    no_inv_shooting = pen.magic_storage( controller_id, "no_inv_shooting", "value_bool" ),
-    do_vanilla_dropping = pen.magic_storage( controller_id, "do_vanilla_dropping", "value_bool" ),
-    no_action_on_drop = pen.magic_storage( controller_id, "no_action_on_drop", "value_bool" ),
-    force_vanilla_fullest = pen.magic_storage( controller_id, "force_vanilla_fullest", "value_bool" ),
-
-    max_perks = pen.magic_storage( controller_id, "max_perk_count", "value_int" ),
-    short_hp = pen.magic_storage( controller_id, "short_hp", "value_bool" ),
-    short_gold = pen.magic_storage( controller_id, "short_gold", "value_bool" ),
-    fancy_potion_bar = pen.magic_storage( controller_id, "fancy_potion_bar", "value_bool" ),
-    reload_threshold = pen.magic_storage( controller_id, "reload_threshold", "value_int" ),
-
-    info_pointer = pen.magic_storage( controller_id, "info_pointer", "value_bool" ),
-    info_pointer_alpha = pen.magic_storage( controller_id, "info_pointer_alpha", "value_int" )*0.1,
-    info_mtr_state = pen.magic_storage( controller_id, "info_mtr_state", "value_int" ),
-
-    mute_applets = pen.magic_storage( controller_id, "mute_applets", "value_bool" ),
-    no_wand_scaling = pen.magic_storage( controller_id, "no_wand_scaling", "value_bool" ),
-    allow_tips_always = pen.magic_storage( controller_id, "allow_tips_always", "value_bool" ),
-    in_world_pickups = pen.magic_storage( controller_id, "in_world_pickups", "value_bool" ),
-}
-index.G.settings.main_dump = index.G.settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
-
-local hooman = EntityGetParent( controller_id )
+local hooman = ctrl_bodies[1]
 if( not( EntityGetIsAlive( hooman ))) then
     return pen.gui_builder( false ) end
 local hooman_x, hooman_y = EntityGetTransform( hooman )
-local main_x, main_y = EntityGetTransform( controller_id )
+
+index.G.settings = index.G.settings or {
+    player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
+    throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
+    throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
+    throw_force = gg( index.GLOBAL_THROW_FORCE, 40 ),
+
+    quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
+    inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|2|9|" )),
+    effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
+    min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
+    spell_anim_frames = gg( index.GLOBAL_SPELL_ANIM_FRAMES, 120 ),
+
+    hp_threshold = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD, 1 ),
+    hp_threshold_min = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN, 0.2 ),
+    hp_flashing = gg( index.GLOBAL_LOW_HP_FLASHING_PERIOD, 15 ),
+    hp_flashing_intensity = gg( index.GLOBAL_LOW_HP_FLASHING_INTENSITY, 0.75 ),
+
+    info_radius = gg( index.GLOBAL_INFO_RADIUS, 10 ),
+    info_threshold = gg( index.GLOBAL_INFO_THRESHOLD, 3 ),
+    info_fading = gg( index.GLOBAL_INFO_FADING, 20 ),
+
+    loot_marker = gg( index.GLOBAL_LOOT_MARKER, "data/ui_gfx/items/powder_stash.png" ),
+    slot_pic = {
+        bg = gg( index.GLOBAL_SLOT_PIC_BG, "data/ui_gfx/inventory/full_inventory_box.png" ),
+        bg_alt = gg( index.GLOBAL_SLOT_PIC_BG_ALT, "data/ui_gfx/inventory/hover_info_empty_slot.png" ),
+        hl = gg( index.GLOBAL_SLOT_PIC_HL, "data/ui_gfx/inventory/full_inventory_box_highlight.png" ),
+        active = gg( index.GLOBAL_SLOT_PIC_ACTIVE, "data/ui_gfx/inventory/highlight.xml" ),
+        locked = gg( index.GLOBAL_SLOT_PIC_LOCKED, "data/ui_gfx/inventory/inventory_box_inactive_overlay.png" ),
+    },
+    sfxes = {
+        click = pen.t.pack( gg( index.GLOBAL_SFX_CLICK, "|data/audio/Desktop/ui.bank|ui/button_click|" )),
+        select = pen.t.pack( gg( index.GLOBAL_SFX_SELECT, "|data/audio/Desktop/ui.bank|ui/item_equipped|" )),
+        hover = pen.t.pack( gg( index.GLOBAL_SFX_HOVER, "|data/audio/Desktop/ui.bank|ui/item_move_over_new_slot|" )),
+        open = pen.t.pack( gg( index.GLOBAL_SFX_OPEN, "|data/audio/Desktop/ui.bank|ui/inventory_open|" )),
+        close = pen.t.pack( gg( index.GLOBAL_SFX_CLOSE, "|data/audio/Desktop/ui.bank|ui/inventory_close|" )),
+        error = pen.t.pack( gg( index.GLOBAL_SFX_ERROR, "|data/audio/Desktop/ui.bank|ui/item_move_denied|" )),
+        reset = pen.t.pack( gg( index.GLOBAL_SFX_RESET, "|data/audio/Desktop/ui.bank|ui/replay_saved|" )),
+        move_empty = pen.t.pack( gg( index.GLOBAL_SFX_MOVE_EMPTY, "|data/audio/Desktop/ui.bank|ui/item_move_success|" )),
+        move_item = pen.t.pack( gg( index.GLOBAL_SFX_MOVE_ITEM, "|data/audio/Desktop/ui.bank|ui/item_switch_places|" )),
+    },
+    
+    always_show_full = gg( index.SETTING_ALWAYS_SHOW_FULL, false ),
+    no_inv_shooting = gg( index.SETTING_NO_INV_SHOOTING, true ),
+    do_vanilla_dropping = gg( index.SETTING_VANILLA_DROPPING, true ),
+    no_action_on_drop = gg( index.SETTING_SILENT_DROPPING, true ),
+    force_vanilla_fullest = gg( index.SETTING_FORCE_VANILLA_FULLEST, false ),
+
+    max_perks = gg( index.SETTING_MAX_PERK_COUNT, 5 ),
+    short_hp = gg( index.SETTING_SHORT_HP, true ),
+    short_gold = gg( index.SETTING_SHORT_GOLD, false ),
+    fancy_potion_bar = gg( index.SETTING_FANCY_POTION_BAR, true ),
+    reload_threshold = gg( index.SETTING_RELOAD_THRESHOLD, 30 ),
+
+    info_pointer = gg( index.SETTING_INFO_POINTER, false ),
+    info_pointer_alpha = gg( index.SETTING_INFO_POINTER_ALPHA, 5 )*0.1,
+    info_mtr_state = gg( index.SETTING_INFO_MATTER_MODE, 1 ),
+
+    mute_applets = gg( index.SETTING_MUTE_APPLETS, false ),
+    no_wand_scaling = gg( index.SETTING_NO_WAND_SCALING, false ),
+    allow_tips_always = gg( index.SETTING_FORCE_SLOT_TIPS, false ),
+    in_world_pickups = gg( index.SETTING_IN_WORLD_PICKUPS, false ),
+    in_world_tips = gg( index.SETTING_IN_WORLD_TIPS, false ),
+    secret_shopper = gg( index.SETTING_SECRET_SHOPPER, false ),
+}
+index.G.settings.main_dump = index.G.settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
 
 local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
 local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
@@ -103,7 +111,7 @@ for i,comp in ipairs({ iui_comp, pick_comp }) do
     end
 end
 
-local is_going = pen.magic_storage( controller_id, "forced_state", "value_int" )
+local is_going = gg( index.GLOBAL_FORCED_STATE, 0 )
 if( is_going == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" ) else is_going = is_going > 0 end
 if( not( is_going and pen.vld( inv_comp, true ))) then return pen.gui_builder( false ) end
@@ -125,7 +133,6 @@ local effect_tbl, perk_tbl = index.get_status_data( hooman )
 local mtr_action = index.G.settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
 local global_modes, global_mutators, applets, item_cats, inv = unpack( index.G.settings.main_dump )
 index.D = {
-    main_id = controller_id,
     player_id = hooman,
     player_xy = { 0, 0 },
 
@@ -147,7 +154,7 @@ index.D = {
     is_opened = ComponentGetValue2( iui_comp, "mActive" ),
 
     frame_num = frame_num,
-    global_mode = pen.magic_storage( controller_id, "global_mode", "value_int" ),
+    global_mode = gg( index.GLOBAL_GLOBAL_MODE, 1 ),
 
     applets = applets,
     xys = {}, gmod = {},
@@ -158,12 +165,12 @@ index.D = {
     tip_func = inv.tooltip,
     box_func = inv.box,
     wand_func = inv.wand,
-    
+
     orbs = GameGetOrbCountThisRun(),
     icon_data = effect_tbl, perk_data = perk_tbl,
 
     active_item = pen.get_active_item( hooman ), active_info = {},
-    no_mana_4life = tonumber( GlobalsGetValue( "INDEX_FUCKYOURMANA", "0" )) == hooman,
+    no_mana_4life = tonumber( GlobalsGetValue( index.GLOBAL_FUCK_YOUR_MANA, "0" )) == hooman,
     just_fired = mnee.vanilla_input( "Fire", hooman ),
     can_tinker = false, sampo = 0,
 
@@ -178,10 +185,10 @@ index.D = {
     },
 
     dragger = {
-        item_id = pen.magic_storage( controller_id, "dragger_item_id", "value_int" ),
-        inv_cat = pen.magic_storage( controller_id, "dragger_inv_cat", "value_float" ),
-        is_quickest = pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool" ),
-        swap_now = pen.magic_storage( controller_id, "dragger_swap_now", "value_bool" ),
+        item_id = gg( index.GLOBAL_DRAGGER_ITEM_ID, 0 ),
+        inv_cat = gg( index.GLOBAL_DRAGGER_INV_CAT, 0 ),
+        is_quickest = gg( index.GLOBAL_DRAGGER_IS_QUICKEST, false ),
+        swap_now = gg( index.GLOBAL_DRAGGER_SWAP_NOW, false ),
     },
 
     player_core_off = index.G.settings.player_core_off,
@@ -225,7 +232,9 @@ index.D = {
     no_wand_scaling = index.G.settings.no_wand_scaling,
     allow_tips_always = index.G.settings.allow_tips_always,
     in_world_pickups = index.G.settings.in_world_pickups,
-    
+    in_world_tips = index.G.settings.in_world_tips,
+    secret_shopper = index.G.settings.secret_shopper,
+
     Controls = {},
     DamageModel = {},
     CharacterData = {},
@@ -370,40 +379,40 @@ end
 
 --hud and inventory handling
 local global_callback = index.D.gmod.custom_func
-if( global_callback ~= nil ) then
+if( pen.vld( global_callback )) then
     inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
-    if( inv.full_inv ~= nil ) then
+    if( pen.vld( inv.full_inv )) then
         -- index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
     end
-    if( inv.applet_strip ~= nil ) then
+    if( pen.vld( inv.applet_strip )) then
         index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
     end
     
     local bars = inv.bars or {}
-    if( bars.hp ~= nil ) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
-    if( bars.air ~= nil ) then index.D.xys.air = bars.air( screen_w, screen_h, index.D.xys ) end
-    if( bars.flight ~= nil ) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
-    if( bars.bossbar ~= nil ) then index.D.xys.bossbar = bars.bossbar( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( bars.hp )) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( bars.air )) then index.D.xys.air = bars.air( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( bars.flight )) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( bars.bossbar )) then index.D.xys.bossbar = bars.bossbar( screen_w, screen_h, index.D.xys ) end
     
     local actions = bars.action or {}
-    if( actions.mana ~= nil ) then index.D.xys.mana = actions.mana( screen_w, screen_h, index.D.xys ) end
-    if( actions.reload ~= nil ) then index.D.xys.reload = actions.reload( screen_w, screen_h, index.D.xys ) end
-    if( actions.delay ~= nil ) then index.D.xys.delay = actions.delay( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( actions.mana )) then index.D.xys.mana = actions.mana( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( actions.reload )) then index.D.xys.reload = actions.reload( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( actions.delay )) then index.D.xys.delay = actions.delay( screen_w, screen_h, index.D.xys ) end
 
-    if( inv.gold ~= nil ) then index.D.xys.gold = inv.gold( screen_w, screen_h, index.D.xys ) end
-    if( inv.orbs ~= nil ) then index.D.xys.orbs = inv.orbs( screen_w, screen_h, index.D.xys ) end
-    if( inv.info ~= nil ) then index.D.xys.info = inv.info( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( inv.gold )) then index.D.xys.gold = inv.gold( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( inv.orbs )) then index.D.xys.orbs = inv.orbs( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( inv.info )) then index.D.xys.info = inv.info( screen_w, screen_h, index.D.xys ) end
     
     local icons = inv.icons or {}
-    if( icons.ingestions ~= nil ) then index.D.xys.ingestions = icons.ingestions( screen_w, screen_h, index.D.xys ) end
-    if( icons.stains ~= nil ) then index.D.xys.stains = icons.stains( screen_w, screen_h, index.D.xys ) end
-    if( icons.effects ~= nil ) then index.D.xys.effects = icons.effects( screen_w, screen_h, index.D.xys ) end
-    if( icons.perks ~= nil ) then index.D.xys.perks = icons.perks( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( icons.ingestions )) then index.D.xys.ingestions = icons.ingestions( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( icons.stains )) then index.D.xys.stains = icons.stains( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( icons.effects )) then index.D.xys.effects = icons.effects( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( icons.perks )) then index.D.xys.perks = icons.perks( screen_w, screen_h, index.D.xys ) end
     
-    if( inv.pickup ~= nil ) then inv.pickup( screen_w, screen_h, index.D.xys, inv.pickup_info ) end
-    if( inv.modder ~= nil ) then inv.modder( screen_w, screen_h, index.D.xys ) end
-    if( inv.extra ~= nil ) then inv.extra( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, index.D.xys, inv.pickup_info ) end
+    if( pen.vld( inv.modder )) then inv.modder( screen_w, screen_h, index.D.xys ) end
+    if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, index.D.xys ) end
 end
 if( not( index.D.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do
@@ -412,7 +421,7 @@ if( not( index.D.gmod.nuke_custom )) then
 end
 
 if( index.D.gmod.allow_shooting ) then index.D.no_inv_shooting = false end
-if( global_callback ~= nil ) then inv = global_callback( screen_w, screen_h, index.D.xys, inv, true ) end
+if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, index.D.xys, inv, true ) end
 if( index.D.no_inv_shooting and index.D.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
 
 if( index.D.inv_toggle and not( index.D.gmod.no_inv_toggle or false )) then
@@ -453,13 +462,12 @@ end
 --dragging handling
 if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
     if( index.D.dragger.swap_soon ) then
-        pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", true )
+        GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool1" )
     else
         if( not( index.G.slot_state ) or index.D.dragger.swap_now ) then
             if( index.D.dragger.swap_now and index.D.dragger.item_id > 0 ) then
-                local storage_external = pen.magic_storage( controller_id, "dragger_done_externally" )
-                if( ComponentGetValue2( storage_external, "value_bool" )) then
-                    ComponentSetValue2( storage_external, "value_bool", false )
+                if( gg( index.GLOBAL_DRAGGER_EXTERNAL, false )) then
+                    GlobalsSetValue( index.GLOBAL_DRAGGER_EXTERNAL, "bool0" )
                 else
                     if( not( index.D.dragger.wont_drop or false ) and inv.drop ~= nil ) then
                         inv.drop( index.D.dragger.item_id )
@@ -470,10 +478,10 @@ if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
             index.G.slot_memo = nil
             index.D.dragger = {}
         end
-        pen.magic_storage( controller_id, "dragger_swap_now", "value_bool", false )
-        pen.magic_storage( controller_id, "dragger_item_id", "value_int", index.D.dragger.item_id or 0 )
-        pen.magic_storage( controller_id, "dragger_inv_cat", "value_float", index.D.dragger.inv_cat or 0 )
-        pen.magic_storage( controller_id, "dragger_is_quickest", "value_bool", index.D.dragger.is_quickest or false )
+        GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool0" )
+        GlobalsSetValue( index.GLOBAL_DRAGGER_ITEM_ID, tostring( index.D.dragger.item_id or 0 ))
+        GlobalsSetValue( index.GLOBAL_DRAGGER_INV_CAT, tostring( index.D.dragger.inv_cat or 0 ))
+        GlobalsSetValue( index.GLOBAL_DRAGGER_IS_QUICKEST, ( index.D.dragger.is_quickest or false ) and "bool1" or "bool0" )
     end
     index.G.slot_state = false
 end

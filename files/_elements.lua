@@ -125,7 +125,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         
         index.D[ tbl[ type ][4]] = total_drift
         local arrow_off = is_left and ( l - 8 ) or 0
-        local extra_off = pen.estimate( tbl[ type ][4], drift_target, 0.2 )
+        local extra_off = pen.estimate( tbl[ type ][4], drift_target, "exp5", 1 )
         pic_x = pic_x - sign*( core_off + extra_off )
 
         if( data[ tbl[ type ][2]]) then
@@ -150,7 +150,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
                     if( pen.vld( icon.toggle ) and icon.toggle( true ) and not( is_left )) then
                         pen.t.loop( index.D.gmods, function( i, gmod )
                             if( not( gmod.menu_capable )) then return end
-                            pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
+                            GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( i ))
                             return true
                         end)
                     end
@@ -411,7 +411,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys ) --huge thanks to P
         -- if has tag boss, do unique
         -- for visuals either run custom func or grab SpriteComp:health_bar
         -- gui_special_final_boss (unique stuff for this)
-        -- in_world (always forces it to be anchored to the entity)
+        -- in_world (force in-gui option; always forces it to be anchored to the entity)
 
         local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
             local name = index.get_entity_name( entity_id )
@@ -426,13 +426,15 @@ function index.new_generic_bossbar( screen_w, screen_h, xys ) --huge thanks to P
                 num_width = num_width + 6
             end
 
-            if( length > num_width ) then --make the text have real shadow
+            if( length > num_width ) then
                 if( not( pen.vld( name ))) then name = "Boss" end
-                pen.new_shadowed_text( pic_x - length/2 + 3, pic_y + 2.5, pic_z - 0.011, name )
+                pen.new_text( pic_x - length/2 + 3, pic_y + 2.5, pic_z - 0.015, name, { has_shadow = true })
             end
 
             local value = pen.rounder( 100*hp/max_hp, rounding ).."%"
-            pen.new_shadowed_text( pic_x + length/2 - ( 1 + pen.get_text_dims( value, true )), pic_y + 2.5, pic_z - 0.011, value )
+            pen.new_text( pic_x + length/2 - 1, pic_y + 2.5,
+                pic_z - 0.011, value, { alpha = 0.75, color = pen.PALETTE.VNL.BROWN, is_right_x = true, has_shadow = false })
+            pen.new_text( pic_x + length/2 - 1, pic_y + 2.5, pic_z + 0.005, value, { is_right_x = true, has_shadow = false })
             return length, step
         end
 
@@ -457,7 +459,7 @@ function index.new_generic_gold( screen_w, screen_h, xys )
         if( index.D.gmod.menu_capable ) then return end
         if( data.money < 0 ) then return end
         
-        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, 0.09, 1 ))
+        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp10", 1 ))
         
         local tip_x, tip_y = unpack( xys.hp )
         local v = pen.get_short_num( le_money )
@@ -688,11 +690,11 @@ function index.new_generic_perks( screen_w, screen_h, xys )
         local perk_tbl_short, extra_perk = {}, {
             pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
             txt = "", desc = "", other_perks = {},
-            tip = function( pic_x, pic_y, pic_z, alpha, v )
-                for i,pic in ipairs( v ) do
+            tip = function( pic_x, pic_y, pic_z, perks ) --add hover tips
+                for i,pic in ipairs( perks ) do
                     local drift_x = 14*(( i - 1 )%10 )
                     local drift_y = 14*math.floor(( i - 1 )/10 )
-                    pen.new_image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic, { alpha = alpha })
+                    pen.new_image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic )
                 end
             end,
         }
@@ -1080,5 +1082,5 @@ function index.new_generic_modder( screen_w, screen_h, xys )
     end
 
     index.play_sound( gonna_reset and "reset" or "click" )
-    pen.magic_storage( index.D.main_id, "global_mode", "value_int", new_mode )
+    GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( new_mode ))
 end

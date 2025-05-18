@@ -1,26 +1,9 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
-function storage( hooman, name, field, value )
-	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
-	if( #comps == 0 ) then return end
-	for i,comp in ipairs( comps ) do
-		if( ComponentGetValue2( comp, "name" ) == name ) then
-			if( value ~= nil ) then
-				ComponentSetValue2( comp, field, value )
-			else return ComponentGetValue2( comp, field ) end
-			return comp
-		end
-	end
-end
-
-function update_settings( mod_id, gui, in_main_menu, setting, old_value, new_value )
+function sync_settings( mod_id, gui, in_main_menu, setting, old_value, new_value )
 	if( GameGetWorldStateEntity ~= nil and GameGetWorldStateEntity() > 0 ) then
-		local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
-		if( #ctrl_bodies > 0 ) then
-			local controller_id = ctrl_bodies[1]
-			if( storage( controller_id, "override_settings", "value_bool" )) then
-				storage( controller_id, "update_settings", "value_bool", true )
-			end
+		if( GlobalsGetValue( "INDEX_GLOBAL_LOCK_SETTINGS", "bool0" ) == "bool0" ) then
+			GlobalsSetValue( "INDEX_GLOBAL_SYNC_SETTINGS", "bool1" )
 		end
 	end
 end
@@ -69,7 +52,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "NO_INV_SHOOTING",
@@ -78,25 +61,25 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "DO_VANILLA_DROPPING",
+				id = "VANILLA_DROPPING",
 				ui_name = "Drop First - Think Later",
 				ui_description = "Restores dropping logic to its original vanilla glory.",
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "NO_ACTION_ON_DROP",
+				id = "SILENT_DROPPING",
 				ui_name = "Silent Dropping",
-				ui_description = "Allows removing items from inventory without triggering their on-dropped effects.",
+				ui_description = "Allows removing items from inventory without triggering their on-drop effects.",
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "FORCE_VANILLA_FULLEST",
@@ -105,7 +88,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -117,7 +100,7 @@ mod_settings =
 		_folded = true,
 		settings = {
 			{
-				id = "MAX_PERKS",
+				id = "MAX_PERK_COUNT",
 				ui_name = "Perk Column Size",
 				ui_description = "The maximum amount of perks to show.",
 				value_default = 5,
@@ -127,7 +110,7 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " $0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "SHORT_HP",
@@ -136,7 +119,7 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "SHORT_GOLD",
@@ -145,7 +128,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "FANCY_POTION_BAR",
@@ -154,7 +137,7 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "RELOAD_THRESHOLD",
@@ -167,7 +150,7 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " $0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -186,7 +169,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "INFO_POINTER_ALPHA",
@@ -199,10 +182,10 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " 0.$0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "INFO_MTR_STATE",
+				id = "INFO_MATTER_MODE",
 				ui_name = "Material Info Mode",
 				ui_description = "Changes how the behavior of the displayed material names.",
 				values = { "Auto", "Hotkeyed", "Persistent" },
@@ -210,7 +193,7 @@ mod_settings =
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				ui_fn = mod_setting_custom_enum,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -228,7 +211,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "NO_WAND_SCALING",
@@ -237,16 +220,16 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "ALLOW_TIPS_ALWAYS",
-				ui_name = "Always Allow Tooltips",
+				id = "FORCE_SLOT_TIPS",
+				ui_name = "Force Slot Tooltips",
 				ui_description = "Slots display the tooltips even if the inventory is closed.",
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "IN_WORLD_PICKUPS",
@@ -255,7 +238,25 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
+			},
+			{
+				id = "IN_WORLD_TIPS",
+				ui_name = "Anchor Pickup Tips to Items",
+				ui_description = "Positions items tooltips in the world instead of within GUI.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
+			{
+				id = "SECRET_SHOPPER",
+				ui_name = "No Window Shopping",
+				ui_description = "Prevents tips from being displayed if the item cannot be purchased.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
 			},
 		},
 	},

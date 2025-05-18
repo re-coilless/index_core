@@ -41,7 +41,7 @@ return function( pic_x, pic_y, inv_data, xys, slot_func )
                     index.D.inv_toggle = true
                     for i,gmod in ipairs( index.D.gmods ) do
                         if( gmod.allow_external_inventories ) then
-                            pen.magic_storage( index.D.main_id, "global_mode", "value_int", i )
+                            GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( i ))
                             break
                         end
                     end

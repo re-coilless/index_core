@@ -7,15 +7,19 @@ index.G = index.G or {} --global params
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- index.check_dragger_buffer
+-- index.register_item_pic
 -- index.swap_anim
+-- index.check_dragger_buffer
 -- index.new_dragger_shell
--- index.new_generic_bossbar
 
---make sure the minimum z_layers offsets are 0.01
---transition to globals
---display slot number on hover with dragger
---stains and such are kinda stinky
+-- index.new_vanilla_wtt
+-- index.new_vanilla_stt
+
+-- index.new_slot_pic
+-- index.new_spell_frame
+-- index.new_vanilla_slot
+-- index.slot_setup
+-- index.new_vanilla_wand
 
 ------------------------------------------------------		[BACKEND]		------------------------------------------------------
 
@@ -46,12 +50,11 @@ end
 function index.self_destruct()
 	pen.gui_builder( false )
 
-	local controller_id = ( EntityGetWithTag( "index_ctrl" ) or {})[1]
-	if( pen.vld( controller_id, true )) then
-		local hooman = EntityGetRootEntity( controller_id )
+	local hooman = ( EntityGetWithTag( "index_ctrl" ) or {})[1]
+	if( pen.vld( hooman, true )) then
 		EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" ), true )
 		EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" ), true )
-		EntityKill( controller_id )
+		EntityRemoveTag( hooman, "index_ctrl" )
 	end
 
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
@@ -193,7 +196,7 @@ function index.get_status_data( hooman )
 			local _,true_id = pen.t.get( perk_tbl, icon_info.pic, "pic" )
 			if( not( pen.vld( true_id ))) then
 				if( EntityGetName( child ) == "fungal_shift_ui_icon" ) then
-					icon_info.tip = GlobalsGetValue( "fungal_memo", "" ).."\n"..icon_info.tip
+					icon_info.tip = GlobalsGetValue( index.GLOBAL_FUNGAL_MEMO, "" ).."\n"..icon_info.tip
 					icon_info.count = tonumber( GlobalsGetValue( "fungal_shift_iteration", "0" ))
 					icon_info.is_fungal = true
 					
@@ -1016,6 +1019,8 @@ function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 end
 
 function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, alpha )
+	local eid = pic_x..";"..pic_y..";"..pic_z
+
 	if( shake_frame ~= nil ) then
 		if( shake_frame < 0 ) then
 			pic_x = pic_x - 20*math.sin( shake_frame*math.pi/6.666 )/shake_frame
@@ -1023,8 +1028,8 @@ function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, a
 		pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z - 0.005, pen.PALETTE.VNL.WARNING, dims[1] + 2, dims[2] + 2 )
 	end
 	
-	pen.new_pixel( pic_x - dims[1], pic_y + 1, pic_z - 0.01, color, dims[3], dims[2], alpha )
-
+	pen.new_pixel( pic_x - dims[1], pic_y + 1, pic_z - 0.01, color, pen.estimate( eid, dims[3], "wgt" ), dims[2], alpha )
+	
 	pen.new_pixel( pic_x, pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
 	pen.new_pixel( pic_x - dims[1], pic_y, pic_z, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
 	pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
@@ -1034,7 +1039,7 @@ function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, a
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
-function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data ) --min hp bar length must be of a typical bar size (reduce the internal size instead)
+function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
     local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
     if( not( pen.vld( dmg_comp, true ))) then return 0,0,0,0,0 end
 	
@@ -1053,7 +1058,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data ) --min hp b
 		if( max_hp <= 0 ) then return end
 
 		length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
-        length = ( data.length_mult or 1 )*( length < 5 and 40 or length )
+        length = ( data.length_mult or 1 )*math.max( length, 45 )
         hp = math.min( math.max( hp, 0 ), max_hp )
 
 		if( data.centered ) then pic_x = pic_x + length/2 end
@@ -1137,10 +1142,15 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	return data.is_active, clicked, r_clicked
 end
 
-function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func ) --anchor tips around in-world items if setting is toggled
-	-- if( not( cant_buy )) then return end
-	pic_x, pic_y = unpack( index.D.xys.hp )
-	pic_x, pic_y = pic_x - 44, pic_y
+function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func )
+	if( cant_buy and index.D.secret_shopper ) then return end
+	
+	if( index.D.in_world_tips ) then
+		local x, y = EntityGetTransform( info.id )
+		pic_x, pic_y = pen.world2gui( x, y )
+		pic_x, pic_y = pic_x + 15, pic_y + 15
+	else pic_x, pic_y = unpack( index.D.xys.hp ); pic_x = pic_x - 44 end
+	
 	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.TIPS )
 end
 
@@ -1193,6 +1203,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	if( got_spells ) then size_y = size_y + 10*math.ceil( 9*#spells.p/size_x ) + 10*math.ceil( 9*#spells.n/size_x ) + 5 end
 	if( pen.vld( spells.p )) then size_y = size_y + ( pen.vld( spells.n ) and 1 or 0 ) end
 
+	local showed_stt = false
 	index.D.tip_func( "", {
 		tid = tid, info = info,
 		is_left = true, is_active = true, allow_hover = true,
@@ -1327,9 +1338,10 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 					if(( index.M.stt_safety or tid ) == tid and not( is_hovered )) then index.M.stt_safety = nil
 					elseif(( index.M.stt_safety or tid ) ~= tid ) then is_hovered = false end
 
-					if( is_hovered or ( pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3])) then
+					local is_pinned = pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3]
+					if( is_hovered or is_pinned ) then
 						index.cat_callback( spell, "on_tooltip", { tid, t_x + 9*cnt + 9, t_y + 8, pic_z - 1, true })
-						index.M.stt_safety = tid
+						index.M.stt_safety, showed_stt = tid, true
 					end
 					
 					cnt = cnt + 1
@@ -1341,6 +1353,8 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		return clicked, r_clicked, is_hovered
 	end)
+
+	if( not( showed_stt )) then index.M.stt_safety = nil end
 end
 
 --add new marker for spells that are new (for wand tip too)
@@ -1593,7 +1607,7 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
 				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
 				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
-			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, 1, 0.01, 0.001 ))
+			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, 1, "exp100", 0.001 ))
 		end
 		if( runic_state >= 0 ) then
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
@@ -1668,12 +1682,14 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 	end
 
     local w, h = pen.get_pic_dims( icon_info.pic )
-	-- if( kind == 2 ) then GuiColorSetForNextWidget( gui, 0.3, 0.3, 0.3, 1 ) end
-	local _,_,is_hovered = pen.new_image( pic_x + pic_off_x, pic_y + pic_off_y, pic_z, icon_info.pic, { can_click = true })
+	local _,_,is_hovered = pen.new_image( pic_x + pic_off_x, pic_y + pic_off_y,
+		pic_z, icon_info.pic, { has_shadow = kind == 2, can_click = true })
 
 	if( is_hovered and kind == 4 ) then
-		pen.new_pixel( pic_x + pic_off_x + 2, pic_y + pic_off_y + 1, pic_z + 0.001, pen.PALETTE.VNL.YELLOW, 13, 13, 0.75 )
-	elseif( kind == 2 and icon_info.amount > 0 ) then
+		pen.new_pixel( pic_x + pic_off_x + 3, pic_y + pic_off_y + 2, pic_z + 0.001, pen.PALETTE.VNL.RUNIC, 11, 11, 0.75 )
+		pen.new_pixel( pic_x + pic_off_x + 2, pic_y + pic_off_y + 3, pic_z + 0.001, pen.PALETTE.VNL.RUNIC, 13, 9, 0.75 )
+		pen.new_pixel( pic_x + pic_off_x + 4, pic_y + pic_off_y + 1, pic_z + 0.001, pen.PALETTE.VNL.RUNIC, 9, 13, 0.75 )
+	elseif( kind == 2 ) then
 		-- local step = math.floor( h*( 1 - math.min( icon_info.amount, 1 )) + 0.5 )
 		-- pen.new_cutout( pic_x + pic_off_x, pic_y + pic_off_y + step, w, h, function( v )
 		-- 	return pen.new_image( 0, -step, v[1], v[2])
@@ -1682,12 +1698,14 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		local scale = 10*icon_info.amount
 		local pos = 10*( 1 - icon_info.amount )
 		if( pos > 0 ) then
-			pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, pen.PALETTE.VNL.GREY, 10, pos, 0.25 ) end
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.W, 10, scale, 0.4 )
+			pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.001, pen.PALETTE.VNL.GREY, 10, pos, 0.3 ) end
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos,
+			pic_z + 0.004, is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, 10, scale, is_hovered and 1 or 0.5 )
 		
-		pen.new_pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1 + pos, pic_z + 0.004, pen.PALETTE.B, 1, scale, 0.15 )
-		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pen.PALETTE.B, 10, 1, 0.15 )
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y, pic_z + 0.004, pen.PALETTE.SHADOW, 10, 1, 0.35 )
+		pen.new_pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1, pic_z + 0.004, pen.PALETTE.SHADOW, 1, 10, 0.35 )
+		pen.new_pixel( pic_x + pic_off_x + 10.5, pic_y + pic_off_y + 1, pic_z + 0.004, pen.PALETTE.SHADOW, 1, 10, 0.35 )
+		pen.new_pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 11, pic_z + 0.004, pen.PALETTE.SHADOW, 10, 1, 0.35 )
 	end
 
 	local txt_off_x, txt_off_y = 0, 0
@@ -1697,45 +1715,42 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		txt_off_x, txt_off_y = 1, 2
 	end
 
-	local tip_x, tip_y = pic_x - 5, pic_y
 	if( pen.vld( icon_info.txt )) then
 		icon_info.txt = pen.despacer( icon_info.txt )
-		local t_x, t_h = pen.get_text_dims( icon_info.txt, true )
-		t_x = t_x - txt_off_x
-		pen.new_shadowed_text( pic_x - ( t_x + 1 ), pic_y + 1 + txt_off_y, pic_z, icon_info.txt,
-			{ color = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, alpha = is_hovered and 1 or 0.5 })
-		tip_x = tip_x - t_x
+		pen.new_shadowed_text( pic_x + txt_off_x - 1, pic_y + 1 + txt_off_y, pic_z, icon_info.txt,
+			{ is_right_x = true, color = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, alpha = is_hovered and 1 or 0.5 })
 	end
 	if(( icon_info.count or 0 ) > 1 ) then
 		pen.new_shadowed_text( pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..icon_info.count,
 			{ color = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W, alpha = is_hovered and 1 or 0.5 })
 	end
 
-	if( kind == 4 ) then pic_y = pic_y - 3 end
+	local tip_x, tip_y = pic_x + 15, pic_y + 16
 	if( pen.vld( icon_info.tip )) then
-		local dims, text = {}, ""
-		if( type( icon_info.tip ) == "function" ) then
+		local dims, text, tid = {}, "", ""
+		local is_extra = type( icon_info.tip ) == "function"
+		if( is_extra ) then
 			dims = {
-				14*math.min( #icon_info.other_perks, 10 ) - 1,
-				14*math.max( math.ceil(( #icon_info.other_perks )/10 ), 1 )
+				14*math.min( #icon_info.other_perks, 10 ),
+				14*math.max( math.ceil(( #icon_info.other_perks )/10 ), 1 ) + 1
 			}
-		else text = pen.despacer( icon_info.tip ) end
-		index.D.tip_func( text, { pos = { tip_x, tip_y + ( kind == 4 and 1 or 0 )},
-			dims = dims, is_active = is_hovered, is_left = true, is_over = false })
-		--do { icon_info.tip, icon_info.other_perks } here
-	end
-	if( pen.vld( icon_info.desc ) and is_hovered ) then --add unique anim
-		icon_info.desc = pen.despacer( icon_info.desc )
-		local dims = { pen.get_text_dims( icon_info.desc, true )}
-		local anim = pen.animate( 1, pen.c.ttips[ "dft" ].anim[3], { ease_out = "wav1.5", frames = 15 })
-		pen.new_shadowed_text( pic_x - dims[1] + w, pic_y + h + 3, pic_z,
-			icon_info.desc, { color = icon_info.is_danger and pen.PALETTE.VNL.WARNING or pen.PALETTE.W, alpha = anim })
-		
-		local bg_x = pic_x - ( dims[1] + 2 ) + w
-		index.new_vanilla_box( bg_x, pic_y + h + 4, pic_z + 0.01, { dims[1] + 3, dims[2] - 1 }, anim )
-		h = h + dims[2] + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 ) + 3
+			tid, tip_y = "extra_perks_tip", tip_y - 2
+		else
+			if( pen.vld( icon_info.desc )) then
+				if( icon_info.is_danger ) then
+					text = text.."{>color>{{-}|VNL|WARNING|{-}"..pen.despacer( icon_info.desc ).."}<color<}\n"
+				else text = text..pen.despacer( icon_info.desc ).."\n" end
+			end
+			text = text.."{>color>{{-}|VNL|GREY|{-}"..pen.despacer( icon_info.tip ).."}<color<}"
+		end
+		is_hovered, dims = index.D.tip_func( text, { pos = { tip_x, tip_y + ( kind == 4 and 1 or 0 )}, pic_z = pic_z - 0.4,
+			tid = tid, allow_hover = true, dims = dims, is_active = is_hovered, is_left = true, is_over = false, fully_featured = true })
+		if( is_extra and is_hovered ) then icon_info.tip( tip_x - dims[1] + 2, tip_y + 3, pic_z - 0.5, icon_info.other_perks ) end
+		if( is_hovered and pen.vld( dims )) then h = h + dims[2] + ( kind == 4 and 2 or 4 ) + ( kind == 1 and 1 or 0 ) + 7 end
 	end
 
+	if( kind == 4 ) then
+		pic_y = pic_y - 3 end
 	if( kind == 1 ) then
 		pen.new_image( pic_x, pic_y, pic_z + 0.002, "data/ui_gfx/status_indicators/bg_ingestion.png" )
 		
@@ -1749,6 +1764,7 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 	return w, h
 end
 
+--display slot number on hover with dragger
 function index.new_vanilla_slot( pic_x, pic_y, slot_data, this_info, is_active, can_drag, is_full, is_quick )
 	local slot_pics = {
 		bg_alt = slot_data.pic_bg_alt or index.D.slot_pic.bg_alt,
@@ -2067,6 +2083,80 @@ function index.new_vanilla_wand( pic_x, pic_y, this_info, in_hand, can_tinker )
 
 	return step_x + 7, step_y + 7
 end
+
+index.GLOBAL_FUNGAL_MEMO = "INDEX_GLOBAL_FUNGAL_MEMO" --stores fungal transformations
+index.GLOBAL_FUCK_YOUR_MANA = "INDEX_GLOBAL_FUCK_YOUR_MANA" --trigger mana bar shaking
+
+index.GLOBAL_FORCED_STATE = "INDEX_GLOBAL_FORCED_STATE" --0 checks CtrlComp for enabled, 1 is always enabled, -1 is always disabled
+index.GLOBAL_GLOBAL_MODE = "INDEX_GLOBAL_GLOBAL_MODE" --GMOD type
+index.GLOBAL_LOCK_SETTINGS = "INDEX_GLOBAL_LOCK_SETTINGS" --prevent settings from being synched or updated
+index.GLOBAL_SYNC_SETTINGS = "INDEX_GLOBAL_SYNC_SETTINGS" --apply settings to globals
+
+index.GLOBAL_DRAGGER_EXTERNAL = "INDEX_GLOBAL_DRAGGER_EXTERNAL" --compatibility brige for dragging to inventories outside Index system
+index.GLOBAL_DRAGGER_SWAP_NOW = "INDEX_GLOBAL_DRAGGER_SWAP_NOW" --si true when the dragger item is being let go
+index.GLOBAL_DRAGGER_ITEM_ID = "INDEX_GLOBAL_DRAGGER_ITEM_ID" --the entity id of the dragged item
+index.GLOBAL_DRAGGER_INV_CAT = "INDEX_GLOBAL_DRAGGER_INV_CAT" --the numerical inventory category of the dragged item
+index.GLOBAL_DRAGGER_IS_QUICKEST = "INDEX_GLOBAL_DRAGGER_IS_QUICKEST" --whether the inventory the item is being dragged from is quickest
+
+index.GLOBAL_PLAYER_OFF_Y = "INDEX_GLOBAL_PLAYER_OFF_Y" --player center offset in y axis
+index.GLOBAL_THROW_POS_RAD = "INDEX_GLOBAL_THROW_POS_RAD" --radius of valid throw position
+index.GLOBAL_THROW_POS_SIZE = "INDEX_GLOBAL_THROW_POS_SIZE" --size of the area to be checked for validity
+index.GLOBAL_THROW_FORCE = "INDEX_GLOBAL_THROW_FORCE" --force applied to thrown object
+
+index.GLOBAL_QUICKEST_SIZE = "INDEX_GLOBAL_QUICKEST_SIZE" --the size of the wand inventory
+index.GLOBAL_SLOT_SPACING = "INDEX_GLOBAL_SLOT_SPACING" --distance between individual slots
+index.GLOBAL_EFFECT_SPACING = "INDEX_GLOBAL_EFFECT_SPACING" --distance between individual effect icons
+index.GLOBAL_MIN_EFFECT_DURATION = "INDEX_GLOBAL_MIN_EFFECT_DURATION" --minimal duration required for the efect to appear as an icon
+index.GLOBAL_SPELL_ANIM_FRAMES = "INDEX_GLOBAL_SPELL_ANIM_FRAMES" --the speed of spell swaying anim
+
+index.GLOBAL_LOW_HP_FLASHING_THRESHOLD = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD" --maximal hp value at which the flashing starts
+index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN" --additional threshold correction for extreme max hps
+index.GLOBAL_LOW_HP_FLASHING_PERIOD = "INDEX_GLOBAL_LOW_HP_FLASHING_PERIOD" --the speed with which the flashing will happen
+index.GLOBAL_LOW_HP_FLASHING_INTENSITY = "INDEX_GLOBAL_LOW_HP_FLASHING_INTENSITY" --the maximum scale of the red borders
+
+index.GLOBAL_INFO_RADIUS = "INDEX_GLOBAL_INFO_RADIUS" --maximal distance to the target for the prompt to appear
+index.GLOBAL_INFO_THRESHOLD = "INDEX_GLOBAL_INFO_THRESHOLD" --minimal speed with which the pointer is being moved for the prompt to appear
+index.GLOBAL_INFO_FADING = "INDEX_GLOBAL_INFO_FADING" --speed in frames with which the info prompt will fade out
+
+index.GLOBAL_LOOT_MARKER = "INDEX_GLOBAL_LOOT_MARKER"
+index.GLOBAL_SLOT_PIC_BG = "INDEX_GLOBAL_SLOT_PIC_BG"
+index.GLOBAL_SLOT_PIC_BG_ALT = "INDEX_GLOBAL_SLOT_PIC_BG_ALT"
+index.GLOBAL_SLOT_PIC_HL = "INDEX_GLOBAL_SLOT_PIC_HL"
+index.GLOBAL_SLOT_PIC_ACTIVE = "INDEX_GLOBAL_SLOT_PIC_ACTIVE"
+index.GLOBAL_SLOT_PIC_LOCKED = "INDEX_GLOBAL_SLOT_PIC_LOCKED"
+
+index.GLOBAL_SFX_CLICK = "INDEX_GLOBAL_SFX_CLICK"
+index.GLOBAL_SFX_SELECT = "INDEX_GLOBAL_SFX_SELECT"
+index.GLOBAL_SFX_HOVER = "INDEX_GLOBAL_SFX_HOVER"
+index.GLOBAL_SFX_OPEN = "INDEX_GLOBAL_SFX_OPEN"
+index.GLOBAL_SFX_CLOSE = "INDEX_GLOBAL_SFX_CLOSE"
+index.GLOBAL_SFX_ERROR = "INDEX_GLOBAL_SFX_ERROR"
+index.GLOBAL_SFX_RESET = "INDEX_GLOBAL_SFX_RESET"
+index.GLOBAL_SFX_MOVE_EMPTY = "INDEX_GLOBAL_SFX_MOVE_EMPTY"
+index.GLOBAL_SFX_MOVE_ITEM = "INDEX_GLOBAL_SFX_MOVE_ITEM"
+
+index.SETTING_ALWAYS_SHOW_FULL = "INDEX_SETTING_ALWAYS_SHOW_FULL"
+index.SETTING_NO_INV_SHOOTING = "INDEX_SETTING_NO_INV_SHOOTING"
+index.SETTING_VANILLA_DROPPING = "INDEX_SETTING_VANILLA_DROPPING"
+index.SETTING_SILENT_DROPPING = "INDEX_SETTING_SILENT_DROPPING"
+index.SETTING_FORCE_VANILLA_FULLEST = "INDEX_SETTING_FORCE_VANILLA_FULLEST"
+
+index.SETTING_MAX_PERK_COUNT = "INDEX_SETTING_MAX_PERK_COUNT"
+index.SETTING_SHORT_HP = "INDEX_SETTING_SHORT_HP"
+index.SETTING_SHORT_GOLD = "INDEX_SETTING_SHORT_GOLD"
+index.SETTING_FANCY_POTION_BAR = "INDEX_SETTING_FANCY_POTION_BAR"
+index.SETTING_RELOAD_THRESHOLD = "INDEX_SETTING_RELOAD_THRESHOLD"
+
+index.SETTING_INFO_POINTER = "INDEX_SETTING_INFO_POINTER"
+index.SETTING_INFO_POINTER_ALPHA = "INDEX_SETTING_INFO_POINTER_ALPHA"
+index.SETTING_INFO_MATTER_MODE = "INDEX_SETTING_INFO_MATTER_MODE"
+
+index.SETTING_MUTE_APPLETS = "INDEX_SETTING_MUTE_APPLETS"
+index.SETTING_NO_WAND_SCALING = "INDEX_SETTING_NO_WAND_SCALING"
+index.SETTING_FORCE_SLOT_TIPS = "INDEX_SETTING_FORCE_SLOT_TIPS"
+index.SETTING_IN_WORLD_PICKUPS = "INDEX_SETTING_IN_WORLD_PICKUPS"
+index.SETTING_IN_WORLD_TIPS = "INDEX_SETTING_IN_WORLD_TIPS"
+index.SETTING_SECRET_SHOPPER = "INDEX_SETTING_SECRET_SHOPPER"
 
 index.INVS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
 index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%23CAA146-%23A8D5DA-%238EC373-%233F8492-%23735D8E-%234A446D

@@ -316,8 +316,8 @@ local ITEM_CATS = {
             
             local angle = 0
             if( state_tbl.is_dragged ) then
-                angle = math.rad( pen.estimate( "pouring_angle", target_angle, 0.2 ))
-                pic_y = pic_y + pen.estimate( "sucking_drift", 0, 0.2 )
+                angle = math.rad( pen.estimate( "pouring_angle", target_angle, "exp5", 1 ))
+                pic_y = pic_y + pen.estimate( "sucking_drift", 0, "exp5", 1 )
             end
             
             local z = index.slot_z( info.id, pen.LAYERS.ICONS )

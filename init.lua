@@ -46,12 +46,12 @@ function OnModInit()
 
 	local gun_file = "data/scripts/gun/gun.lua"
 	file = pen.magic_read( gun_file )
-	file = string.gsub( file, "action effect reflection stuff", "action effect reflection stuff\n_OnNotEnoughManaForAction = OnNotEnoughManaForAction\nfunction OnNotEnoughManaForAction() _OnNotEnoughManaForAction(); GlobalsSetValue( \"INDEX_FUCKYOURMANA\", tostring( GetUpdatedEntityID())); end" )
+	file = string.gsub( file, "action effect reflection stuff", "action effect reflection stuff\n_OnNotEnoughManaForAction = OnNotEnoughManaForAction\nfunction OnNotEnoughManaForAction() _OnNotEnoughManaForAction(); GlobalsSetValue( \"INDEX_GLOBAL_FUCK_YOUR_MANA\", tostring( GetUpdatedEntityID())); end" )
 	pen.magic_write( gun_file, file )
 	
 	local fungal_file = "data/scripts/magic/fungal_shift.lua"
 	file = pen.magic_read( fungal_file )
-	file = string.gsub( file, "print%(CellFactory_GetUIName%(from_material%) %.%. \" %-> \" %.%. CellFactory_GetUIName%(to_material%)%)", "dofile_once( \"mods/index_core/files/_lib.lua\" )\nGlobalsSetValue( \"fungal_memo\", GlobalsGetValue( \"fungal_memo\", \"\" )..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( from_material )))..\"->\"..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( to_material )))..\"; \" )" )
+	file = string.gsub( file, "print%(CellFactory_GetUIName%(from_material%) %.%. \" %-> \" %.%. CellFactory_GetUIName%(to_material%)%)", "dofile_once( \"mods/index_core/files/_lib.lua\" )\nGlobalsSetValue( \"INDEX_GLOBAL_FUNGAL_MEMO\", GlobalsGetValue( \"INDEX_GLOBAL_FUNGAL_MEMO\", \"\" )..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( from_material )))..\"->\"..pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( to_material )))..\"; \" )" )
 	pen.magic_write( fungal_file, file )
 
 	local refresh_file = "data/scripts/items/spell_refresh.lua"
@@ -152,7 +152,7 @@ end
 
 function OnWorldPostUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
-	GlobalsSetValue( "INDEX_FUCKYOURMANA", "0" )
+	GlobalsSetValue( index.GLOBAL_FUCK_YOUR_MANA, "0" )
 
 	local hooman = pen.get_hooman()
 	if( not( pen.vld( hooman, true ))) then return end
@@ -175,8 +175,7 @@ function OnPlayerSpawned( hooman )
 		execute_every_n_frame = "1",
 	})
 	
-	local x, y = EntityGetTransform( hooman )
-	EntityAddChild( hooman, EntityLoad( "mods/index_core/files/ctrl_body.xml" )) --is there a need in this
+	local x, y = EntityGetTransform( hooman ); EntityAddTag( hooman, "index_ctrl" )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 	
