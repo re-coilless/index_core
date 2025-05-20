@@ -258,6 +258,17 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
+			{
+				id = "BOSS_BAR_MODE",
+				ui_name = "Boss Bar Behavior",
+				ui_description = "CHanges the way boss HP bars are displayed.",
+				values = { "Auto", "In-World", "In-GUI" },
+				value_default = 1,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				ui_fn = mod_setting_custom_enum,
+				change_fn = sync_settings,
+			},
 		},
 	},
 }

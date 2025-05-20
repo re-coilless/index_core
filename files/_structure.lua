@@ -420,6 +420,7 @@ local ITEM_CATS = {
             return ({
                 function( info ) return 0 end,
                 function( info )
+                    if( info.matter_info.matter[1] == 0 ) then return end
                     if( ComponentGetValue2( info.ItemC, "has_been_picked_by_player" )) then return end
                     local emitter = EntityLoad( "data/entities/particles/image_emitters/potion_effect.xml", unpack( info.xy ))
                     local emit_comp = EntityGetFirstComponentIncludingDisabled( emitter, "ParticleEmitterComponent" )

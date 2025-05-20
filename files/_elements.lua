@@ -397,56 +397,80 @@ function index.new_generic_delay( screen_w, screen_h, xys )
     return { pic_x, pic_y }
 end
 
-function index.new_generic_bossbar( screen_w, screen_h, xys ) --huge thanks to Priskip for visuals
+function index.new_generic_bossbar( screen_w, screen_h, xys )
     local x, y = unpack( index.D.player_xy )
-    local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 20 })
-    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, boss )
-        local bar_comp = EntityGetFirstComponent( boss, "HealthBarComponent" )
+    local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 23 })
+    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy )
+        local bar_comp = EntityGetFirstComponent( enemy, "HealthBarComponent" )
         if( not( pen.vld( bar_comp, true ))) then return end
         
-        local b_x, b_y = EntityGetTransform( boss )
+        local b_x, b_y = EntityGetTransform( enemy )
         local distance = math.sqrt(( b_x - x )^2 + ( b_y - y )^2 )
         if( distance > ComponentGetValue2( bar_comp, "gui_max_distance_visible" )) then return end
-
-        -- if has tag boss, do unique
-        -- for visuals either run custom func or grab SpriteComp:health_bar
-        -- gui_special_final_boss (unique stuff for this)
-        -- in_world (force in-gui option; always forces it to be anchored to the entity)
+        local in_world, is_boss = ComponentGetValue2( bar_comp, "in_world" ), EntityHasTag( enemy, "boss" )
 
         local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
+            local custom_pos = ( data.custom or {}).pos or {}
+            if( not( data.in_world )) then data.length, data.height = custom_pos[3], custom_pos[4] or data.height end
+            data.color_hp = data.custom.color
+
             local name = index.get_entity_name( entity_id )
-            local length, step, max_hp, hp = index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
+            local length, height, max_hp, hp = index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
             
-            local num_width, rounding = 35, 10
-            if( max_hp >= 10^6 ) then
-                rounding = 1000
-                num_width = num_width + 12
-            elseif( max_hp >= 10^5 ) then
-                rounding = 100
-                num_width = num_width + 6
+            if( not( data.in_world ) and pen.vld( data.custom.pic )) then
+                local pic_w, pic_h = pen.get_pic_dims( data.custom.pic )
+                local off_x, off_y = custom_pos[5] or 0, custom_pos[6] or 0
+                local t_x, t_y = pic_x - pic_w/2 + off_x, pic_y - 2 + off_y
+                pen.new_image( t_x, t_y, pic_z - 0.01, data.custom.pic )
+                if( pen.vld( data.custom.color_bg )) then
+                    t_x, t_y = t_x + ( custom_pos[1] or 0 ), t_y + ( custom_pos[2] or 0 )
+                    pen.new_pixel( t_x, t_y, pic_z + 0.1, data.custom.color_bg, length, height )
+                end
             end
 
-            if( length > num_width ) then
-                if( not( pen.vld( name ))) then name = "Boss" end
-                pen.new_text( pic_x - length/2 + 3, pic_y + 2.5, pic_z - 0.015, name, { has_shadow = true })
-            end
+            local rounding = 10
+            local off_name, off_perc = 3, -1
+            local off_text = (( height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
+            if( max_hp >= 10^6 ) then rounding = 1000 elseif( max_hp >= 10^5 ) then rounding = 100 end
+            if( not( data.in_world ) and pen.vld( data.custom.pic )) then off_name, off_perc = 8, -6 end
 
+            if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
+            local t_x = pic_x + ( data.in_world and 0 or ( -length/2 + off_name ))
+            local t_y = pic_y + ( data.in_world and ( height + 1 ) or off_text )
+            pen.new_text( t_x, t_y, pic_z - 0.01, name, { is_centered_x = data.in_world, has_shadow = true })
+            
             local value = pen.rounder( 100*hp/max_hp, rounding ).."%"
-            pen.new_text( pic_x + length/2 - 1, pic_y + 2.5,
-                pic_z - 0.011, value, { alpha = 0.75, color = pen.PALETTE.VNL.BROWN, is_right_x = true, has_shadow = false })
-            pen.new_text( pic_x + length/2 - 1, pic_y + 2.5, pic_z + 0.005, value, { is_right_x = true, has_shadow = false })
-            return length, step
+            t_x, t_y = pic_x + ( data.in_world and 4 or ( length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
+            pen.new_text( t_x, t_y, pic_z - 0.01, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
+                color = data.custom.color_text or pen.PALETTE.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
+            pen.new_text( t_x, t_y, pic_z + 0.007, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
+            
+            if( pen.vld( data.custom.func_extra ) and not( in_world )) then
+                data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data, hp/max_hp ) end
+            return length, height
         end
 
-        local func_path = pen.magic_storage( boss, "index_bar", "value_string" )
+        local func_path = pen.magic_storage( enemy, "index_bar", "value_string" )
         if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
-        local _,step = bar_func( pic_x, pic_y, pen.LAYERS.WORLD_BACK, boss, {
-            low_hp = 0, low_hp_min = 0,
-            length_mult = 2, height = 13,
-            centered = true,
-        })
 
-        pic_y = pic_y - ( step + 4 )
+        local custom = index.BOSS_BARS[ EntityGetFilename( enemy )] or {}
+        local pics = EntityGetComponent( enemy, "SpriteComponent", "health_bar" )
+        if( pen.vld( pics ) and pen.vld( custom )) then
+            for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy, pic, false ) end
+        elseif( pen.vld( pics )) then return end
+
+        local bar_x, bar_y = pic_x, pic_y
+        in_world = ( in_world or custom.in_world )
+        if( index.D.boss_bar_mode ~= 1 ) then in_world = index.D.boss_bar_mode == 2 end
+        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y ); bar_y = bar_y + 20 end --this should account for hitbox
+        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_BACK, enemy, {
+            custom = custom,
+            centered = true, in_world = in_world, is_boss = is_boss,
+            low_hp = 0, low_hp_min = 0, only_slider = pen.vld( custom ) and not( in_world ),
+            length_mult = in_world and 0.75 or 2, height = in_world and 9 or 13,
+        })
+        
+        if( not( in_world )) then pic_y = pic_y - ( h + 4 ) end
     end)
     return { pic_x, pic_y }
 end
@@ -459,7 +483,7 @@ function index.new_generic_gold( screen_w, screen_h, xys )
         if( index.D.gmod.menu_capable ) then return end
         if( data.money < 0 ) then return end
         
-        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp10", 1 ))
+        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp10", data.money/1000 ))
         
         local tip_x, tip_y = unpack( xys.hp )
         local v = pen.get_short_num( le_money )

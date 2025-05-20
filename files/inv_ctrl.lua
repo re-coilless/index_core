@@ -97,6 +97,7 @@ index.G.settings = index.G.settings or {
     in_world_pickups = gg( index.SETTING_IN_WORLD_PICKUPS, false ),
     in_world_tips = gg( index.SETTING_IN_WORLD_TIPS, false ),
     secret_shopper = gg( index.SETTING_SECRET_SHOPPER, false ),
+    boss_bar_mode = gg( index.SETTING_BOSS_BAR_MODE, 1 ),
 }
 index.G.settings.main_dump = index.G.settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
 
@@ -234,6 +235,7 @@ index.D = {
     in_world_pickups = index.G.settings.in_world_pickups,
     in_world_tips = index.G.settings.in_world_tips,
     secret_shopper = index.G.settings.secret_shopper,
+    boss_bar_mode = index.G.settings.boss_bar_mode,
 
     Controls = {},
     DamageModel = {},

@@ -1018,24 +1018,26 @@ function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 	end
 end
 
-function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, alpha )
+function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, alpha, only_slider )
 	local eid = pic_x..";"..pic_y..";"..pic_z
 
 	if( shake_frame ~= nil ) then
 		if( shake_frame < 0 ) then
 			pic_x = pic_x - 20*math.sin( shake_frame*math.pi/6.666 )/shake_frame
 		else pic_x = pic_x + 2.5*math.sin( shake_frame*math.pi/5 ) end
-		pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z - 0.005, pen.PALETTE.VNL.WARNING, dims[1] + 2, dims[2] + 2 )
+		pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z + 0.004, pen.PALETTE.VNL.WARNING, dims[1] + 2, dims[2] + 2 )
 	end
 	
-	pen.new_pixel( pic_x - dims[1], pic_y + 1, pic_z - 0.01, color, pen.estimate( eid, dims[3], "wgt" ), dims[2], alpha )
+	pen.new_pixel( pic_x - dims[1], pic_y + 1, pic_z, color, pen.estimate( eid, dims[3], "wgt" ), dims[2], alpha )
 	
-	pen.new_pixel( pic_x, pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
-	pen.new_pixel( pic_x - dims[1], pic_y, pic_z, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
-	pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
-	pen.new_pixel( pic_x - dims[1], pic_y + dims[2] + 1, pic_z, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
+	if( only_slider ) then return end
 
-	pen.new_image( pic_x - dims[1], pic_y + 1, pic_z + 0.01,
+	pen.new_pixel( pic_x, pic_y, pic_z + 0.01, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
+	pen.new_pixel( pic_x - dims[1], pic_y, pic_z + 0.01, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
+	pen.new_pixel( pic_x - ( dims[1] + 1 ), pic_y, pic_z + 0.01, pen.PALETTE.VNL.BROWN, 1, dims[2] + 2, 0.75 )
+	pen.new_pixel( pic_x - dims[1], pic_y + dims[2] + 1, pic_z + 0.01, pen.PALETTE.VNL.BROWN, dims[1], 1, 0.75 )
+
+	pen.new_image( pic_x - dims[1], pic_y + 1, pic_z + 0.015,
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
@@ -1057,8 +1059,8 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
 	pen.hallway( function()
 		if( max_hp <= 0 ) then return end
 
-		length = math.floor( 157.8 - 307.1/( 1 + ( math.min( math.max( max_hp, 0 ), 40 )/0.38 )^( 0.232 )) + 0.5 )
-        length = ( data.length_mult or 1 )*math.max( length, 45 )
+		local total_hp = math.min( math.max(( data.is_boss or false ) and 40 or max_hp, 0 ), 40 )
+		length = data.length or ( data.length_mult or 1 )*math.max( math.floor( 157.8 - 307.1/( 1 + ( total_hp/0.38 )^( 0.232 )) + 0.5 ), 45 )
         hp = math.min( math.max( hp, 0 ), max_hp )
 
 		if( data.centered ) then pic_x = pic_x + length/2 end
@@ -1083,7 +1085,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
 
             if( red_shift > 0.5 ) then
                 pen.new_pixel( pic_x - ( length + 1 ), pic_y,
-					pic_z - 0.005, data.color_bg or pen.PALETTE.VNL.HP_LOW, length + 2, height + 2 )
+					pic_z + 0.005, data.color_bg or pen.PALETTE.VNL.HP_LOW, length + 2, height + 2 )
 			else pic = data.color_dmg or pen.PALETTE.VNL.DAMAGE end
             red_shift = red_shift*perc
         end
@@ -1092,12 +1094,12 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
         if( data.dmg_data.hp_frame <= delay ) then
             local last_hp = math.min( math.max( data.dmg_data.hp_last, 0 ), max_hp )
             pen.new_pixel( pic_x - length, pic_y + 1,
-				pic_z - 0.009, pen.PALETTE.VNL.DAMAGE, length*last_hp/max_hp, height, ( delay - data.dmg_data.hp_frame )/delay )
+				pic_z + 0.001, pen.PALETTE.VNL.DAMAGE, length*last_hp/max_hp, height, ( delay - data.dmg_data.hp_frame )/delay )
         end
         
 		hp = math.min( math.floor( hp*25 + 0.5 ), 9e99 )
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
-        index.new_vanilla_bar( pic_x, pic_y, pic_z, { length, height, length*hp/max_hp }, pic )
+        index.new_vanilla_bar( pic_x, pic_y, pic_z, { length, height, length*hp/max_hp }, pic, nil, nil, data.only_slider )
 	end)
     return length, height, max_hp, hp, red_shift
 end
@@ -1305,7 +1307,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		
 		if( pen.vld( info.desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = 0.8*inter_alpha })
 		end
 
 		local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 2, pic_y - 2, size_x + 4, size_y + 4, pic_z + 0.1 )
@@ -1424,7 +1426,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		if( not( is_simple or index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = 0.8*inter_alpha })
 		end
 
 		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
@@ -1544,16 +1546,18 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		local icon_x, icon_y = pos_x + scale_x - ( d.edging + icon_w ), pos_y + ( scale_y - icon_h )/2
 		pen.new_image( icon_x, icon_y, pic_z, info.pic, { s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha })
 		
-		local cut = pic_scale*info.potion_cutout
-		local step = ( icon_h - 2*cut )*math.max( math.min( 1 - matter[1]/info.matter_info.volume, 1 ), 0 ) + cut
-		pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v )
-			pen.new_image( 0, -step, v[1],
-				v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
-		end, { pic_z - 1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
+		if( matter[1] > 0 ) then
+			local cut = pic_scale*info.potion_cutout
+			local step = ( icon_h - 2*cut )*math.max( math.min( 1 - matter[1]/info.matter_info.volume, 1 ), 0 ) + cut
+			pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v )
+				pen.new_image( 0, -step, v[1],
+					v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
+			end, { pic_z - 1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
+		end
 
 		if( pen.vld( matter_desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GRET, alpha = 0.8*inter_alpha })
 		end
 
 		if( not( will_matter )) then return end
@@ -1607,13 +1611,13 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
 				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
 				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
-			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, 1, "exp100", 0.001 ))
+			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, { 1, 0 }, "exp500" ))
 		end
-		if( runic_state >= 0 ) then
+		if( runic_state > 0 ) then
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
 				dims = { desc_w + 2, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
 		end
-
+		
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
 		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
 		local scale_x, scale_y = size_x - inter_size, size_y - inter_size
@@ -1761,7 +1765,7 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, icon_info, kind )
 		end
 	end
 
-	return w, h
+	return w, h + ( kind == 2 and 1 or 0 )
 end
 
 --display slot number on hover with dragger
@@ -2157,6 +2161,7 @@ index.SETTING_FORCE_SLOT_TIPS = "INDEX_SETTING_FORCE_SLOT_TIPS"
 index.SETTING_IN_WORLD_PICKUPS = "INDEX_SETTING_IN_WORLD_PICKUPS"
 index.SETTING_IN_WORLD_TIPS = "INDEX_SETTING_IN_WORLD_TIPS"
 index.SETTING_SECRET_SHOPPER = "INDEX_SETTING_SECRET_SHOPPER"
+index.SETTING_BOSS_BAR_MODE = "INDEX_SETTING_BOSS_BAR_MODE"
 
 index.INVS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
 index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%23CAA146-%23A8D5DA-%238EC373-%233F8492-%23735D8E-%234A446D
@@ -2168,6 +2173,57 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 	[5] = { "data/ui_gfx/inventory/item_bg_utility.png", pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
 	[6] = { "data/ui_gfx/inventory/item_bg_passive.png", pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
 	[7] = { "data/ui_gfx/inventory/item_bg_other.png", pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
+}
+
+index.BOSS_BARS = { --apocalyptic thanks to Priskip
+	["data/entities/animals/boss_alchemist/boss_alchemist.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/alchemist.png",
+		-- in_world = false,
+		-- color = pen.PALETTE.VNL.HP,
+		-- color_text = pen.PALETTE.VNL.ACTION_OTHER,
+		color_bg = { 120, 131, 146, 47/255 }, pos = { 20, 3, 294, 17 },
+		-- func = function( pic_x, pic_y, pic_z, entity_id, data ) return legnth, height end,
+		-- func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
+	},
+	-- ["data/entities/animals/boss_book/book_physics.xml"] = {},
+	["data/entities/animals/boss_centipede/boss_centipede.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/centipede.png",
+		color_bg = { 99, 155, 255, 47/255 }, pos = { 13, 6, 324, 17, 2, -3 },
+	},
+	-- ["data/entities/animals/boss_fish/fish_giga.xml"] = {}
+	-- ["data/entities/animals/boss_gate/gate_monster_a.xml"] = {},
+	-- ["data/entities/animals/boss_gate/gate_monster_b.xml"] = {},
+	-- ["data/entities/animals/boss_gate/gate_monster_c.xml"] = {},
+	-- ["data/entities/animals/boss_gate/gate_monster_d.xml"] = {},
+	-- ["data/entities/animals/boss_ghost/boss_ghost.xml"] = {},
+	-- ["data/entities/animals/boss_limbs/boss_limbs.xml"] = {},
+	-- ["data/entities/animals/boss_meat/boss_meat.xml"] = {},
+	["data/entities/animals/boss_pit/boss_pit.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/pit.png",
+		color_bg = { 155, 71, 125, 47/255 }, pos = { 31, 3, 295, 17, -1, 0 },
+	},
+	["data/entities/animals/boss_robot/boss_robot.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/robot.png",
+		color_bg = { 255, 131, 157, 47/255 }, pos = { 48, 5, 288, 15, -3, -2 },
+	},
+	-- ["data/entities/animals/boss_sky/boss_sky.xml"] = {},
+	-- ["data/entities/animals/boss_spirit/islandspirit.xml"] = {},
+	["data/entities/animals/boss_wizard/boss_wizard.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/wizard.png",
+		color_bg = { 209, 97, 97, 47/255 }, pos = { 4, 4, 302, 15, 19, -1 },
+		func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc )
+			local mode = pen.magic_storage( entity_id, "mode", "value_int" )
+			pen.new_image( pic_x - 188.5, pic_y - 9, pic_z, "mods/index_core/files/pics/priskips_bossbars/wizard_"..mode..".png" )
+		end,
+	},
+	-- ["data/entities/animals/maggot_tiny/maggot_tiny.xml"] = {},
+	-- ["data/entities/animals/parallel/alchemist/parallel_alchemist.xml"] = {},
+	-- ["data/entities/animals/parallel/tentacles/parallel_tentacles.xml"] = {},
+	-- ["data/entities/animals/friend.xml"] = {},
+	["data/entities/animals/boss_dragon.xml"] = {
+		pic = "mods/index_core/files/pics/priskips_bossbars/dragon.png",
+		color_bg = { 164, 48, 48, 55/255 }, pos = { 3, 6, 316, 12, 0, -3 },
+	},
 }
 
 -- info.wand_info.speed_multiplier
@@ -2182,7 +2238,6 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 -- info.wand_info.damage_fire_add
 -- info.wand_info.damage_melee_add
 -- info.wand_info.damage_projectile_add
-
 index.WAND_STATS = {
 	{
 		pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
@@ -2413,6 +2468,7 @@ index.SPELL_STATS = { --custom descs
 			pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
 			name = "$inventory_mod_spread",
 			
+			spacer = true,
 			value = function( info, c, c_proj )
 				return c.spread_degrees or 0 end,
 			txt = function( value, info, c, c_proj )
@@ -2474,6 +2530,7 @@ index.SPELL_STATS = { --custom descs
 			pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
 			name = "$inventory_mod_explosion_radius",
 
+			spacer = true,
 			value = function( info, c, c_proj )
 				return c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius or 0 end,
 			txt = function( value, info, c, c_proj ) return index.get_stat( value, c.explosion_radius, 0 ) end,
