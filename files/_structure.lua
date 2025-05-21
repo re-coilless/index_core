@@ -5,7 +5,7 @@ local GLOBAL_MODES = {
         name = "FULL",
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
-        show_fullest = index.G.settings.force_vanilla_fullest,
+        show_fullest = pen.c.index_settings.force_vanilla_fullest,
     },
     {
         name = "MANAGEMENT",
@@ -25,8 +25,8 @@ local GLOBAL_MODES = {
 }
 
 local GLOBAL_MUTATORS, APPLETS = {}, {
-    l_state = not( index.G.settings.mute_applets ), l_hover = {},
-    r_state = not( index.G.settings.mute_applets ), r_hover = {},
+    l_state = not( pen.c.index_settings.mute_applets ), l_hover = {},
+    r_state = not( pen.c.index_settings.mute_applets ), r_hover = {},
 
     l = {},
     r = {
@@ -145,14 +145,12 @@ local ITEM_CATS = {
         end,
         on_tooltip = index.new_vanilla_wtt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            local w, h = 0, 0
-            if((( pen.cache({ "index_pic_data", info.pic }) or {}).xy or {})[3] == nil ) then
-                w, h = pen.get_pic_dims( index.D.slot_pic.bg ) end --the fuck is this
+            local w, h = pen.get_pic_dims( index.D.slot_pic.bg )
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
-                index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, 1, math.rad( -45 ), hov_scale, true )
+                index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, nil, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS ) end
+                hov_func( info, "wtt"..info.id, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS ) end
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
 
@@ -322,7 +320,7 @@ local ITEM_CATS = {
             
             local z = index.slot_z( info.id, pen.LAYERS.ICONS )
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
-            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, info.pic, 0.8 - 0.5*ratio, angle, hov_scale )
+            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, info.pic, false, hov_scale, false, 0.8 - 0.5*ratio, angle )
             pen.new_image( pic_x, pic_y, z - 0.001, info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
@@ -337,7 +335,7 @@ local ITEM_CATS = {
                     if( info.matter_info.matter[1] > 0 ) then
                         index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
                         pen.magic_chugger( info.matter_info.matter[2], index.D.player_id,
-                            info.id, info.matter_info.matter[1], index.D.shift_action and 1 or 0.1 )
+                            info.id, info.matter_info.volume, index.D.shift_action and 1 or 0.1 )
                     else index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
                 end,
                 function( info )
@@ -488,7 +486,7 @@ local ITEM_CATS = {
             end
 
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
-            index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, nil, angle, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
             if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
             new_spell_frame( pic_x, pic_y,
                 pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), info.spell_info.type, is_considered and 1 or 0.6, angle )
@@ -512,7 +510,7 @@ local ITEM_CATS = {
         
         on_tooltip = index.new_vanilla_ttt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
             
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10
@@ -537,7 +535,7 @@ local ITEM_CATS = {
         
         on_tooltip = index.new_vanilla_itt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, nil, nil, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10

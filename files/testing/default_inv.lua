@@ -11,7 +11,7 @@ return function( pic_x, pic_y, inv_data, xys, slot_func )
             pic_x, pic_y = core_x, core_y
             for i,col in pairs( slot_data ) do
                 for e,slot in ipairs( col ) do
-                    w, h = slot_setup( pic_x, pic_y, {
+                    w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_id = inv_id,
                         id = slot,
                         inv_slot = {i,e},

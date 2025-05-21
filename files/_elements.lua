@@ -1,5 +1,39 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
+function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
+	local info = slot_data.idata or {}
+	if( not( slot_data.id )) then
+		slot_data.id = -1
+		info = { id = slot_data.id, in_hand = 0 }
+	elseif( not( pen.vld( info.id, true ))) then
+		info = pen.t.get( index.D.item_list, slot_data.id )
+	end
+	if( pen.vld( slot_data.id, true )) then
+		if( EntityHasTag( info.id, "index_unlocked" )) then
+			can_drag = true
+		elseif( info.is_locked ) then can_drag = false end
+	elseif( EntityHasTag( index.D.dragger.item_id, "index_unlocked" )) then
+		local inv_info = pen.t.get( index.D.item_list, slot_data.inv_id, nil, nil, {})
+		if( not( pen.vld( inv_info.id, true )) or not( inv_info.is_frozen )) then can_drag = true end
+	end
+	
+	local w, h, clicked, r_clicked, is_hovered = index.D.slot_func(
+		pic_x, pic_y, slot_data, info, pen.vld( info.in_hand, true ), can_drag, is_full, is_quick )
+	if( pen.vld( info.cat )) then
+		index.cat_callback( info, "on_inventory", {
+			pic_x, pic_y, {
+				can_drag = can_drag,
+				is_dragged = pen.vld( index.D.dragger.item_id, true ) and index.D.dragger.item_id == info.id,
+				in_hand = pen.vld( info.in_hand, true ),
+				is_quick = is_quick,
+				is_full = is_full,
+			}
+		})
+	end
+	
+	return w, h
+end
+
 function index.new_generic_inventory( screen_w, screen_h, xys )
     local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
     local pic_x, pic_y = root_x, root_y
@@ -16,7 +50,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
             pen.new_image( 0, 0, pen.LAYERS.BACKGROUND,
                 index.D.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
             
-            if( not( index.D.gmod.can_see )) then --opening inv should have it be animated (lower the full part from the top)
+            if( not( index.D.gmod.can_see )) then
                 local delta = math.max(( index.M.inv_alpha or index.D.frame_num ) - index.D.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
                 pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1,
@@ -28,7 +62,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         local w, h, step = 0, 0, 1
         xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
         for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quickest ) do
-            w, h = index.slot_setup( pic_x, pic_y, {
+            w, h = index.new_generic_slot( pic_x, pic_y, {
                 inv_slot = { i, -1 },
                 inv_id = index.D.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, true ),
@@ -39,7 +73,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
 
         local cat_items = pic_x
         for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quick ) do
-            w, h = index.slot_setup( pic_x, pic_y, {
+            w, h = index.new_generic_slot( pic_x, pic_y, {
                 inv_slot = { i, -2 },
                 inv_id = index.D.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, false ),
@@ -53,14 +87,14 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
                 GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+        end
+        
+        if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
             pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
-        end
-
-        if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
             for i,col in ipairs( index.D.slot_state[ index.D.invs_p.f ]) do
                 for e = 1,( not( index.D.gmod.show_fullest or false ) and 1 or #col ) do
-                    w, h = index.slot_setup( pic_x, pic_y, {
+                    w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_slot = { i, e },
                         inv_id = index.D.invs_p.f, id = col[e],
                     }, index.D.is_opened, true, index.D.is_opened )
@@ -437,7 +471,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
             local t_x = pic_x + ( data.in_world and 0 or ( -length/2 + off_name ))
             local t_y = pic_y + ( data.in_world and ( height + 1 ) or off_text )
-            pen.new_text( t_x, t_y, pic_z - 0.01, name, { is_centered_x = data.in_world, has_shadow = true })
+            pen.new_text( t_x, t_y, pic_z - 0.01, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
             
             local value = pen.rounder( 100*hp/max_hp, rounding ).."%"
             t_x, t_y = pic_x + ( data.in_world and 4 or ( length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
@@ -462,7 +496,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
         local bar_x, bar_y = pic_x, pic_y
         in_world = ( in_world or custom.in_world )
         if( index.D.boss_bar_mode ~= 1 ) then in_world = index.D.boss_bar_mode == 2 end
-        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y ); bar_y = bar_y + 20 end --this should account for hitbox
+        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y ); bar_y = bar_y + 20 end --pen.get_creature_dimensions
         local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_BACK, enemy, {
             custom = custom,
             centered = true, in_world = in_world, is_boss = is_boss,
@@ -890,7 +924,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                         pickup_data.desc = GameTextGet( pickup_data.desc, "[USE]", info.data.name..( info.data.fullness or "" ))
                         
                         pickup_data.id = info.id
-                        pickup_data.txt = is_shop and "[BUY]" or "[GET]"
+                        pickup_data.txt = is_shop and "[BUY]" or ( EntityHasTag( info.id, "chest" ) and "[OPEN]" or "[GET]" )
                         pickup_data.do_sound, pickup_data.info = info.may_sfx, info.data
                         if( info.may_desc ) then pickup_data.desc = { pickup_data.desc, info.data.desc } end
 
@@ -922,7 +956,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                     local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
                     if( cost_comp == nil ) then
                         local this_info = item_data[10]
-                        w, h = index.slot_setup( screen_w/2, screen_h - 50, {
+                        w, h = index.new_generic_slot( screen_w/2, screen_h - 50, {
                             inv_id = 0,
                             id = this_info.id,
                             inv_slot = {0,0},
@@ -967,7 +1001,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         if( pen.vld( pickup_data.id, true ) and index.D.Controls.act[2]) then
             local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
             local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
-            table.insert( index.G.slot_anim, {
+            table.insert( index.M.slot_anim, {
                 id = pickup_data.id,
                 x = anim_x, y = anim_y,
                 frame = index.D.frame_num,
@@ -1028,7 +1062,7 @@ function index.new_generic_drop( this_item )
         if( pen.vld( callback )) then do_default = callback( this_item, this_info, false ) end
         if( pen.vld( inv_data.update ) and inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
             local reset_id = pen.get_item_owner( p, true )
-            if( reset_id > 0 ) then pen.reset_active_item( reset_id ) end
+            if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
         end
         if( do_default ) then
             local x, y = unpack( index.D.player_xy )
@@ -1071,10 +1105,12 @@ function index.new_generic_modder( screen_w, screen_h, xys )
     if( is_hovered ) then arrow_right_c, arrow_right_a = arrow_hl_c, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
-
+    
     local tip_x, tip_y = unpack( xys.hp )
-    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS,
-        w + 6, 10, mode_data.name.."\n"..mode_data.desc, { pos = { tip_x - 44, tip_y }, is_left = mode_data.show_full })
+    local tip = mode_data.name.."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..mode_data.desc.."}<color<}}<indent<}"
+    is_hovered, clicked, r_clicked = index.tipping(
+        pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, w + 6, 10, tip, { fully_featured = true,
+        pos = { tip_x - 44, tip_y }, is_left = true, text_prefunc = function( text, data ) return text, 2, 0 end })
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
     local alpha = gonna_highlight and 1 or 0.3
@@ -1097,11 +1133,11 @@ function index.new_generic_modder( screen_w, screen_h, xys )
     local go_ahead = true
     while( go_ahead ) do
         if( new_mode < 1 ) then
-            new_mode = #mode_data.gmods
-        elseif( new_mode > #mode_data.gmods ) then
+            new_mode = #index.D.gmods
+        elseif( new_mode > #index.D.gmods ) then
             new_mode = 1
         end
-        go_ahead = mode_data.gmods[ new_mode ].is_hidden or false
+        go_ahead = index.D.gmods[ new_mode ].is_hidden or false
         if( go_ahead ) then new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 ) end
     end
 

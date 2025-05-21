@@ -1,15 +1,15 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 if( not( ModIsEnabled( "index_core" ))) then return index.self_destruct() end
 
-index.G.gonna_drop = index.G.gonna_drop or false --trigger for "drop on failure to swap"
+index.M.gonna_drop = index.M.gonna_drop or false --trigger for "drop on failure to swap"
 
-index.G.slot_memo = index.G.slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
-index.G.slot_anim = index.G.slot_anim or {} --fancy dragging anim
-index.G.slot_state = index.G.slot_state or false --a check that makes sure only one slot is being dragged at a time
-index.G.slot_hover_sfx = index.G.slot_hover_sfx or { 0, false } --context sensitive hover sfx
+index.M.slot_memo = index.M.slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
+index.M.slot_anim = index.M.slot_anim or {} --fancy dragging anim
+index.M.slot_state = index.M.slot_state or false --a check that makes sure only one slot is being dragged at a time
+index.M.slot_hover_sfx = index.M.slot_hover_sfx or { 0, false } --context sensitive hover sfx
 
-index.G.mouse_memo = index.G.mouse_memo or {} --for getting pointer delta
-index.G.mouse_memo_world = index.G.mouse_memo_world or {} --for getting pointer delta in-world
+index.M.mouse_memo = index.M.mouse_memo or {} --for getting pointer delta
+index.M.mouse_memo_world = index.M.mouse_memo_world or {} --for getting pointer delta in-world
 
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
@@ -26,7 +26,7 @@ local function gg( g, dft )
 end
 if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
     GlobalsSetValue( index.GLOBAL_SYNC_SETTINGS, "bool0" )
-    index.G.settings, index.M.settings_init = nil, {}
+    pen.c.index_settings, index.M.settings_init = nil, {}
 end
 
 local hooman = ctrl_bodies[1]
@@ -34,7 +34,7 @@ if( not( EntityGetIsAlive( hooman ))) then
     return pen.gui_builder( false ) end
 local hooman_x, hooman_y = EntityGetTransform( hooman )
 
-index.G.settings = index.G.settings or {
+pen.c.index_settings = pen.c.index_settings or {
     player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
@@ -99,7 +99,7 @@ index.G.settings = index.G.settings or {
     secret_shopper = gg( index.SETTING_SECRET_SHOPPER, false ),
     boss_bar_mode = gg( index.SETTING_BOSS_BAR_MODE, 1 ),
 }
-index.G.settings.main_dump = index.G.settings.main_dump or dofile( "mods/index_core/files/_structure.lua" )
+pen.c.index_struct = pen.c.index_struct or dofile( "mods/index_core/files/_structure.lua" )
 
 local ctrl_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ControlsComponent" )
 local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
@@ -118,21 +118,21 @@ if( is_going == 0 ) then
 if( not( is_going and pen.vld( inv_comp, true ))) then return pen.gui_builder( false ) end
 
 local m_x, m_y = DEBUG_GetMouseWorld()
-local md_x = m_x - ( index.G.mouse_memo_world[1] or m_x )
-local md_y = m_y - ( index.G.mouse_memo_world[2] or m_y )
-index.G.mouse_memo_world = { m_x, m_y }
+local md_x = m_x - ( index.M.mouse_memo_world[1] or m_x )
+local md_y = m_y - ( index.M.mouse_memo_world[2] or m_y )
+index.M.mouse_memo_world = { m_x, m_y }
 
 local mui_x, mui_y = pen.get_mouse_pos()
-local muid_x = mui_x - ( index.G.mouse_memo[1] or mui_x )
-local muid_y = mui_y - ( index.G.mouse_memo[2] or mui_y )
-index.G.mouse_memo = { mui_x, mui_y }
+local muid_x = mui_x - ( index.M.mouse_memo[1] or mui_x )
+local muid_y = mui_y - ( index.M.mouse_memo[2] or mui_y )
+index.M.mouse_memo = { mui_x, mui_y }
 
 local gui = pen.gui_builder()
 local screen_w, screen_h = GuiGetScreenDimensions( gui )
 
 local effect_tbl, perk_tbl = index.get_status_data( hooman )
-local mtr_action = index.G.settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
-local global_modes, global_mutators, applets, item_cats, inv = unpack( index.G.settings.main_dump )
+local mtr_action = pen.c.index_settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
+local global_modes, global_mutators, applets, item_cats, inv = unpack( pen.c.index_struct )
 index.D = {
     player_id = hooman,
     player_xy = { 0, 0 },
@@ -149,8 +149,8 @@ index.D = {
     shift_action = index.get_input( "shift_action", true ),
 
     inventory = inv_comp,
-    inv_count_quickest = index.G.settings.quickest_size,
-    inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - index.G.settings.quickest_size,
+    inv_count_quickest = pen.c.index_settings.quickest_size,
+    inv_count_quick = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - pen.c.index_settings.quickest_size,
     inv_count_full = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
     is_opened = ComponentGetValue2( iui_comp, "mActive" ),
 
@@ -192,50 +192,50 @@ index.D = {
         swap_now = gg( index.GLOBAL_DRAGGER_SWAP_NOW, false ),
     },
 
-    player_core_off = index.G.settings.player_core_off,
-    throw_pos_rad = index.G.settings.throw_pos_rad,
-    throw_pos_size = index.G.settings.throw_pos_size,
-    throw_force = index.G.settings.throw_force,
+    player_core_off = pen.c.index_settings.player_core_off,
+    throw_pos_rad = pen.c.index_settings.throw_pos_rad,
+    throw_pos_size = pen.c.index_settings.throw_pos_size,
+    throw_force = pen.c.index_settings.throw_force,
 
-    inv_spacings = index.G.settings.inv_spacings,
-    effect_icon_spacing = index.G.settings.effect_icon_spacing,
-    min_effect_duration = index.G.settings.min_effect_duration,
-    spell_anim_frames = index.G.settings.spell_anim_frames,
+    inv_spacings = pen.c.index_settings.inv_spacings,
+    effect_icon_spacing = pen.c.index_settings.effect_icon_spacing,
+    min_effect_duration = pen.c.index_settings.min_effect_duration,
+    spell_anim_frames = pen.c.index_settings.spell_anim_frames,
 
-    hp_threshold = index.G.settings.hp_threshold,
-    hp_threshold_min = index.G.settings.hp_threshold_min,
-    hp_flashing = index.G.settings.hp_flashing,
-    hp_flashing_intensity = index.G.settings.hp_flashing_intensity,
+    hp_threshold = pen.c.index_settings.hp_threshold,
+    hp_threshold_min = pen.c.index_settings.hp_threshold_min,
+    hp_flashing = pen.c.index_settings.hp_flashing,
+    hp_flashing_intensity = pen.c.index_settings.hp_flashing_intensity,
 
-    info_radius = index.G.settings.info_radius,
-    info_threshold = index.G.settings.info_threshold,
-    info_fading = index.G.settings.info_fading,
+    info_radius = pen.c.index_settings.info_radius,
+    info_threshold = pen.c.index_settings.info_threshold,
+    info_fading = pen.c.index_settings.info_fading,
 
-    loot_marker = index.G.settings.loot_marker,
-    slot_pic = index.G.settings.slot_pic,
-    sfxes = index.G.settings.sfxes,
+    loot_marker = pen.c.index_settings.loot_marker,
+    slot_pic = pen.c.index_settings.slot_pic,
+    sfxes = pen.c.index_settings.sfxes,
 
-    always_show_full = index.G.settings.always_show_full,
-    no_inv_shooting = index.G.settings.no_inv_shooting,
-    do_vanilla_dropping = index.G.settings.do_vanilla_dropping,
-    no_action_on_drop = index.G.settings.no_action_on_drop,
+    always_show_full = pen.c.index_settings.always_show_full,
+    no_inv_shooting = pen.c.index_settings.no_inv_shooting,
+    do_vanilla_dropping = pen.c.index_settings.do_vanilla_dropping,
+    no_action_on_drop = pen.c.index_settings.no_action_on_drop,
 
-    max_perks = index.G.settings.max_perks,
-    short_hp = index.G.settings.short_hp,
-    short_gold = index.G.settings.short_gold,
-    fancy_potion_bar = index.G.settings.fancy_potion_bar,
-    reload_threshold = index.G.settings.reload_threshold,
+    max_perks = pen.c.index_settings.max_perks,
+    short_hp = pen.c.index_settings.short_hp,
+    short_gold = pen.c.index_settings.short_gold,
+    fancy_potion_bar = pen.c.index_settings.fancy_potion_bar,
+    reload_threshold = pen.c.index_settings.reload_threshold,
 
-    info_pointer = index.G.settings.info_pointer,
-    info_pointer_alpha = index.G.settings.info_pointer_alpha,
-    info_mtr_state = index.G.settings.info_mtr_state,
+    info_pointer = pen.c.index_settings.info_pointer,
+    info_pointer_alpha = pen.c.index_settings.info_pointer_alpha,
+    info_mtr_state = pen.c.index_settings.info_mtr_state,
 
-    no_wand_scaling = index.G.settings.no_wand_scaling,
-    allow_tips_always = index.G.settings.allow_tips_always,
-    in_world_pickups = index.G.settings.in_world_pickups,
-    in_world_tips = index.G.settings.in_world_tips,
-    secret_shopper = index.G.settings.secret_shopper,
-    boss_bar_mode = index.G.settings.boss_bar_mode,
+    no_wand_scaling = pen.c.index_settings.no_wand_scaling,
+    allow_tips_always = pen.c.index_settings.allow_tips_always,
+    in_world_pickups = pen.c.index_settings.in_world_pickups,
+    in_world_tips = pen.c.index_settings.in_world_tips,
+    secret_shopper = pen.c.index_settings.secret_shopper,
+    boss_bar_mode = pen.c.index_settings.boss_bar_mode,
 
     Controls = {},
     DamageModel = {},
@@ -385,7 +385,7 @@ if( pen.vld( global_callback )) then
     inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( inv.full_inv )) then
-        -- index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
+        index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
     end
     if( pen.vld( inv.applet_strip )) then
         index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
@@ -440,33 +440,33 @@ if( index.D.do_vanilla_dropping ) then
         never_drop = false
     elseif( index.D.gmod.allow_advanced_draggables or never_drop ) then
         index.D.dragger.wont_drop = true
-    elseif( index.D.drag_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
+    elseif( index.D.drag_action and index.M.slot_memo[ index.D.dragger.item_id ]) then
         never_drop = true
     end
 else
-    if( not( index.G.gonna_drop )) then
+    if( not( index.M.gonna_drop )) then
         if( not( index.D.drag_action ) or index.D.gmod.allow_advanced_draggables ) then
             index.D.dragger.wont_drop = true
-        elseif( index.D.drag_action and index.G.slot_memo[ index.D.dragger.item_id ]) then
-            index.G.gonna_drop = true
+        elseif( index.D.drag_action and index.M.slot_memo[ index.D.dragger.item_id ]) then
+            index.M.gonna_drop = true
         end
     elseif( index.D.dragger.item_id == 0 ) then
-        index.G.gonna_drop = false
+        index.M.gonna_drop = false
     else pen.new_shadowed_text( index.D.pointer_ui[1] + 6, index.D.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
 end
 
-if( index.G.slot_hover_sfx[2]) then
-    index.G.slot_hover_sfx[2] = false
-elseif( index.G.slot_hover_sfx[1] ~= 0 ) then
-    index.G.slot_hover_sfx[1] = 0
+if( index.M.slot_hover_sfx[2]) then
+    index.M.slot_hover_sfx[2] = false
+elseif( index.M.slot_hover_sfx[1] ~= 0 ) then
+    index.M.slot_hover_sfx[1] = 0
 end
 
 --dragging handling
-if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
+if( index.M.slot_state or index.D.dragger.item_id ~= 0 ) then
     if( index.D.dragger.swap_soon ) then
         GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool1" )
     else
-        if( not( index.G.slot_state ) or index.D.dragger.swap_now ) then
+        if( not( index.M.slot_state ) or index.D.dragger.swap_now ) then
             if( index.D.dragger.swap_now and index.D.dragger.item_id > 0 ) then
                 if( gg( index.GLOBAL_DRAGGER_EXTERNAL, false )) then
                     GlobalsSetValue( index.GLOBAL_DRAGGER_EXTERNAL, "bool0" )
@@ -476,8 +476,8 @@ if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
                     else index.play_sound( "error" ) end
                 end
             end
-            index.G.gonna_drop = false
-            index.G.slot_memo = nil
+            index.M.gonna_drop = false
+            index.M.slot_memo = nil
             index.D.dragger = {}
         end
         GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool0" )
@@ -485,7 +485,7 @@ if( index.G.slot_state or index.D.dragger.item_id ~= 0 ) then
         GlobalsSetValue( index.GLOBAL_DRAGGER_INV_CAT, tostring( index.D.dragger.inv_cat or 0 ))
         GlobalsSetValue( index.GLOBAL_DRAGGER_IS_QUICKEST, ( index.D.dragger.is_quickest or false ) and "bool1" or "bool0" )
     end
-    index.G.slot_state = false
+    index.M.slot_state = false
 end
 
 pen.gui_builder( true )

@@ -26,14 +26,17 @@ function OnModInit()
 	-- 		is_manual_pause = true
 	-- 	end
 	-- end
-	
-	pen.lib.font_builder( "data/fonts/font_pixel.xml", {
+
+	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
+	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
+	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
+	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
 		[176] = { pos = { 2, 0, 2 }, rect_h = 11, rect_w = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
-	pen.lib.font_builder( "data/fonts/font_pixel_noshadow.xml", {
+	pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
 		[176] = { pos = { 5, 0, 2 }, rect_h = 11, rect_w = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
-	pen.lib.font_builder( "data/fonts/font_small_numbers.xml", {
+	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
 		[66] = { pos = { 15, 0, 6 }, rect_h = 6, rect_w = 6 },
 		[101] = { pos = { 22, 0, 4 }, rect_h = 6, rect_w = 4 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
@@ -168,6 +171,12 @@ function OnPlayerSpawned( hooman )
 		return
 	else GameAddFlagRun( initer ) end
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
+
+	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
+		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
+		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
+		["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
+	})))
 
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent",
 	{
