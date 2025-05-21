@@ -1,28 +1,32 @@
 dofile( "data/scripts/lib/mod_settings.lua" )
 
-function get_storage( hooman, name )
-	local comps = EntityGetComponentIncludingDisabled( hooman, "VariableStorageComponent" ) or {}
-	if( #comps > 0 ) then
-		for i,comp in ipairs( comps ) do
-			if( ComponentGetValue2( comp, "name" ) == name ) then
-				return comp
-			end
+function sync_settings( mod_id, gui, in_main_menu, setting, old_value, new_value )
+	if( GameGetWorldStateEntity ~= nil and GameGetWorldStateEntity() > 0 ) then
+		if( GlobalsGetValue( "INDEX_GLOBAL_LOCK_SETTINGS", "bool0" ) == "bool0" ) then
+			GlobalsSetValue( "INDEX_GLOBAL_SYNC_SETTINGS", "bool1" )
 		end
 	end
-	
-	return nil
 end
 
-function update_settings( mod_id, gui, in_main_menu, setting, old_value, new_value )
-	if( GameGetWorldStateEntity ~= nil and GameGetWorldStateEntity() > 0 ) then
-		local ctrl_bodies = EntityGetWithTag( "index_ctrl" ) or {}
-		if( #ctrl_bodies > 0 ) then
-			local controller_id = ctrl_bodies[1]
-			if( ComponentGetValue2( get_storage( controller_id, "override_settings" ), "value_bool" )) then
-				ComponentSetValue2( get_storage( controller_id, "update_settings" ), "value_bool", true )
-			end
-		end
+function mod_setting_custom_enum( mod_id, gui, in_main_menu, im_id, setting )
+	local value = ModSettingGetNextValue( mod_setting_get_id( mod_id, setting ))
+	local text = setting.ui_name .. ": " .. setting.values[ value ]
+	
+	local new_value = value
+	local clicked,right_clicked = GuiButton( gui, im_id, mod_setting_group_x_offset, 0, text )
+	if clicked then
+		new_value = new_value + 1
+		if( new_value > #setting.values ) then new_value = 1 end
 	end
+	if right_clicked and setting.value_default then
+		new_value = setting.value_default
+	end
+	if( new_value ~= value ) then
+		new_value = setting.change_fn( mod_id, gui, in_main_menu, setting, value, new_value ) or new_value
+		ModSettingSetNextValue( mod_setting_get_id( mod_id, setting ), new_value, false )
+	end
+
+	mod_setting_tooltip( mod_id, gui, in_main_menu, setting )
 end
 
 local mod_id = "index_core"
@@ -48,7 +52,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "NO_INV_SHOOTING",
@@ -57,25 +61,25 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "DO_VANILLA_DROPPING",
+				id = "VANILLA_DROPPING",
 				ui_name = "Drop First - Think Later",
 				ui_description = "Restores dropping logic to its original vanilla glory.",
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "NO_ACTION_ON_DROP",
+				id = "SILENT_DROPPING",
 				ui_name = "Silent Dropping",
-				ui_description = "Allows removing items from inventory without triggering their on-dropped effects.",
+				ui_description = "Allows removing items from inventory without triggering their on-drop effects.",
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "FORCE_VANILLA_FULLEST",
@@ -84,7 +88,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -96,7 +100,7 @@ mod_settings =
 		_folded = true,
 		settings = {
 			{
-				id = "MAX_PERKS",
+				id = "MAX_PERK_COUNT",
 				ui_name = "Perk Column Size",
 				ui_description = "The maximum amount of perks to show.",
 				value_default = 5,
@@ -106,7 +110,7 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " $0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "SHORT_HP",
@@ -115,7 +119,7 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "SHORT_GOLD",
@@ -124,7 +128,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "FANCY_POTION_BAR",
@@ -133,7 +137,7 @@ mod_settings =
 				value_default = true,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "RELOAD_THRESHOLD",
@@ -146,7 +150,7 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " $0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -165,7 +169,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "INFO_POINTER_ALPHA",
@@ -178,25 +182,18 @@ mod_settings =
 				value_display_multiplier = 1,
 				value_display_formatting = " 0.$0 ",
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "INFO_MTR_HOTKEYED",
-				ui_name = "Hotkeyed Material Info",
-				ui_description = "Displays material names only when the hotkey is held (prevents probe entity from obstructing the pointer).",
-				value_default = false,
+				id = "INFO_MATTER_MODE",
+				ui_name = "Material Info Mode",
+				ui_description = "Changes how the behavior of the displayed material names.",
+				values = { "Auto", "Hotkeyed", "Persistent" },
+				value_default = 1,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
-			},
-			{
-				id = "INFO_MTR_STATIC",
-				ui_name = "Persistent Material Info",
-				ui_description = "Forces material info line to be present at all times.",
-				value_default = false,
-				
-				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				ui_fn = mod_setting_custom_enum,
+				change_fn = sync_settings,
 			},
 		},
 	},
@@ -214,7 +211,7 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "NO_WAND_SCALING",
@@ -223,16 +220,16 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
-				id = "ALLOW_TIPS_ALWAYS",
-				ui_name = "Always Allow Tooltips",
+				id = "FORCE_SLOT_TIPS",
+				ui_name = "Force Slot Tooltips",
 				ui_description = "Slots display the tooltips even if the inventory is closed.",
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
 			},
 			{
 				id = "IN_WORLD_PICKUPS",
@@ -241,7 +238,36 @@ mod_settings =
 				value_default = false,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
-				change_fn = update_settings,
+				change_fn = sync_settings,
+			},
+			{
+				id = "IN_WORLD_TIPS",
+				ui_name = "Anchor Pickup Tips to Items",
+				ui_description = "Positions items tooltips in the world instead of within GUI.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
+			{
+				id = "SECRET_SHOPPER",
+				ui_name = "No Window Shopping",
+				ui_description = "Prevents tips from being displayed if the item cannot be purchased.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
+			{
+				id = "BOSS_BAR_MODE",
+				ui_name = "Boss Bar Behavior",
+				ui_description = "CHanges the way boss HP bars are displayed.",
+				values = { "Auto", "In-World", "In-GUI" },
+				value_default = 1,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				ui_fn = mod_setting_custom_enum,
+				change_fn = sync_settings,
 			},
 		},
 	},

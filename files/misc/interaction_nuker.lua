@@ -1,8 +1,7 @@
-local entity_id, comp_id = GetUpdatedEntityID(), GetUpdatedComponentID()
 local gonna_die = true
-
+local entity_id, comp_id = GetUpdatedEntityID(), GetUpdatedComponentID()
 local action_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "InteractableComponent" )
-if( action_comp ~= nil ) then
+if( pen.vld( action_comp, true )) then
     if( ComponentGetIsEnabled( action_comp )) then
         if( ComponentGetValue2( comp_id, "execute_on_added" )) then
             ComponentSetValue2( comp_id, "execute_on_added", false )

@@ -1,102 +1,91 @@
-bindings["index_core"] = {
-	aa_shift_action = {
+_BINDINGS[ "index_core" ] = {
+	shift_action = {
+		order_id = "aa",
+		allow_special = true,
 		name = "Shift Action",
 		desc = "Fancy inventory stuff.",
-		keys = {
-			["left_shift"] = 1,
-		},
+		keys = {[ "left_shift" ] = 1 },
 	},
-	ab_drag_action = {
+	drag_action = {
+		order_id = "ab",
+		allow_special = true,
 		name = "Dropping/Special Action",
 		desc = "Fancy dragging stuff.",
-		keys = {
-			["mouse_right"] = 1,
-		},
+		keys = {[ "mouse_right" ] = 1 },
 	},
-	ac_tip_action = {
+	tip_action = {
+		order_id = "ac",
+		allow_special = true,
 		name = "Tip Action",
 		desc = "Displays additional info in the tooltip.",
-		keys = {
-			["left_alt"] = 1,
-		},
+		keys = {[ "left_alt" ] = 1 },
 	},
-	ad_matter_action = {
+	matter_action = {
+		order_id = "ad",
 		name = "Matter Probing",
 		desc = "Displays the name of the matter below the pointer.",
-		keys = {
-			["`"] = 1,
-		},
+		keys = {[ "`" ] = 1 },
 	},
 
-	ba_invmode_next = {
+	invmode_next = {
+		order_id = "ba",
 		name = "Next Inv Mode",
 		desc = "Inventory mod switch hotkey.",
-		keys = {
-			["keypad_+"] = 1,
-		},
+		keys = {[ "keypad_+" ] = 1 },
 	},
-	bb_invmode_previous = {
+	invmode_previous = {
+		order_id = "bb",
 		name = "Previous Inv Mode",
 		desc = "Inventory mod switch hotkey.",
-		keys = {
-			["keypad_-"] = 1,
-		},
+		keys = {[ "keypad_-" ] = 1 },
 	},
 
-	za_quickest_1 = {
+	quickest_1 = {
+		order_id = "za",
 		name = "Select Quickest 1",
 		desc = "Equipping shortcut.",
-		keys = {
-			["1"] = 1,
-		},
+		keys = {[ "1" ] = 1 },
 	},
-	za_quickest_2 = {
+	quickest_2 = {
+		order_id = "za",
 		name = "Select Quickest 2",
 		desc = "Equipping shortcut.",
-		keys = {
-			["2"] = 1,
-		},
+		keys = {[ "2" ] = 1 },
 	},
-	za_quickest_3 = {
+	quickest_3 = {
+		order_id = "za",
 		name = "Select Quickest 3",
 		desc = "Equipping shortcut.",
-		keys = {
-			["3"] = 1,
-		},
+		keys = {[ "3" ] = 1 },
 	},
-	za_quickest_4 = {
+	quickest_4 = {
+		order_id = "za",
 		name = "Select Quickest 4",
 		desc = "Equipping shortcut.",
-		keys = {
-			["4"] = 1,
-		},
+		keys = {[ "4" ] = 1 },
 	},
-	zb_quick_1 = {
+	quick_1 = {
+		order_id = "zb",
 		name = "Select Quick 1",
 		desc = "Equipping shortcut.",
-		keys = {
-			["5"] = 1,
-		},
+		keys = {[ "5" ] = 1 },
 	},
-	zb_quick_2 = {
+	quick_2 = {
+		order_id = "zb",
 		name = "Select Quick 2",
 		desc = "Equipping shortcut.",
-		keys = {
-			["6"] = 1,
-		},
+		keys = {[ "6" ] = 1 },
 	},
-	zb_quick_3 = {
+	quick_3 = {
+		order_id = "zb",
 		name = "Select Quick 3",
 		desc = "Equipping shortcut.",
-		keys = {
-			["7"] = 1,
-		},
+		keys = {[ "7" ] = 1 },
 	},
-	zb_quick_4 = {
+	quick_4 = {
+		order_id = "zb",
 		name = "Select Quick 4",
 		desc = "Equipping shortcut.",
-		keys = {
-			["8"] = 1,
-		},
+		keys = {[ "8" ] = 1 },
 	},
 }
