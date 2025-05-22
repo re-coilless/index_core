@@ -90,6 +90,19 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
+			{
+				id = "PICKUP_DISTANCE",
+				ui_name = "Maximum Pickup Distance",
+				ui_description = "Furthest the system will check for items to be picked up.",
+				value_default = 50,
+				
+				value_min = 15,
+				value_max = 200,
+				value_display_multiplier = 1,
+				value_display_formatting = " $0 ",
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
 		},
 	},
 	{
@@ -261,12 +274,21 @@ mod_settings =
 			{
 				id = "BOSS_BAR_MODE",
 				ui_name = "Boss Bar Behavior",
-				ui_description = "CHanges the way boss HP bars are displayed.",
+				ui_description = "Changes the way boss HP bars are displayed.",
 				values = { "Auto", "In-World", "In-GUI" },
 				value_default = 1,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				ui_fn = mod_setting_custom_enum,
+				change_fn = sync_settings,
+			},
+			{
+				id = "BIG_WAND_SPELLS",
+				ui_name = "Large Spell Icons",
+				ui_description = "Doubles the displayed size of spell icons in wand tooltips.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
 		},

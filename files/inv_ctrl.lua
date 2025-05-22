@@ -14,6 +14,7 @@ index.M.mouse_memo_world = index.M.mouse_memo_world or {} --for getting pointer 
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
 if( not( pen.vld( ctrl_bodies ))) then return pen.gui_builder( false ) end
+local performance_check = false --frame_num%600 == 0
 
 local function gg( g, dft )
     index.M.settings_init = index.M.settings_init or {}
@@ -80,6 +81,7 @@ pen.c.index_settings = pen.c.index_settings or {
     do_vanilla_dropping = gg( index.SETTING_VANILLA_DROPPING, true ),
     no_action_on_drop = gg( index.SETTING_SILENT_DROPPING, true ),
     force_vanilla_fullest = gg( index.SETTING_FORCE_VANILLA_FULLEST, false ),
+    pickup_distance = gg( index.SETTING_PICKUP_DISTANCE, 50 ),
 
     max_perks = gg( index.SETTING_MAX_PERK_COUNT, 5 ),
     short_hp = gg( index.SETTING_SHORT_HP, true ),
@@ -98,6 +100,7 @@ pen.c.index_settings = pen.c.index_settings or {
     in_world_tips = gg( index.SETTING_IN_WORLD_TIPS, false ),
     secret_shopper = gg( index.SETTING_SECRET_SHOPPER, false ),
     boss_bar_mode = gg( index.SETTING_BOSS_BAR_MODE, 1 ),
+    big_wand_spells = gg( index.SETTING_BIG_WAND_SPELLS, true ),
 }
 pen.c.index_struct = pen.c.index_struct or dofile( "mods/index_core/files/_structure.lua" )
 
@@ -219,6 +222,7 @@ index.D = {
     no_inv_shooting = pen.c.index_settings.no_inv_shooting,
     do_vanilla_dropping = pen.c.index_settings.do_vanilla_dropping,
     no_action_on_drop = pen.c.index_settings.no_action_on_drop,
+    pickup_distance = pen.c.index_settings.pickup_distance,
 
     max_perks = pen.c.index_settings.max_perks,
     short_hp = pen.c.index_settings.short_hp,
@@ -236,6 +240,7 @@ index.D = {
     in_world_tips = pen.c.index_settings.in_world_tips,
     secret_shopper = pen.c.index_settings.secret_shopper,
     boss_bar_mode = pen.c.index_settings.boss_bar_mode,
+    big_wand_spells = pen.c.index_settings.big_wand_spells,
 
     Controls = {},
     DamageModel = {},
@@ -385,13 +390,16 @@ if( pen.vld( global_callback )) then
     inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( inv.full_inv )) then
+        if( performance_check ) then pen.chrono() end
         index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
+        if( performance_check ) then print( "INVENTORY" ); pen.chrono() end
     end
     if( pen.vld( inv.applet_strip )) then
         index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
     end
     
     local bars = inv.bars or {}
+    if( performance_check ) then pen.chrono() end
     if( pen.vld( bars.hp )) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( bars.air )) then index.D.xys.air = bars.air( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( bars.flight )) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
@@ -411,10 +419,13 @@ if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( icons.stains )) then index.D.xys.stains = icons.stains( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( icons.effects )) then index.D.xys.effects = icons.effects( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( icons.perks )) then index.D.xys.perks = icons.perks( screen_w, screen_h, index.D.xys ) end
-    
+    if( performance_check ) then print( "HUD" ); pen.chrono() end
+
+    if( performance_check ) then pen.chrono() end
     if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, index.D.xys, inv.pickup_info ) end
     if( pen.vld( inv.modder )) then inv.modder( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, index.D.xys ) end
+    if( performance_check ) then print( "OTHER" ); pen.chrono() end
 end
 if( not( index.D.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do

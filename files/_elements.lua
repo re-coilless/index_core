@@ -827,7 +827,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         end
     end
 
-    local entities = EntityGetInRadius( x, y, 200 )
+    local entities = EntityGetInRadius( x, y, index.D.pickup_distance )
     if( not( pen.vld( entities ))) then return end
 
     local interactables = {}

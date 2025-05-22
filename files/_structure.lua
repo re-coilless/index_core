@@ -488,8 +488,8 @@ local ITEM_CATS = {
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
             index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
             if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
-            new_spell_frame( pic_x, pic_y,
-                pen.LAYERS.ICONS + ( is_considered and 0.001 or -0.005 ), info.spell_info.type, is_considered and 1 or 0.6, angle )
+            index.new_spell_frame( pic_x, pic_y,
+                pen.LAYERS.ICONS - 0.005, info.spell_info.type, is_considered and 0.6 or 1 )
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10

@@ -171,7 +171,7 @@ function OnPlayerSpawned( hooman )
 		return
 	else GameAddFlagRun( initer ) end
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
-
+	
 	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
 		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
 		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
