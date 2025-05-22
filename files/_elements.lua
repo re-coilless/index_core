@@ -487,7 +487,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
         local func_path = pen.magic_storage( enemy, "index_bar", "value_string" )
         if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
 
-        local custom = index.BOSS_BARS[ EntityGetFilename( enemy )] or {}
+        local custom = index.D.boss_bars[ EntityGetFilename( enemy )] or {}
         local pics = EntityGetComponent( enemy, "SpriteComponent", "health_bar" )
         if( pen.vld( pics ) and pen.vld( custom )) then
             for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy, pic, false ) end

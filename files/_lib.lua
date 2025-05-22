@@ -6,12 +6,12 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- make it be addable midgame
--- penman tips should have inherent support for descs
+-- dragging
+-- dropping
+-- new_vanilla_wand
 
 -- new_vanilla_wtt
 -- new_vanilla_stt
--- new_vanilla_wand
 -- new_vanilla_slot
 -- new_slot_pic
 -- register_item_pic
@@ -54,6 +54,12 @@ function index.self_destruct()
 	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" ), true )
 	EntitySetComponentIsEnabled( hooman, EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" ), true )
 	EntityRemoveTag( hooman, "index_ctrl" )
+
+	for id = 1,EntitiesGetMaxID() do
+		if( EntityGetIsAlive( id ) and EntityHasTag( id, "index_processed" )) then
+			EntityRemoveTag( id, "index_processed" )
+		end
+	end
 
 	GameRemoveFlagRun( "HERMES_INDEX_MOMENT" )
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
@@ -666,6 +672,7 @@ function index.get_entity_name( entity_id, item_comp, abil_comp )
 	return index.check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
+--build a table of unique names, if repeat is encountered, skip it
 function index.get_potion_info( entity_id, name, volume, max_volume, matters )
 	local cnt = 1
 	local info = pen.t.loop_concat( matters, function( i, mtr )
@@ -1195,10 +1202,10 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	
 	local spacer_size = 12
 	local stats_w, stats_h = 60 + pic_h, 0
-	pen.t.loop( index.WAND_STATS, function( i, stat )
+	pen.t.loop( index.D.wand_stats, function( i, stat )
 		if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
 		if( pen.get_hybrid_function( stat.is_advanced, info ) and not( index.D.tip_action )) then return end
-		stats_h = stats_h + (( i ~= #index.WAND_STATS and stat.spacer ) and spacer_size or 8 )
+		stats_h = stats_h + (( i ~= #index.D.wand_stats and stat.spacer ) and spacer_size or 8 )
 	end)
 	stats_h = math.max( stats_h + 2, pic_w + 4 )
 
@@ -1259,7 +1266,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		local t_x = pic_x + d.edging + 2
 		local t_y = pic_y + d.edging + title_h + desc_h + 5
 
-		pen.t.loop( index.WAND_STATS, function( i, stat )
+		pen.t.loop( index.D.wand_stats, function( i, stat )
 			if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
 			if( pen.get_hybrid_function( stat.is_advanced, info ) and not( index.D.tip_action )) then return end
 
@@ -1298,7 +1305,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 			( stat.func or pen.new_shadowed_text )(
 				t_x + 55, t_y - 1, pic_z, txt, { is_right_x = true, color = pen.PALETTE.VNL[ clr ], alpha = alpha })
-			t_y = t_y + (( i ~= #index.WAND_STATS and stat.spacer ) and spacer_size or 8 )
+			t_y = t_y + (( i ~= #index.D.wand_stats and stat.spacer ) and spacer_size or 8 )
 		end)
 		
 		off_x, off_y = pen.rotate_offset( -pic_w/2, -pic_h/2, -math.rad( 90 ))
@@ -1378,7 +1385,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 	local spacer_size = 12
 	local stats_w, stats_h = 120, 0
-	for k,c in ipairs( index.SPELL_STATS ) do
+	for k,c in ipairs( index.D.spell_stats ) do
 		local this_h = 0
 		pen.t.loop( c, function( i, stat )
 			if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
@@ -1447,7 +1454,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		local c = info.spell_info.meta.state
 		local c_proj = info.spell_info.meta.state_proj
-		for k,clm in ipairs( index.SPELL_STATS ) do
+		for k,clm in ipairs( index.D.spell_stats ) do
 			local is_right = k == 2
 			pen.t.loop( clm, function( i, stat )
 				if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
@@ -2137,367 +2144,4 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 	[5] = { pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
 	[6] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
 	[7] = { pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
-}
-
-index.BOSS_BARS = { --apocalyptic thanks to Priskip
-	["data/entities/animals/boss_alchemist/boss_alchemist.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/alchemist.png",
-		-- in_world = false,
-		-- color = pen.PALETTE.VNL.HP,
-		-- color_text = pen.PALETTE.VNL.ACTION_OTHER,
-		color_bg = { 120, 131, 146, 47/255 }, pos = { 20, 3, 294, 17 },
-		-- func = function( pic_x, pic_y, pic_z, entity_id, data ) return legnth, height end,
-		-- func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
-	},
-	-- ["data/entities/animals/boss_book/book_physics.xml"] = {},
-	["data/entities/animals/boss_centipede/boss_centipede.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/centipede.png",
-		color_bg = { 99, 155, 255, 47/255 }, pos = { 13, 6, 324, 17, 2, -3 },
-	},
-	-- ["data/entities/animals/boss_fish/fish_giga.xml"] = {}
-	-- ["data/entities/animals/boss_gate/gate_monster_a.xml"] = {},
-	-- ["data/entities/animals/boss_gate/gate_monster_b.xml"] = {},
-	-- ["data/entities/animals/boss_gate/gate_monster_c.xml"] = {},
-	-- ["data/entities/animals/boss_gate/gate_monster_d.xml"] = {},
-	-- ["data/entities/animals/boss_ghost/boss_ghost.xml"] = {},
-	-- ["data/entities/animals/boss_limbs/boss_limbs.xml"] = {},
-	-- ["data/entities/animals/boss_meat/boss_meat.xml"] = {},
-	["data/entities/animals/boss_pit/boss_pit.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/pit.png",
-		color_bg = { 155, 71, 125, 47/255 }, pos = { 31, 3, 295, 17, -1, 0 },
-	},
-	["data/entities/animals/boss_robot/boss_robot.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/robot.png",
-		color_bg = { 255, 131, 157, 47/255 }, pos = { 48, 5, 288, 15, -3, -2 },
-	},
-	-- ["data/entities/animals/boss_sky/boss_sky.xml"] = {},
-	-- ["data/entities/animals/boss_spirit/islandspirit.xml"] = {},
-	["data/entities/animals/boss_wizard/boss_wizard.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/wizard.png",
-		color_bg = { 209, 97, 97, 47/255 }, pos = { 4, 4, 302, 15, 19, -1 },
-		func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc )
-			local mode = pen.magic_storage( entity_id, "mode", "value_int" )
-			pen.new_image( pic_x - 188.5, pic_y - 9, pic_z, "mods/index_core/files/pics/priskips_bossbars/wizard_"..mode..".png" )
-		end,
-	},
-	-- ["data/entities/animals/maggot_tiny/maggot_tiny.xml"] = {},
-	-- ["data/entities/animals/parallel/alchemist/parallel_alchemist.xml"] = {},
-	-- ["data/entities/animals/parallel/tentacles/parallel_tentacles.xml"] = {},
-	-- ["data/entities/animals/friend.xml"] = {},
-	["data/entities/animals/boss_dragon.xml"] = {
-		pic = "mods/index_core/files/pics/priskips_bossbars/dragon.png",
-		color_bg = { 164, 48, 48, 55/255 }, pos = { 3, 6, 316, 12, 0, -3 },
-	},
-}
-
--- info.wand_info.speed_multiplier
--- info.wand_info.lifetime_add
--- info.wand_info.bounces
-
--- info.wand_info.crit_chance
--- info.wand_info.crit_mult
-
--- info.wand_info.damage_electricity_add
--- info.wand_info.damage_explosion_add
--- info.wand_info.damage_fire_add
--- info.wand_info.damage_melee_add
--- info.wand_info.damage_projectile_add
-index.WAND_STATS = {
-	{
-		pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
-		name = "$inventory_actionspercast",
-		desc = "$inventory_actionspercast_tooltip",
-
-		-- spacer = false,
-		-- is_hidden = false,
-		-- is_advanced = false,
-		bigger_better = true,
-		value = function( info, w )
-			return w.actions_per_round or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
-		-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_gun_capacity.png",
-		name = "$inventory_capacity",
-		desc = "$inventory_capacity_tooltip",
-
-		bigger_better = true,
-		value = function( info, w )
-			return w.deck_capacity or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-		name = "$inventory_spread",
-		desc = "$inventory_spread_tooltip",
-		
-		spacer = true,
-		value = function( info, w )
-			return w.spread_degrees or 0 end,
-		txt = function( value, info, w )
-			local v, is_dft = index.get_stat( value, nil, 0 )
-			return v.."°", is_dft
-		end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_mana_max.png",
-		name = "$inventory_manamax",
-		desc = "$inventory_manamax_tooltip",
-
-		bigger_better = true,
-		value = function( info, w )
-			return w.mana_max or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
-		name = "$inventory_manachargespeed",
-		desc = "$inventory_manachargespeed_tooltip",
-
-		spacer = true,
-		bigger_better = true,
-		value = function( info, w )
-			return w.mana_charge_speed or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
-		name = "$inventory_castdelay",
-		desc = "$inventory_castdelay_tooltip",
-
-		value = function( info, w )
-			return w.delay_time or 0 end,
-		txt = function( value, info, w )
-			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
-			return v.."s", is_dft
-		end,
-	},
-	{
-		pic = "data/ui_gfx/inventory/icon_gun_reload_time.png",
-		name = "$inventory_rechargetime",
-		desc = "$inventory_rechargetime_tooltip",
-		
-		spacer = true,
-		value = function( info, w )
-			return w.reload_time or 0 end,
-		txt = function( value, info, w )
-			if( w.never_reload ) then return "Ø", 1 end
-			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
-			return v.."s", is_dft
-		end,
-	},
-}
-
---[[
-	c.damage_total_add
-	icon_damage_projectile.png=c.damage_projectile_add
-	icon_damage_curse.png=c.damage_curse_add
-	icon_damage_explosion.png=c.damage_explosion_add
-	icon_damage_slice.png=c.damage_slice_add
-	icon_damage_melee.png=c.damage_melee_add
-	icon_damage_ice.png=c.damage_ice_add
-	icon_damage_electricity.png=c.damage_electricity_add
-	icon_damage_drill.png=c.damage_drill_add
-	icon_damage_healing.png=c.damage_healing_add
-	c.damage_fire_add
-	c.damage_holy_add
-	c.damage_physics_add
-	c.damage_poison_add
-	c.damage_radioactive_add
-
-	--c.explosion_damage_to_materials
-	c.damage_critical_multiplier
-	
-	c.lifetime_add
-
-	c_proj.damage.total
-	c_proj.damage.curse
-	c_proj.damage.drill
-	c_proj.damage.electricity
-	c_proj.damage.explosion
-	c_proj.damage.fire
-	c_proj.damage.healing
-	c_proj.damage.ice
-	c_proj.damage.melee
-	c_proj.damage.overeating
-	c_proj.damage.physics_hit
-	c_proj.damage.poison
-	c_proj.damage.projectile
-	c_proj.damage.radioactive
-	c_proj.damage.slice
-	c_proj.damage.holy
-
-	c_proj.damage_scaled_by_speed
-	c_proj.damage_every_x_frames
-		
-	c_proj.lifetime
-	
-	c_proj.on_collision_die
-	c_proj.on_death_duplicate
-	c_proj.on_death_explode
-	c_proj.on_lifetime_out_explode
-
-	c_proj.collide_with_entities
-	c_proj.penetrate_entities
-	c_proj.dont_collide_with_tag
-	c_proj.never_hit_player
-	c_proj.friendly_fire
-	c_proj.explosion_dont_damage_shooter
-
-	c_proj.collide_with_world
-	c_proj.penetrate_world
-	c_proj.go_through_this_material
-	c_proj.ground_penetration_coeff
-	c_proj.ground_penetration_max_durability
-	
-	c_proj.explosion.damage_mortals
-	c_proj.explosion.damage
-	c_proj.explosion.is_digger
-	c_proj.explosion.explosion_radius
-	c_proj.explosion.max_durability_to_destroy
-	c_proj.explosion.ray_energy
-	
-	c_proj.crit.chance
-	c_proj.crit.damage_multiplier
-	
-	c_proj.lightning.damage_mortals
-	c_proj.lightning.damage
-	c_proj.lightning.is_digger
-	c_proj.lightning.explosion_radius
-	c_proj.lightning.max_durability_to_destroy
-	c_proj.lightning.ray_energy
-]]
-
-index.SPELL_STATS = { --custom descs
-	{
-		{
-			off_x = 0, off_y = 0,
-			pic = function( info )
-				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
-					return "data/ui_gfx/inventory/icon_gun_charge.png" end
-				return "data/ui_gfx/inventory/icon_gun_actions_per_round.png"
-			end,
-			name = function( info )
-				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
-					return "Projectile Count" end
-				return "Draw Extra"
-			end,
-			desc = function( info )
-				if(( info.spell_info.meta.state.draw_many or 0 ) == 0 ) then
-					return "The number of individual projectiles this spell creates." end
-				return "The number of individual spells this card draws after being fired."
-			end,
-
-			-- spacer = false,
-			-- is_hidden = false,
-			value = function( info, c, c_proj )
-				return (( info.spell_info.meta.state.draw_many or 0 ) == 0 ) and ( c.proj_count or 0 ) or c.draw_many end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
-			-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
-		},
-		{
-			pic = "data/ui_gfx/inventory/icon_mana_drain.png",
-			name = "$inventory_manadrain",
-			
-			value = function( info, c, c_proj )
-				return info.spell_info.mana or 0 end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
-		},
-		{
-			off_y = 1,
-			pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png",
-			name = "$inventory_mod_castdelay",
-
-			value = function( info, c, c_proj )
-				return c.fire_rate_wait or 0 end,
-			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
-				return v.."s", is_dft
-			end,
-		},
-		{
-			pic = "data/ui_gfx/inventory/icon_reload_time.png",
-			name = "$inventory_mod_rechargetime",
-
-			value = function( info, c, c_proj )
-				return c.reload_time or 0 end,
-			txt = function( value, info, c, c_proj )
-				if( info.spell_info.is_chainsaw ) then return "Chainsaw", 1 end
-				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
-				return v.."s", is_dft
-			end,
-		},
-		{
-			pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-			name = "$inventory_mod_spread",
-			
-			spacer = true,
-			value = function( info, c, c_proj )
-				return c.spread_degrees or 0 end,
-			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( nil, value, 0 )
-				return v.."°", is_dft
-			end,
-		},
-	},
-	{
-		{
-			pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
-			name = "$inventory_mod_damage",
-			
-			value = function( info, c, c_proj )
-				return c_proj.damage.total or 0 end,
-			txt = function( value, info, c, c_proj )
-				if( c.damage_null_all > 0 ) then return "Ø", 1 end
-				return index.get_stat( 25*value, 25*( c.damage_total_add or 0 ), 0 )
-			end,
-		},
-		{
-			off_y = 1,
-			pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png",
-			name = "$inventory_mod_critchance",
-
-			value = function( info, c, c_proj )
-				return c_proj.crit.chance or 0 end,
-			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( value, c.damage_critical_chance, 0, false, true )
-				return v.."%", is_dft
-			end,
-		},
-		{
-			off_y = 1,
-			pic = "data/ui_gfx/inventory/icon_speed_multiplier.png",
-			name = "$inventory_mod_speed",
-
-			value = function( info, c, c_proj )
-				return c_proj.speed or 0 end,
-			txt = function( value, info, c, c_proj )
-				local added_value = c.speed_multiplier or 1
-				local v, is_dft = ( is_dft and "x" or "" )..pen.get_short_num( is_dft and added_value or ( value*added_value )), value == 0
-				return v, is_dft and ( added_value == 1 )
-			end,
-		},
-		{
-			off_y = -1,
-			pic = "data/ui_gfx/inventory/icon_bounces.png",
-			name = "$inventory_mod_bounces",
-			
-			value = function( info, c, c_proj )
-				return c_proj.bounces or 0 end,
-			txt = function( value, info, c, c_proj )
-				if( c_proj.inf_bounces ) then return "∞", 1 end
-				return index.get_stat( value, c.bounces, 0 )
-			end,
-		},
-		{
-			pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
-			name = "$inventory_mod_explosion_radius",
-
-			spacer = true,
-			value = function( info, c, c_proj )
-				return c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius or 0 end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, c.explosion_radius, 0 ) end,
-		},
-	},
 }

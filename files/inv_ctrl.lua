@@ -135,7 +135,10 @@ local screen_w, screen_h = GuiGetScreenDimensions( gui )
 
 local effect_tbl, perk_tbl = index.get_status_data( hooman )
 local mtr_action = pen.c.index_settings.info_mtr_state ~= 2 or index.get_input( "matter_action", true )
-local global_modes, global_mutators, applets, item_cats, inv = unpack( pen.c.index_struct )
+local global_modes, global_mutators, applets,
+    boss_bars, wand_stats, spell_stats, matter_desc,
+    item_cats, inv = unpack( pen.c.index_struct )
+
 index.D = {
     player_id = hooman,
     player_xy = { 0, 0 },
@@ -181,6 +184,9 @@ index.D = {
     item_list = {},
     slot_state = {},
     item_cats = item_cats,
+    boss_bars = boss_bars,
+    wand_stats = wand_stats,
+    spell_stats = spell_stats,
 
     invs = {},
     invs_i = {}, invs_e = {}, invs_p = {
