@@ -1,11 +1,13 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 if( not( ModIsEnabled( "index_core" ))) then return index.self_destruct() end
 
+-- local check = GameGetRealWorldTimeSinceStarted()*1000
+
 index.M.gonna_drop = index.M.gonna_drop or false --trigger for "drop on failure to swap"
 
-index.M.slot_memo = index.M.slot_memo or {} --a table of slot states that enables slot code even if the pointer is outside the box
+index.M.pending_slots = index.M.pending_slots or {} --a table of slot states that enables slot code even if the pointer is outside the box
 index.M.slot_anim = index.M.slot_anim or {} --fancy dragging anim
-index.M.slot_state = index.M.slot_state or false --a check that makes sure only one slot is being dragged at a time
+index.M.dragger_active = index.M.dragger_active or false --a check that makes sure only one slot is being dragged at a time
 index.M.slot_hover_sfx = index.M.slot_hover_sfx or { 0, false } --context sensitive hover sfx
 
 index.M.mouse_memo = index.M.mouse_memo or {} --for getting pointer delta
@@ -41,7 +43,7 @@ pen.c.index_settings = pen.c.index_settings or {
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
     throw_force = gg( index.GLOBAL_THROW_FORCE, 40 ),
 
-    quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
+    quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 10 ),
     inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|2|9|" )),
     effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
     min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
@@ -367,7 +369,7 @@ end
 index.D.gmod = global_modes[ index.D.global_mode ]
 index.D.gmod.name = GameTextGetTranslatedOrNot( index.D.gmod.name )
 index.D.gmod.desc = GameTextGetTranslatedOrNot( index.D.gmod.desc )
-if( not( index.D.gmod.allow_advanced_draggables )) then index.D.drag_action = false end
+-- if( index.D.do_vanilla_dropping and not( index.D.gmod.allow_advanced_draggables )) then index.D.drag_action = false end
 for i,mut in ipairs( global_mutators ) do index.D.xys = mut( index.D.xys ) end
 if( index.D.applets.done == nil ) then
     index.D.applets.done = true --make sure this is working
@@ -396,16 +398,13 @@ if( pen.vld( global_callback )) then
     inv = global_callback( screen_w, screen_h, index.D.xys, inv, false ) end
 if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( inv.full_inv )) then
-        if( performance_check ) then pen.chrono() end
         index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
-        if( performance_check ) then print( "INVENTORY" ); pen.chrono() end
     end
     if( pen.vld( inv.applet_strip )) then
         index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
     end
     
     local bars = inv.bars or {}
-    if( performance_check ) then pen.chrono() end
     if( pen.vld( bars.hp )) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( bars.air )) then index.D.xys.air = bars.air( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( bars.flight )) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
@@ -425,13 +424,10 @@ if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( icons.stains )) then index.D.xys.stains = icons.stains( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( icons.effects )) then index.D.xys.effects = icons.effects( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( icons.perks )) then index.D.xys.perks = icons.perks( screen_w, screen_h, index.D.xys ) end
-    if( performance_check ) then print( "HUD" ); pen.chrono() end
 
-    if( performance_check ) then pen.chrono() end
     if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, index.D.xys, inv.pickup_info ) end
     if( pen.vld( inv.modder )) then inv.modder( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, index.D.xys ) end
-    if( performance_check ) then print( "OTHER" ); pen.chrono() end
 end
 if( not( index.D.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do
@@ -454,17 +450,17 @@ end
 --dropping handling
 if( index.D.do_vanilla_dropping ) then
     if( index.D.dragger.item_id == 0 ) then
-        never_drop = false
-    elseif( index.D.gmod.allow_advanced_draggables or never_drop ) then
+        index.M.never_drop = false
+    elseif( index.D.gmod.allow_advanced_draggables or index.M.never_drop ) then
         index.D.dragger.wont_drop = true
-    elseif( index.D.drag_action and index.M.slot_memo[ index.D.dragger.item_id ]) then
-        never_drop = true
+    elseif( index.D.drag_action and index.M.pending_slots[ index.D.dragger.item_id ]) then
+        index.M.never_drop = true
     end
 else
     if( not( index.M.gonna_drop )) then
         if( not( index.D.drag_action ) or index.D.gmod.allow_advanced_draggables ) then
             index.D.dragger.wont_drop = true
-        elseif( index.D.drag_action and index.M.slot_memo[ index.D.dragger.item_id ]) then
+        elseif( index.D.drag_action and index.M.pending_slots[ index.D.dragger.item_id ]) then
             index.M.gonna_drop = true
         end
     elseif( index.D.dragger.item_id == 0 ) then
@@ -479,11 +475,11 @@ elseif( index.M.slot_hover_sfx[1] ~= 0 ) then
 end
 
 --dragging handling
-if( index.M.slot_state or index.D.dragger.item_id ~= 0 ) then
+if( index.M.dragger_active or index.D.dragger.item_id ~= 0 ) then
     if( index.D.dragger.swap_soon ) then
         GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool1" )
     else
-        if( not( index.M.slot_state ) or index.D.dragger.swap_now ) then
+        if( not( index.M.dragger_active ) or index.D.dragger.swap_now ) then
             if( index.D.dragger.swap_now and index.D.dragger.item_id > 0 ) then
                 if( gg( index.GLOBAL_DRAGGER_EXTERNAL, false )) then
                     GlobalsSetValue( index.GLOBAL_DRAGGER_EXTERNAL, "bool0" )
@@ -494,7 +490,7 @@ if( index.M.slot_state or index.D.dragger.item_id ~= 0 ) then
                 end
             end
             index.M.gonna_drop = false
-            index.M.slot_memo = nil
+            index.M.pending_slots = nil
             index.D.dragger = {}
         end
         GlobalsSetValue( index.GLOBAL_DRAGGER_SWAP_NOW, "bool0" )
@@ -502,7 +498,9 @@ if( index.M.slot_state or index.D.dragger.item_id ~= 0 ) then
         GlobalsSetValue( index.GLOBAL_DRAGGER_INV_CAT, tostring( index.D.dragger.inv_cat or 0 ))
         GlobalsSetValue( index.GLOBAL_DRAGGER_IS_QUICKEST, ( index.D.dragger.is_quickest or false ) and "bool1" or "bool0" )
     end
-    index.M.slot_state = false
+    index.M.dragger_active = false
 end
 
 pen.gui_builder( true )
+
+-- print( GameGetRealWorldTimeSinceStarted()*1000 - check )

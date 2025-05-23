@@ -7,6 +7,7 @@
 	></AudioLoopComponent>
 	
 	<MaterialInventoryComponent
+		_enabled="1"
 		drop_as_item="0" 
 		on_death_spill="0"
 		death_throw_particle_velocity_coeff="0"

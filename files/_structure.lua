@@ -5,7 +5,6 @@ local GLOBAL_MODES = {
         name = "FULL",
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
-        show_fullest = pen.c.index_settings.force_vanilla_fullest,
     },
     {
         name = "MANAGEMENT",
@@ -710,11 +709,11 @@ local ITEM_CATS = {
                 end,
                 function( info )
                     local out = { true, 0 }
-
+                    
                     local x, y = unpack( index.D.player_xy )
                     local p_x, p_y = unpack( index.D.pointer_world )
                     if( RaytraceSurfaces( x, y, p_x, p_y )) then return out end
-
+                    
                     if( not( EntityGetIsAlive( index.M.john_pouring or 0 ))) then
                         index.M.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y )
                         if( pen.vld( info.spray_info )) then
@@ -735,7 +734,7 @@ local ITEM_CATS = {
                         if( index.D.frame_num%5 == 0 ) then pen.magic_chugger( matter[2], index.D.pointer_world, info.id, volume ) end
                     elseif( pen.vld( info.bottle_info )) then
                         out[1] = false
-
+                        
                         local sucker_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "MaterialSuckerComponent" )
                         if( EntityGetName( index.M.john_pouring ) ~= "done" ) then
                             EntitySetName( index.M.john_pouring, "done" )
@@ -752,11 +751,11 @@ local ITEM_CATS = {
                             if( not( ComponentGetIsEnabled( mtr_comp ))) then return end
                             local total, mttrs = pen.get_matter( ComponentGetValue2( mtr_comp, "count_per_material_type" ))
                             if( total == 0 ) then return end
-
+                            
                             pen.t.loop( mttrs, function( i,m )
                                 if( m[2] == 0 ) then return end
                                 local name = CellFactory_GetName( mttrs[1])
-                                if( matter[1] < volume ) then
+                                if( matter[1] < volume ) then --this is broken
                                     local temp = math.min( matter[1] + m[2], volume )
                                     local count = temp - matter[1]; matter[1] = temp
                                     local _,pm = pen.t.get( matter[2], m[1])
@@ -859,7 +858,7 @@ local ITEM_CATS = {
             index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
             if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
             index.new_spell_frame( pic_x, pic_y,
-                pen.LAYERS.ICONS - 0.005, info.spell_info.type, is_considered and 0.6 or 1 )
+                pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 pic_x, pic_y = pic_x - 10, pic_y + 10

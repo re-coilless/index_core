@@ -188,8 +188,8 @@ function OnPlayerSpawned( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 	
-	-- CreateItemActionEntity( "LIGHTNING", x, y )
-	-- EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
+	CreateItemActionEntity( "LIGHTNING", x, y )
+	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 
 	--testing_bag insert in the chest (autoarrange in the grid to match full inv width when inside player root inventory; display contents on hover tooltip)
 	--all spells wand

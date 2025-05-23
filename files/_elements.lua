@@ -87,13 +87,15 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
                 GameTextGetTranslatedOrNot( "$hud_title_wands" ))
             pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
                 GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+            if( index.D.gmod.show_full ) then
+                pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
+                    GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+            end
         end
         
         if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
-            pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
-                GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
             for i,col in ipairs( index.D.slot_state[ index.D.invs_p.f ]) do
-                for e = 1,( not( index.D.gmod.show_fullest or false ) and 1 or #col ) do
+                for e = 1,(( index.D.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) and #col or 1 ) do
                     w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_slot = { i, e },
                         inv_id = index.D.invs_p.f, id = col[e],
@@ -1052,32 +1054,33 @@ end
 
 function index.new_generic_drop( this_item )
     local dude = EntityGetRootEntity( this_item )
-    if( dude == index.D.player_id ) then
-        index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
-        
-        local do_default = true
-        local this_info = pen.t.get( index.D.item_list, this_item )
-        local inv_data = index.D.invs[ this_info.inv_id ] or {}
-        local callback = index.cat_callback( this_info, "on_drop" )
-        if( pen.vld( callback )) then do_default = callback( this_item, this_info, false ) end
-        if( pen.vld( inv_data.update ) and inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
-            local reset_id = pen.get_item_owner( p, true )
-            if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
-        end
-        if( do_default ) then
-            local x, y = unpack( index.D.player_xy )
-            index.drop_item( x, y, this_info, index.D.throw_force, not( index.D.no_action_on_drop ))
-        end
-        if( pen.vld( callback )) then callback( this_item, this_info, true ) end
-    else index.play_sound( "error" ) end
+    if( dude ~= index.D.player_id ) then index.play_sound( "error" ); return end
+
+    index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
+    
+    local do_default = true
+    local this_info = pen.t.get( index.D.item_list, this_item )
+    local inv_data = index.D.invs[ this_info.inv_id ] or {}
+    local callback = index.cat_callback( this_info, "on_drop" )
+    if( pen.vld( callback )) then do_default = callback( this_item, this_info, false ) end
+    if( pen.vld( inv_data.update ) and inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
+        local reset_id = pen.get_item_owner( p, true )
+        if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
+    end
+    if( do_default ) then
+        local x, y = unpack( index.D.player_xy )
+        index.drop_item( x, y, this_info, index.D.throw_force, not( index.D.no_action_on_drop ))
+    end
+    if( pen.vld( callback )) then callback( this_item, this_info, true ) end
 end
 
 function index.new_generic_extra( screen_w, screen_h, xys )
-    if( pen.vld( index.D.invs_e )) then return end
+    if( not( pen.vld( index.D.invs_e ))) then return end
     for i,extra_inv in ipairs( index.D.invs_e ) do
         local x, y = EntityGetTransform( extra_inv )
         local pic_x, pic_y = pen.world2gui( x, y )
-        inv_data.func( pic_x, pic_y, index.D.invs[ extra_inv ], xys, index.D.slot_func )
+        local inv_info = index.D.invs[ extra_inv ]
+        inv_info.func( pic_x, pic_y, inv_info, xys, index.D.slot_func )
     end
 end
 

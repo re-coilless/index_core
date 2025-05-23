@@ -6,9 +6,13 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- dragging
--- dropping
--- new_vanilla_wand
+-- dragger should not care about item offsets
+-- make in-inv tips be hoverable
+-- scale inv bg to match the slots
+-- send to storage (put at the bottom rows of inv) + shift clicks
+-- wand scrolling (should work with dragger)
+-- another code audit
+-- docs
 
 -- new_vanilla_wtt
 -- new_vanilla_stt
@@ -16,8 +20,6 @@ index.M = index.M or {} --interframe memory values
 -- new_slot_pic
 -- register_item_pic
 -- swap_anim
--- check_dragger_buffer
--- new_dragger_shell
 
 ------------------------------------------------------		 [BACKEND]		------------------------------------------------------
 
@@ -380,22 +382,6 @@ function index.swap_anim( item_id, end_x, end_y )
 	return end_x, end_y
 end
 
-function index.check_dragger_buffer( id ) --kinda sus
-	index.M.dragger_buffer = index.M.dragger_buffer or { 0, 0 }
-	if( GameGetFrameNum() - index.M.dragger_buffer[2] > 2 ) then
-		index.M.dragger_buffer = { 0, 0 }
-	end
-	
-	local will_do = true
-	local will_force = false
-	local will_update = true
-	if( index.M.dragger_buffer[1] ~= 0 ) then
-		will_do = index.M.dragger_buffer[1] == id
-		will_update, will_force = will_do, will_do
-	end
-	return will_do, will_force, will_update
-end
-
 function index.get_stat( main_value, added_value, default, allow_inf )
 	main_value, added_value = main_value or default, added_value or 0
 	local is_dft = main_value == default
@@ -445,20 +431,20 @@ function index.get_valid_invs( inv_cat, is_quickest )
 end
 
 function index.get_inv_info( inv_id, size, kind, kind_func, check_func, update_func, gui_func, sort_func )
-	local kind_data = pen.magic_storage( inv_id, "index_kind", "value_string" )
-	if( kind_data ~= nil ) then kind = pen.t.pack( kind_data ) end
-	local kind_path = pen.magic_storage( inv_id, "index_kind_func", "value_string" )
-	if( kind_path ~= nil ) then kind_func = dofile( kind_path ) end
-	local size_data = pen.magic_storage( inv_id, "index_size", "value_string" )
-	if( size_data ~= nil ) then size = pen.t.pack( size_data, true ) end
-	local gui_path = pen.magic_storage( inv_id, "index_gui", "value_string" )
-	if( gui_path ~= nil ) then gui_func = dofile_once( gui_path ) end
-	local check_path = pen.magic_storage( inv_id, "index_check", "value_string" )
-	if( check_path ~= nil ) then check_func = dofile_once( check_path ) end
-	local update_path = pen.magic_storage( inv_id, "index_update", "value_string" )
-	if( update_path ~= nil ) then update_func = dofile_once( update_path ) end
-	local sort_path = pen.magic_storage( inv_id, "index_sort", "value_string" )
-	if( sort_path ~= nil ) then sort_func = dofile_once( sort_path ) end
+	local kind_data = pen.magic_storage( inv_id, "index_inv_kind", "value_string" )
+	if( pen.vld( kind_data )) then kind = pen.t.pack( kind_data ) end
+	local kind_path = pen.magic_storage( inv_id, "index_inv_kind_func", "value_string" )
+	if( pen.vld( kind_path )) then kind_func = dofile( kind_path ) end
+	local size_data = pen.magic_storage( inv_id, "index_inv_size", "value_string" )
+	if( pen.vld( size_data )) then size = pen.t.pack( size_data, true ) end
+	local gui_path = pen.magic_storage( inv_id, "index_inv_gui", "value_string" )
+	if( pen.vld( gui_path )) then gui_func = dofile_once( gui_path ) end
+	local check_path = pen.magic_storage( inv_id, "index_inv_check", "value_string" )
+	if( pen.vld( check_path )) then check_func = dofile_once( check_path ) end
+	local update_path = pen.magic_storage( inv_id, "index_inv_update", "value_string" )
+	if( pen.vld( update_path )) then update_func = dofile_once( update_path ) end
+	local sort_path = pen.magic_storage( inv_id, "index_inv_sort", "value_string" )
+	if( pen.vld( sort_path )) then sort_func = dofile_once( sort_path ) end
 	
 	local inv_ts = {
 		inventory_full = { "full" },
@@ -607,9 +593,9 @@ function index.set_to_slot( info, is_player )
 end
 
 function index.slot_swap( item_in, slot_info )
-	local reset, idata = { 0, 0 }, {
-		pen.t.get( index.D.item_list, item_in, nil, nil, {}),
-		pen.t.get( index.D.item_list, slot_info.id, nil, nil, {})}
+	local reset, idata = { 0, 0 }, {}
+	idata[1] = pen.t.get( index.D.item_list, item_in, nil, nil, {})
+	idata[2] = pen.t.get( index.D.item_list, slot_info.id, nil, nil, {})
 	local parent1, parent2 = EntityGetParent( item_in ), slot_info.inv_id
 	
 	pen.t.loop({ parent1, parent2 }, function( i, p )
@@ -723,7 +709,7 @@ function index.get_item_data( item_id, inv_info, item_list )
 	end
 	
 	info.ItemC = item_comp
-	local inv_name = pen.magic_storage( item_id, "preferred_inventory", "value_string" )
+	local inv_name = pen.magic_storage( item_id, "index_inv_cat", "value_string" )
 	info.inv_cat = index.INVS[ inv_name or ComponentGetValue2( item_comp, "preferred_inventory" )] or 0
 	
 	local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
@@ -742,11 +728,8 @@ function index.get_item_data( item_id, inv_info, item_list )
 		info.is_locked = true
 	end
 
-	info.charges = pen.magic_storage( item_id, "current_charges", "value_int" )
+	info.charges = pen.magic_storage( item_id, "index_charges", "value_int" )
 	info.charges = info.charges	or ComponentGetValue2( item_comp, "uses_remaining" )
-
-	index.M.cbk_tbl = index.M.cbk_tbl or {} --cache this
-	index.M.cbk_tbl[ item_id ] = index.M.cbk_tbl[ item_id ] or {}
 
 	local callback_list = {
 		-- "on_check", "on_info_name",
@@ -950,19 +933,19 @@ function index.slot_z( dragged_id, pic_z )
 end
 
 function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
-	if( index.M.slot_state ) then return pic_x, pic_y end
-	local will_do, will_force, will_update = index.check_dragger_buffer( id )
-	if( not( will_do )) then return pic_x, pic_y end
-	local is_within = pen.check_bounds( index.D.pointer_ui, { -pic_w, pic_w, -pic_h, pic_h }, { pic_x, pic_y })
-	if( not( will_force or is_within or index.M.slot_memo[ id ])) then return pic_x, pic_y end
-	local new_x, new_y, drag_state = 0, 0, 0
-	if( index.M.dragger_buffer[1] == 0 ) then index.M.dragger_buffer = { id, index.D.frame_num } end
+	if( index.M.dragger_active ) then return pic_x, pic_y end
+	index.M.dragger_buffer = index.M.dragger_buffer or { 0, 0 }
+	if( index.D.frame_num - index.M.dragger_buffer[2] > 2 ) then index.M.dragger_buffer = { 0, 0 } end
+
+	local d_x, d_y = index.M.dragger_x or pic_x, index.M.dragger_y or pic_y
+	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered = pen.new_dragger( id, pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h )
+	if( not( is_hovered ) and drag_state == 0 ) then return pic_x, pic_y end
+	if( pen.vld( index.M.dragger_buffer[1], true ) and index.M.dragger_buffer[1] ~= id ) then return pic_x, pic_y end
+	if( not( pen.vld( index.M.dragger_buffer[1], true ))) then index.M.dragger_buffer = { id, index.D.frame_num } end
 	if( not( pen.vld( index.D.dragger.item_id, true ))) then index.D.dragger.item_id = id end
 
-	local clicked, r_clicked, hovered = false, false, false
 	if( index.D.dragger.item_id == id ) then
-		new_x, new_y, drag_state, clicked, r_clicked, hovered = pen.new_dragger( id, pic_x, pic_y )
-		if( index.M.slot_memo[ id ] and drag_state > 0 ) then
+		if( index.M.pending_slots[ id ] and drag_state < 0 ) then
 			index.D.dragger.swap_soon = true
 			table.insert( index.M.slot_anim, {
 				id = id,
@@ -972,16 +955,18 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 			})
 		end
 
-		index.M.dragger_x, index.M.dragger_y = new_x, new_y
 		index.D.dragger.inv_cat = info.inv_cat
 		index.D.dragger.is_quickest = info.is_quickest
+
+		new_x, new_y = new_x + pic_w/2, new_y + pic_h/2
+		index.M.dragger_x, index.M.dragger_y = new_x, new_y
 		pic_x, pic_y = new_x, new_y
 		
-		index.M.slot_memo[ id ] = hovered and has_begun
-		if( index.M.slot_memo[ id ]) then index.M.dragger_buffer[2] = index.D.frame_num end
-		index.M.slot_state = true
+		index.M.pending_slots[ id ] = drag_state > 0
+		if( index.M.pending_slots[ id ]) then index.M.dragger_buffer[2] = index.D.frame_num end
+		index.M.dragger_active = true
 	end
-	return pic_x, pic_y, clicked, r_clicked, hovered
+	return pic_x, pic_y, drag_state, clicked, r_clicked, is_hovered
 end
 
 function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
@@ -1315,7 +1300,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		
 		if( pen.vld( info.desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.5*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
 		end
 
 		local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 2, pic_y - 2, size_x + 4, size_y + 4, pic_z + 0.1 )
@@ -1441,7 +1426,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		if( not( is_simple or index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.5*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
 		end
 
 		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
@@ -1562,7 +1547,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		local icon_x, icon_y = pos_x + scale_x - ( d.edging + icon_w ), pos_y + ( scale_y - icon_h )/2
 		pen.new_image( icon_x, icon_y, pic_z, info.pic, { s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha })
 		
-		if( matter[1] > 0 ) then
+		if( matter[1] > 0 ) then --this breaks in chest inv
 			local cut = pic_scale*info.potion_cutout
 			local step = ( icon_h - 2*cut )*math.max( math.min( 1 - matter[1]/info.matter_info.volume, 1 ), 0 ) + cut
 			pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v )
@@ -1573,7 +1558,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		if( pen.vld( matter_desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.5*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
 		end
 
 		if( not( will_matter )) then return end
@@ -1864,12 +1849,12 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		end
 		
 		if( index.D.dragger.item_id == info.id ) then return end
-		if( not( index.M.slot_memo[ index.D.dragger.item_id ])) then return end
+		if( not( index.M.pending_slots[ index.D.dragger.item_id ])) then return end
 		pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.MAIN_FRONT + 0.001, index.D.slot_pic.hl )
 		dragger_hovered = true
 	end)
 
-	if( no_hov_for_ya ) then is_hovered = false end
+	--if( no_hov_for_ya ) then is_hovered = false end --allow_tips_always is broken because of this
 	if((( pen.vld( info.id, true ) and is_hovered ) or dragger_hovered ) and not( index.M.slot_hover_sfx[2])) then
 		local slot_uid = table.concat({ tonumber( slot_data.inv_id ), "|", slot_data.inv_slot[1], ":", slot_data.inv_slot[2]})
 		if( index.M.slot_hover_sfx[1] ~= slot_uid ) then
@@ -1881,8 +1866,8 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	
 	local slot_x, slot_y = pic_x - w/2, pic_y - h/2
 	if( can_drag ) then
-		if( pen.vld( info.id, true ) and not( index.D.dragger.swap_now or index.M.slot_state )) then
-			pic_x, pic_y = index.new_dragger_shell( info.id, info, pic_x, pic_y, w/2, h/2 )
+		if( pen.vld( info.id, true ) and not( index.D.dragger.swap_now or index.M.dragger_active )) then
+			pic_x, pic_y = index.new_dragger_shell( info.id, info, pic_x, pic_y, w, h )
 		end
 	elseif( index.D.is_opened ) then
 		if( is_full ) then
@@ -1895,11 +1880,11 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		if( not( pen.vld( info.id, true ))) then return end
 
 		local suppress_charges, suppress_action = false, false
-		local is_dragged = index.M.slot_memo[ index.D.dragger.item_id ] and index.D.dragger.item_id == info.id
+		local is_dragged = index.M.pending_slots[ index.D.dragger.item_id ] and index.D.dragger.item_id == info.id
 		if( pen.vld( cat_tbl.on_slot )) then
 			if( no_action and is_dragged ) then pic_x, pic_y = pic_x + 10, pic_y + 10 end
 			pic_x, pic_y = index.swap_anim( info.id, pic_x, pic_y )
-
+			
 			info, suppress_charges, suppress_action = cat_tbl.on_slot( info, pic_x, pic_y, {
 				is_lmb = clicked,
 				is_rmb = r_clicked,
@@ -1928,15 +1913,11 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 			if( not( info.is_consumable )) then
 				local cross_x, cross_y = slot_x - 2*shift, slot_y - 2*shift
 				pen.new_image( cross_x, cross_y, pen.LAYERS.ICONS_FRONT,
-					"mods/index_core/files/pics/vanilla_no_cards.xml" )
-				pen.new_image( cross_x + 0.5, cross_y + 0.5, pen.LAYERS.ICONS_FRONT + 0.001,
-					"mods/index_core/files/pics/vanilla_no_cards.xml", { color = {0,0,0}, alpha = 0.75 })
+					"mods/index_core/files/pics/vanilla_no_cards.xml", { has_shadow = true })
 			else EntityKill( info.id ) end
 		else
 			pen.new_text( slot_x + ( 1 - shift ), slot_y, pen.LAYERS.ICONS_FRONT,
-				math.floor( info.charges ), { is_huge = false })
-			pen.new_text( slot_x + ( 1 - shift ) + 0.5, slot_y + 0.5, pen.LAYERS.ICONS_FRONT + 0.0001,
-				math.floor( info.charges ), { is_huge = false, color = pen.PALETTE.B, alpha = 0.75 })
+				math.floor( info.charges ), { has_shadow = true, is_huge = false })
 		end
 	end)
 	
@@ -1972,87 +1953,109 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 	end
 
 	step_x, step_y = info.w_spacing[2] + info.w_spacing[3], 19 + info.w_spacing[4]
-	-- index.D.tip_func( info.id, pen.LAYERS.MAIN_DEEP, { "", pic_x, pic_y, step_x, step_y }, { function( pic_x, pic_y, pic_z, inter_alpha, info )
-	-- 	local is_shuffle, is_multi = info.wand_info.shuffle_deck_when_empty, info.wand_info.actions_per_round > 1
-	-- 	if( is_shuffle or is_multi ) then
-	-- 		if( is_shuffle ) then
-	-- 			pen.new_image( pic_x, pic_y, pic_z,
-	-- 				"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
-	-- 			pen.new_image( pic_x + 0.5, pic_y + 0.5, pic_z + 0.001,
-	-- 				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
-	-- 		end
-	-- 		if( is_multi ) then
-	-- 			local multi_y = pic_y + info.w_spacing[4]
-	-- 			pen.new_image( pic_x, multi_y + 11, pic_z,
-	-- 				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { alpha = inter_alpha })
-	-- 			pen.new_image( pic_x + 0.5, multi_y + 10.5, pic_z + 0.001,
-	-- 				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
-	-- 			pen.new_text( pic_x + 9, multi_y + 10, pic_z,
-	-- 				info.wand_info.actions_per_round, { color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
-	-- 			pen.new_text( pic_x + 9.5, multi_y + 9.5, pic_z + 0.001,
-	-- 				info.wand_info.actions_per_round, { color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
-	-- 		end
-	-- 	end
+	
+	-- local pic_scale = 1.5
+	-- local icon_w, icon_h = pen.get_pic_dims( info.pic )
+	-- icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
 
-	-- 	local drift, section_off = info.w_spacing[1], info.w_spacing[2]
-	-- 	index.new_slot_pic( pic_x + drift, pic_y + 9 + info.w_spacing[4]/2, pic_z + 0.005, info.pic, false, scale, true, inter_alpha )
-	-- 	local clicked, r_clicked, is_hovered = pen.new_interface(
-	-- 		pic_x, pic_y, section_off, 18 + info.w_spacing[4], pic_z - 0.001 )
-	-- 	pic_x = pic_x + section_off
-	-- 	if( info.is_frozen ) then
-	-- 		pen.new_image( pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
-	-- 			"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
-	-- 		index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
-	-- 	end
-	-- 	if( is_hovered ) then
-	-- 		index.cat_callback( info, "on_tooltip", { "", pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
-	-- 	end
-	-- 	pen.new_image( pic_x, pic_y - 1, pic_z,
-	-- 		"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })
+	-- local title_w, title_h = pen.get_text_dims( info.name, true )
+	-- local desc_w, desc_h = unpack( pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
+	-- local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+
+	index.D.tip_func( "", {
+		tid = "wand"..info.id, info = info, is_active = true,
+		pic_z = pen.LAYERS.MAIN_DEEP, pos = { pic_x, pic_y }, dims = { step_x, step_y },
+	}, function( t, d )
+		local info = d.info
+		local size_x, size_y = unpack( d.dims )
+		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
-	-- 	local slot_count = info.wand_info.deck_capacity
-	-- 	if( slot_count > 26 ) then
-	-- 		--arrows (small bouncing of slot row post scroll based on the direction scrolled)
-	-- 		--use temp cutouts for transition
-	-- 	end
+		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
 
-	-- 	if( can_tinker == nil ) then
-	-- 		can_tinker = not( info.is_frozen )
-	-- 		if( can_tinker ) then
-	-- 			can_tinker = index.D.can_tinker or EntityHasTag( info.id, "index_unlocked" )
-	-- 		end
-	-- 	end
+		local is_shuffle = info.wand_info.shuffle_deck_when_empty
+		if( is_shuffle ) then
+			pen.new_image( pic_x, pic_y, pic_z,
+				"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
+			pen.new_image( pic_x + 0.5, pic_y + 0.5, pic_z + 0.001,
+				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
+		end
 
-	-- 	local counter = 1
-	-- 	local slot_x, slot_y = pic_x + 2, pic_y - 1 + info.w_spacing[4]
-	-- 	local slot_data = index.D.slot_state[ info.id ]
-	-- 	for i,col in ipairs( slot_data ) do
-	-- 		for e,slot in ipairs( col ) do
-	-- 			local idata = nil
-	-- 			if( slot ) then
-	-- 				idata = pen.t.get( index.D.item_list, slot )
-	-- 				if( idata.is_permanent ) then
-	-- 					pen.new_image( slot_x + 1, slot_y + 12, pen.LAYERS.ICONS_FRONT,
-	-- 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
-	-- 					pen.new_image( slot_x + 1.5, slot_y + 11.5, pen.LAYERS.ICONS_FRONT + 0.0001,
-	-- 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { color = {0,0,0}, alpha = 0.75 })
-	-- 				end
-	-- 			end
+		local is_multi = info.wand_info.actions_per_round > 1
+		if( is_multi ) then
+			local multi_y = pic_y + info.w_spacing[4]
+			pen.new_image( pic_x, multi_y + 11, pic_z,
+				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { alpha = inter_alpha })
+			pen.new_image( pic_x + 0.5, multi_y + 10.5, pic_z + 0.001,
+				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
+			pen.new_text( pic_x + 9, multi_y + 10, pic_z,
+				info.wand_info.actions_per_round, { color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
+			pen.new_text( pic_x + 9.5, multi_y + 9.5, pic_z + 0.001,
+				info.wand_info.actions_per_round, { color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
+		end
+
+		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
+		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
+		local scale_x, scale_y = size_x - inter_size, size_y - inter_size
+		
+		local gui, uid = pen.gui_builder()
+		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
+		GuiZSetForNextWidget( gui, pic_z + 0.01 )
+		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
+
+		local drift, section_off = info.w_spacing[1], info.w_spacing[2]
+		index.new_slot_pic( pic_x + drift, pic_y + 9 + info.w_spacing[4]/2, pic_z + 0.005, info.pic, false, scale, true, inter_alpha )
+		local clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, section_off, 18 + info.w_spacing[4], pic_z - 0.001 )
+		pic_x = pic_x + section_off
+		if( info.is_frozen ) then
+			pen.new_image( pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
+				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
+			index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
+		end
+		if( is_hovered ) then
+			index.cat_callback( info, "on_tooltip", { "", pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
+		end
+		pen.new_image( pic_x, pic_y - 1, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })
+		
+		local slot_count = info.wand_info.deck_capacity
+		if( slot_count > 26 ) then
+			--arrows (small bouncing of slot row post scroll based on the direction scrolled)
+			--use temp cutouts for transition
+		end
+
+		if( can_tinker == nil ) then
+			can_tinker = not( info.is_frozen )
+			if( can_tinker ) then can_tinker = index.D.can_tinker or EntityHasTag( info.id, "index_unlocked" ) end
+		end
+
+		local counter = 1
+		local slot_x, slot_y = pic_x + 2, pic_y - 1 + info.w_spacing[4]
+		local slot_data = index.D.slot_state[ info.id ]
+		for i,col in ipairs( slot_data ) do
+			for e,slot in ipairs( col ) do
+				local idata = nil
+				if( slot ) then
+					idata = pen.t.get( index.D.item_list, slot )
+					if( idata.is_permanent ) then
+						pen.new_image( slot_x + 1, slot_y + 12, pen.LAYERS.ICONS_FRONT,
+							"data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
+						pen.new_image( slot_x + 1.5, slot_y + 11.5, pen.LAYERS.ICONS_FRONT + 0.0001,
+							"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { color = {0,0,0}, alpha = 0.75 })
+					end
+				end
 				
-	-- 			if( counter%2 == 0 and slot_count > 2 ) then
-	-- 				pen.colourer( nil, {185,220,223}) end
-	-- 			w, h = index.new_generic_slot( slot_x, slot_y, {
-	-- 				inv_id = info.id,
-	-- 				id = slot,
-	-- 				inv_slot = { i, e },
-	-- 				idata = idata,
-	-- 			}, can_tinker, true, false )
-	-- 			slot_x, slot_y = slot_x, slot_y + h
-	-- 			counter = counter + 1
-	-- 		end
-	-- 		slot_x, slot_y = slot_x + w, pic_y - 1 + info.w_spacing[4]
-	-- 	end
-	-- end, info }, true, nil, nil, in_hand )
+				if( counter%2 == 0 and slot_count > 2 ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
+
+				w, h = index.new_generic_slot( slot_x, slot_y, {
+					inv_slot = { i, e },
+					inv_id = info.id, id = slot,
+				}, can_tinker, true, false )
+				slot_x, slot_y = slot_x, slot_y + h
+				counter = counter + 1
+			end
+			slot_x, slot_y = slot_x + w, pic_y - 1 + info.w_spacing[4]
+		end
+	end)
 
 	return step_x + 7, step_y + 7
 end
