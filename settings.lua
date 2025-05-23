@@ -94,7 +94,7 @@ mod_settings =
 				id = "PICKUP_DISTANCE",
 				ui_name = "Maximum Pickup Distance",
 				ui_description = "Furthest the system will check for items to be picked up.",
-				value_default = 50,
+				value_default = 100,
 				
 				value_min = 15,
 				value_max = 200,

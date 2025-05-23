@@ -1017,7 +1017,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         end
     end
 
-    local do_action = button_time and pen.vld( interactables )
+    local do_action = is_button and pen.vld( interactables )
     if( do_action ) then
         table.sort( interactables, function( a, b ) return a.d < b.d end)
 

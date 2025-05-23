@@ -929,7 +929,7 @@ end
 ------------------------------------------------------		[GUI]		------------------------------------------------------
 
 function index.slot_z( dragged_id, pic_z )
-	return index.D.dragger.item_id == dragged_id and pic_z - 2 or pic_z
+	return index.D.dragger.item_id == dragged_id and 2*pen.LAYERS.TIPS or pic_z
 end
 
 function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )

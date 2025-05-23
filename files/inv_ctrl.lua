@@ -43,7 +43,7 @@ pen.c.index_settings = pen.c.index_settings or {
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
     throw_force = gg( index.GLOBAL_THROW_FORCE, 40 ),
 
-    quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 10 ),
+    quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
     inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|2|9|" )),
     effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
     min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
@@ -262,11 +262,11 @@ index.D.can_tinker = pen.get_tinker_state( index.D.player_id, index.D.player_xy[
 if( pen.vld( ctrl_comp, true )) then
     index.D.Controls = {
         comp = ctrl_comp,
-        fly = { mnee.vanilla_input( "Fly" )},
-        act = { mnee.vanilla_input( "Interact" )},
-        inv = { mnee.vanilla_input( "Inventory" )},
-        lmb = { mnee.vanilla_input( "LeftClick" )},
-        rmb = { mnee.vanilla_input( "RightClick" )},
+        fly = { mnee.vanilla_input( "Fly", hooman )},
+        act = { mnee.vanilla_input( "Interact", hooman )},
+        inv = { mnee.vanilla_input( "Inventory", hooman )},
+        lmb = { mnee.vanilla_input( "LeftClick", hooman )},
+        rmb = { mnee.vanilla_input( "RightClick", hooman )},
     }
 end
 if( pen.vld( dmg_comp, true )) then
