@@ -1,12 +1,3 @@
-conjurer wands are in reversed order
-if the pointer is dragged outside the box while dropping, it throws it
-
-wand slot scrolling
-allow fake spell injection (just add a spell that gets lua input; the icon is hermes logo; make one local and one global)
-generic game effects should only be displayed if uiicons was detected
-pickup inv
-make custom monospace highres font
-
 EntityGetHotspot( entity:int, hotspot_tag:string, transformed:bool, include_disabled_components:bool = false )
 SessionNumbersGetValue( key:string ) -> string
 SessionNumbersSetValue( key:string, value:string )
@@ -17,6 +8,7 @@ PhysicsKeepInWorldComponent
 CharacterData/CharacterCollision dont_update_velocity_and_xform - use this for custom speed controller
 
 [WARNING] THIS ENTIRE DOC IS HOPELESSLY OBSOLETE!!!
+just do mnee style doc
 
 slot_info.inv_kind - the kind of inventory the item is in rn
 slot_info.inv_cat - all the inventory categories this item can be inserted into
@@ -32,11 +24,11 @@ Changes to vanilla game:
 - gamepickupitem does not work
 - InventoryGuiComponent and ItemPickUpperComponent are permananetly disabled
 - fungal shift now has the list of all the shifts in the perk
-- gamepad is not supported and never will be
+- gamepad is not supported (yet)
 List of altered vanilla files:
 - 
 How to modify:
-- append to _structure.lua
+- append to _structure.lua or add var storages
 
 [CORE FUNCTIONALITY]
 - by default, the state of ui is controlled by the state of controlcomp
@@ -61,10 +53,6 @@ How to modify:
 - there's applet strip that allows to intergrate external global mods in a highly compatible way
 
 [OPTIONS]
-
-[Z-LAYERS]
-why is needed (recommend to not tinker with em)
-description to every z-layer
 
 [GLOBAL MODES]
 why is needed

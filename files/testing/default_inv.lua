@@ -1,7 +1,7 @@
 return function( pic_x, pic_y, inv_info, xys, slot_func )
     local inv_id = inv_info.id
     if( EntityGetRootEntity( inv_id ) ~= inv_id ) then return end
-    if( pen.vld( index.D.item_list ) and index.D.is_opened and index.D.gmod.allow_external_inventories ) then
+    if( index.D.is_opened and index.D.gmod.allow_external_inventories ) then
         local w, h, step = 0, 0, 1
         
         local slot_data = index.D.slot_state[ inv_id ]
@@ -30,7 +30,7 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         
         local alpha = 0.7
         local w, h = pen.get_pic_dims( pic )
-        local clicked, _, is_hovered = pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_BACK + 0.0001,
+        local clicked, _, is_hovered = pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_BACK + 0.001,
             pic, { color = pen.PALETTE.SHADOW, alpha = 0.3, can_click = true })
         if( not( index.D.is_opened )) then
             index.D.tip_func( index.is_inv_empty( index.D.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]", { is_active = is_hovered })

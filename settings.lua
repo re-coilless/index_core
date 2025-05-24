@@ -241,6 +241,7 @@ mod_settings =
 				ui_description = "Slots display the tooltips even if the inventory is closed.",
 				value_default = false,
 				
+				is_hidden = true,
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},

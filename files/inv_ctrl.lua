@@ -42,7 +42,7 @@ pen.c.index_settings = pen.c.index_settings or {
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
     throw_force = gg( index.GLOBAL_THROW_FORCE, 40 ),
-
+    
     quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
     inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|2|9|" )),
     effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
@@ -147,6 +147,7 @@ index.D = {
 
     pointer_world = { m_x, m_y },
     pointer_ui = { mui_x, mui_y },
+    screen_dims = { screen_w, screen_h },
     pointer_delta = { muid_x, muid_y, math.sqrt( muid_x^2 + muid_y^2 )},
     pointer_delta_world = { md_x, md_y, math.sqrt( md_x^2 + md_y^2 )},
     pointer_matter = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0,
@@ -317,11 +318,14 @@ pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
     index.D.invs[ inv ] = index.get_inv_info( inv )
     table.insert( index.D.invs_e, inv )
 end)
+if( pen.vld( index.D.active_item, true )) then
+    if( EntityGetParent( index.D.active_item ) == index.D.invs_p.f ) then index.D.active_item = 0; pen.reset_active_item( index.D.player_id ) end
+end
 
 --item data init
 index.get_items( hooman )
 if( pen.vld( index.D.active_item, true )) then
-    index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item )
+    index.D.active_info = pen.t.get( index.D.item_list, index.D.active_item, nil, nil, {})
     if( pen.vld( index.D.active_info.id, true )) then
         if( pen.vld( index.D.active_info.AbilityC, true )) then
             index.M.shot_count = index.M.shot_count or {}
@@ -400,9 +404,6 @@ if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( inv.full_inv )) then
         index.D.xys.inv_root, index.D.xys.full_inv = inv.full_inv( screen_w, screen_h, index.D.xys )
     end
-    if( pen.vld( inv.applet_strip )) then
-        index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
-    end
     
     local bars = inv.bars or {}
     if( pen.vld( bars.hp )) then index.D.xys.hp = bars.hp( screen_w, screen_h, index.D.xys ) end
@@ -410,6 +411,10 @@ if( not( index.D.gmod.nuke_default )) then
     if( pen.vld( bars.flight )) then index.D.xys.flight = bars.flight( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( bars.bossbar )) then index.D.xys.bossbar = bars.bossbar( screen_w, screen_h, index.D.xys ) end
     
+    if( pen.vld( inv.applet_strip )) then
+        index.D.xys.applets_l, index.D.xys.applets_r = inv.applet_strip( screen_w, screen_h, index.D.xys )
+    end
+
     local actions = bars.action or {}
     if( pen.vld( actions.mana )) then index.D.xys.mana = actions.mana( screen_w, screen_h, index.D.xys ) end
     if( pen.vld( actions.reload )) then index.D.xys.reload = actions.reload( screen_w, screen_h, index.D.xys ) end
@@ -502,5 +507,6 @@ if( index.M.dragger_active or index.D.dragger.item_id ~= 0 ) then
 end
 
 pen.gui_builder( true )
+index.D = nil
 
 -- print( GameGetRealWorldTimeSinceStarted()*1000 - check )

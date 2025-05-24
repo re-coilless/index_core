@@ -167,9 +167,9 @@ function OnPlayerSpawned( hooman )
 	dofile_once( "mods/index_core/files/_lib.lua" )
 
 	local initer = "HERMES_INDEX_MOMENT"
-	if( GameHasFlagRun( initer )) then
-		return
-	else GameAddFlagRun( initer ) end
+	if( GameHasFlagRun( initer )) then return end
+	GameAddFlagRun( initer )
+	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 	
 	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({

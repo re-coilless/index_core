@@ -509,7 +509,7 @@ local ITEM_CATS = {
             if( not( index.D.is_opened )) then return end
 
             pic_x, pic_y = unpack( pen.vld( index.D.wand_inventory ) and index.D.wand_inventory or index.D.xys.full_inv )
-            w, h = index.D.wand_func( pic_x + 2*pen.b2n( state_tbl.in_hand ), pic_y, info, state_tbl.in_hand )
+            w, h = index.D.wand_func( pic_x + 2*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
             index.D.wand_inventory = { pic_x, pic_y + h }
         end,
         on_tooltip = index.new_vanilla_wtt,
@@ -518,8 +518,16 @@ local ITEM_CATS = {
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
                 index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
-            if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "wtt"..info.id, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS ) end
+            local is_allowed = true
+            local tid, shown_wtt = "wtt"..info.id, false
+            local is_pinned = pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3]
+            if(( index.M.wtt_safety or tid ) == tid and not( state_tbl.is_hov )) then
+                index.M.wtt_safety = nil elseif(( index.M.wtt_safety or tid ) ~= tid ) then is_allowed = false end
+            if( state_tbl.is_opened and ( state_tbl.is_hov or is_pinned ) and pen.vld( hov_func ) and is_allowed ) then
+                hov_func( info, tid, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS )
+                index.M.wtt_safety, shown_wtt = tid, true
+            end
+
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
 
@@ -547,6 +555,8 @@ local ITEM_CATS = {
 
                 if( info.charges == 0 and was_there ) then info.charges = 0.1 end
             end
+
+            if( not( shown_wtt )) then index.M.wtt_safety = nil end
 
             return info
         end,
@@ -616,7 +626,7 @@ local ITEM_CATS = {
                 info.spray_info = {
                     ComponentGetValue2( info.SprayC, "file" ),
                     ComponentGetValue2( info.SprayC, "event_name" )}
-            else info.SprayC = nil end
+            end
 
             if( info.is_true_potion ) then
                 info.name, info.fullness = index.get_potion_info(
@@ -665,13 +675,15 @@ local ITEM_CATS = {
 
             local pic_data = pen.cache({ "index_pic_data", info.pic })
             if( not( nuke_it )) then
-                if( pen.vld( pic_data.memo_xy )) then
+                if( pen.vld( pic_data.memo_xy )) then -- potion is not shifting properly on action
                     pic_data.memo_xy = pic_data.xy; pic_data.xy = { pic_data.dims[1]/2, -2 }
-                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) - ( pic_data.dims[2]/2 + 2 )
+                    pen.c.estimator_memo.sucking_drift =
+                        ( pen.c.estimator_memo.sucking_drift or 0 ) - ( pic_data.dims[2]/2 + 2 )
                 end
             else
                 if( pen.vld( pic_data.memo_xy )) then
-                    index.M.sucking_drift = ( index.M.sucking_drift or 0 ) + ( pic_data.dims[2]/2 + 2 )
+                    pen.c.estimator_memo.sucking_drift =
+                        ( pen.c.estimator_memo.sucking_drift or 0 ) + ( pic_data.dims[2]/2 + 2 )
                     pic_data.xy = pic_data.memo_xy; pic_data.memo_xy = nil
                 end
                 if( not( pen.vld( index.D.dragger.item_id, true )) or index.D.dragger.item_id == info.id ) then
@@ -690,7 +702,7 @@ local ITEM_CATS = {
             local z = index.slot_z( info.id, pen.LAYERS.ICONS )
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
             pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, info.pic, false, hov_scale, false, 0.8 - 0.5*ratio, angle )
-            pen.new_image( pic_x, pic_y, z - 0.001, info.pic,
+            pen.new_image( pic_x, pic_y, z - 0.01, info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             
             return info, info.matter_info.matter[1] ~= 0, true
@@ -754,8 +766,8 @@ local ITEM_CATS = {
                             
                             pen.t.loop( mttrs, function( i,m )
                                 if( m[2] == 0 ) then return end
-                                local name = CellFactory_GetName( mttrs[1])
-                                if( matter[1] < volume ) then --this is broken
+                                local name = CellFactory_GetName( m[1])
+                                if( matter[1] < volume ) then
                                     local temp = math.min( matter[1] + m[2], volume )
                                     local count = temp - matter[1]; matter[1] = temp
                                     local _,pm = pen.t.get( matter[2], m[1])
@@ -861,8 +873,7 @@ local ITEM_CATS = {
                 pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
+                hov_func( info, "stt"..info.id, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS )
             end
 
             return info

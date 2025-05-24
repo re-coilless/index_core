@@ -41,14 +41,39 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
     local function check_shortcut( id, is_quickest )
         if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
     end
-
-    local data = index.D.item_list
+    
     pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        
+        local full_depth = 1
+        if( index.D.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
+            full_depth = #index.D.slot_state[ index.D.invs_p.f ][1] end
         if( index.D.is_opened ) then
-            pen.new_image( 0, 0, pen.LAYERS.BACKGROUND,
-                index.D.gmod.show_full and "data/ui_gfx/inventory/background.png" or "mods/index_core/files/pics/vanilla_fullless_bg.xml" )
+            local bg_x, bg_y = pic_x - 3, pic_y - 3
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+            for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.q ].quickest - 1 ) do
+                bg_x = bg_x + 4
+                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+            end
+            bg_x = bg_x + 4
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml" )
+            bg_x = bg_x + 3
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
+            bg_x = bg_x + 5
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
+            for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.q ].quick - 1 ) do
+                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+                bg_x = bg_x + 4
+            end
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+            if( index.D.gmod.show_full and full_depth == 1 and not( index.D.gmod.allow_external_inventories )) then
+                bg_x = bg_x + 7
+                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+                for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.f ]) do
+                    bg_x = bg_x + 4
+                    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+                end
+                bg_x = bg_x + 2
+                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+            end
             
             if( not( index.D.gmod.can_see )) then
                 local delta = math.max(( index.M.inv_alpha or index.D.frame_num ) - index.D.frame_num, 0 )
@@ -58,9 +83,10 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
             end
         end
 
+        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
+
         local cat_wands = pic_x
         local w, h, step = 0, 0, 1
-        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
         for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quickest ) do
             w, h = index.new_generic_slot( pic_x, pic_y, {
                 inv_slot = { i, -1 },
@@ -95,7 +121,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         
         if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
             for i,col in ipairs( index.D.slot_state[ index.D.invs_p.f ]) do
-                for e = 1,(( index.D.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) and #col or 1 ) do
+                for e = 1,full_depth do
                     w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_slot = { i, e },
                         inv_id = index.D.invs_p.f, id = col[e],
@@ -177,8 +203,8 @@ function index.new_generic_applets( screen_w, screen_h, xys )
 
                 pen.hallway( function()
                     if( not( allow_clicks )) then return end
-                    index.D.tip_func( icon.name..( pen.vld( icon.desc ) and "\n"..icon.desc or "" ),
-                        { pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
+                    index.D.tip_func( icon.name..( pen.vld( icon.desc ) and "\n"..icon.desc or "" ), { tid = "applet_tip",
+                        pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
                     if( not( clicked and reset_em == 0 )) then return end
                     if( not( icon.mute or false )) then index.play_sound( "click" ) end
                     
@@ -633,7 +659,7 @@ function index.new_generic_info( screen_w, screen_h, xys )
         end
 
         if( not( pen.vld( info ))) then return end
-        local tip_anim = (( pen.c.ttips or {})[ "dft" ] or {})[2] or 0
+        local tip_anim = (( pen.c.ttips or {})[ "dft" ] or {}).going or 0
         local is_obstructed = index.D.dragger.item_id > 0 or ( index.D.frame_num - tip_anim ) < 2
         if( index.D.always_show_full or index.D.info_pointer ) then
             pic_x, pic_y = unpack( index.D.pointer_ui )
@@ -1052,26 +1078,26 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     end
 end
 
-function index.new_generic_drop( this_item )
-    local dude = EntityGetRootEntity( this_item )
+function index.new_generic_drop( item_id )
+    local dude = EntityGetRootEntity( item_id )
     if( dude ~= index.D.player_id ) then index.play_sound( "error" ); return end
 
     index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
     
     local do_default = true
-    local this_info = pen.t.get( index.D.item_list, this_item )
-    local inv_data = index.D.invs[ this_info.inv_id ] or {}
-    local callback = index.cat_callback( this_info, "on_drop" )
-    if( pen.vld( callback )) then do_default = callback( this_item, this_info, false ) end
-    if( pen.vld( inv_data.update ) and inv_data.update( pen.t.get( index.D.item_list, p, nil, nil, inv_data ), this_info, {})) then
+    local info = pen.t.get( index.D.item_list, item_id )
+    local inv_info = index.D.invs[ info.inv_id ] or {}
+    local callback = index.cat_callback( info, "on_drop" )
+    if( pen.vld( callback )) then do_default = callback( info, false ) end
+    if( pen.vld( inv_info.update ) and inv_info.update( pen.t.get( index.D.item_list, p, nil, nil, inv_info ), info, {})) then
         local reset_id = pen.get_item_owner( p, true )
         if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
     end
     if( do_default ) then
         local x, y = unpack( index.D.player_xy )
-        index.drop_item( x, y, this_info, index.D.throw_force, not( index.D.no_action_on_drop ))
+        index.drop_item( x, y, info, index.D.throw_force, not( index.D.no_action_on_drop ))
     end
-    if( pen.vld( callback )) then callback( this_item, this_info, true ) end
+    if( pen.vld( callback )) then callback( info, true ) end
 end
 
 function index.new_generic_extra( screen_w, screen_h, xys )

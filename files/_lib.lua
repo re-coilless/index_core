@@ -6,13 +6,24 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- dragger should not care about item offsets
--- make in-inv tips be hoverable
--- scale inv bg to match the slots
--- send to storage (put at the bottom rows of inv) + shift clicks
--- wand scrolling (should work with dragger)
 -- another code audit
+-- clean up Twin-Linked
 -- docs
+-- two slots can be highlighted at once
+-- make in-inv tips be hoverable
+-- send to storage (put at the bottom rows of inv) + shift clicks
+-- launch second alpha
+
+-- wand pickup + pickup inv
+-- conjurer wands are in reversed order
+-- allow fake spell injection (add a spell that gets lua input through text2func; the icon is hermes logo; make one per-wand and one global)
+-- make custom monospace highres font
+
+-- figure out performance
+-- seems to be related with amount of unique items over the course of the run?
+-- try leaving game running for an hour at hiisi base
+-- try restarting
+
 
 -- new_vanilla_wtt
 -- new_vanilla_stt
@@ -340,22 +351,21 @@ function index.register_item_pic( info )
 	if( force_update ) then EntityRemoveTag( info.id, "index_update" ) end
 
 	return pen.cache({ "index_pic_data", info.pic }, function()
-		local w, h = pen.get_pic_dims( info.pic, force_update )
-		local data = { dims = { w, h }, xy = { 0, 0 }}
+		local w, h, xy_xml = pen.get_pic_dims( info.pic, force_update )
+		local data = { dims = { w, h }, xy = { 0, 0 }, xy_xml = xy_xml }
 
 		local anim_data = pen.magic_storage( info.id, "index_pic_anim", "value_string" ) --this should contain the anim name and nothing else
 		if( pen.vld( anim_data )) then data.anim = pen.t.pack( anim_data ) end
 
 		local off_data = pen.magic_storage( info.id, "index_pic_offset", "value_string" )
 		if( not( pen.vld( off_data ))) then
-			-- data.xy = { data.dims[1]/2, data.dims[2]/2 }
 			local pic_comp = EntityGetFirstComponentIncludingDisabled( info.id, "SpriteComponent", "item" )
 				or EntityGetFirstComponentIncludingDisabled( info.id, "SpriteComponent", "enabled_in_hand" )
 			if( pen.vld( pic_comp, true )) then
 				data.xy = { ComponentGetValue2( pic_comp, "offset_x" ), ComponentGetValue2( pic_comp, "offset_y" )}
 			end
 		else data.xy = pen.t.pack( off_data ) end
-
+		
 		return data
 	end, { reset_count = 0, force_update = force_update })
 end
@@ -603,15 +613,15 @@ function index.slot_swap( item_in, slot_info )
 		local p_info = index.D.invs[p] or {}
 		if( not( pen.vld( p_info.update ))) then return end
 		if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[( i + 1 )%2 + 1 ], idata[ i%2 + 1 ])) then
-			table.insert( reset, pen.get_item_owner( p, true ))
+			table.insert( reset, pen.get_item_owner( p ))
 		end
 	end)
 	if( parent1 ~= parent2 ) then
-		reset[1] = pen.get_item_owner( item_in, true )
+		reset[1] = pen.get_item_owner( item_in )
 		EntityRemoveFromParent( item_in )
 		EntityAddChild( parent2, item_in )
 		if( pen.vld( slot_info.id, true )) then
-			reset[2] = pen.get_item_owner( slot_info.id, true )
+			reset[2] = pen.get_item_owner( slot_info.id )
 			EntityRemoveFromParent( slot_info.id )
 			EntityAddChild( parent1, slot_info.id )
 		end
@@ -858,18 +868,19 @@ end
 
 function index.drop_item( h_x, h_y, info, throw_force, do_action )
 	local item_id = info.id
+	local already_reset = false
 	local has_no_cancer = not( info.is_kicking or false )
 	if( not( has_no_cancer )) then
-		local owner_id = pen.get_item_owner( item_id, true )
+		local owner_id = pen.get_item_owner( item_id )
 		local ctrl_comp = EntityGetFirstComponentIncludingDisabled( owner_id, "ControlsComponent" )
 		if( pen.vld( ctrl_comp, true )) then
+			already_reset = true
 			local inv_comp = pen.reset_active_item( owner_id )
 			ComponentSetValue2( inv_comp, "mSavedActiveItemIndex", pen.get_item_num( info.inv_id, item_id ))
 			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", index.D.frame_num + 1 )
 		else has_no_cancer = true end
 	end
 
-	if( has_no_cancer ) then EntityRemoveFromParent( item_id ) end
 	local p_d_x, p_d_y = index.D.pointer_world[1] - h_x, index.D.pointer_world[2] - h_y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
@@ -877,7 +888,7 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 	local from_x, from_y = 0, 0
 	if( pen.vld( info.in_hand, true )) then
 		from_x, from_y = EntityGetTransform( item_id )
-		pen.reset_active_item( info.in_hand )
+		if( not( already_reset )) then pen.reset_active_item( info.in_hand ) end
 	else
 		index.D.throw_pos_rad = index.D.throw_pos_rad + index.D.throw_pos_size
 		from_x, from_y = h_x + math.cos( angle )*index.D.throw_pos_rad, h_y + math.sin( angle )*index.D.throw_pos_rad
@@ -890,6 +901,7 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 	local extra_v_force = 0
 	local vel_comp = EntityGetFirstComponentIncludingDisabled( item_id, "VelocityComponent" )
 	if( pen.vld( vel_comp, true )) then extra_v_force = ComponentGetValue2( vel_comp, "gravity_y" )/4 end
+	if( has_no_cancer ) then EntityRemoveFromParent( item_id ) end
 
 	local force = p_delta*throw_force
 	local force_x, force_y = math.cos( angle )*force, math.sin( angle )*force
@@ -938,7 +950,8 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 	if( index.D.frame_num - index.M.dragger_buffer[2] > 2 ) then index.M.dragger_buffer = { 0, 0 } end
 
 	local d_x, d_y = index.M.dragger_x or pic_x, index.M.dragger_y or pic_y
-	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered = pen.new_dragger( id, pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h )
+	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered =
+		pen.new_dragger( id, pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h, nil, { no_offs = true })
 	if( not( is_hovered ) and drag_state == 0 ) then return pic_x, pic_y end
 	if( pen.vld( index.M.dragger_buffer[1], true ) and index.M.dragger_buffer[1] ~= id ) then return pic_x, pic_y end
 	if( not( pen.vld( index.M.dragger_buffer[1], true ))) then index.M.dragger_buffer = { id, index.D.frame_num } end
@@ -1132,7 +1145,13 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	local clicked, r_clicked = false, false
 	pic_z = pen.get_hybrid_table( pic_z or { pen.LAYERS.TIPS, pen.LAYERS.MAIN_DEEP })
 	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z[1], data )
-	if( pen.vld( pic_z[2]) and data.is_active ) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.RUNIC, s_x, s_y, 0.75 ) end
+	if( data.is_active ) then
+		if( pen.vld( pic_z[2])) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.RUNIC, s_x, s_y, 0.75 ) end
+	else return false, false, false end
+
+	local tip_x, tip_y = unpack( data.pos or { 0, 0 })
+	local ref_pos = index.D.xys.hp or { index.D.screen_dims[1] - 41, 30 }
+	if( tip_x == ( ref_pos[1] - 44 ) and tip_y == ref_pos[2]) then data.tid = data.tid or "hud" end
 	( func or index.D.tip_func )( text, data, func )
 	return data.is_active, clicked, r_clicked
 end
@@ -1144,9 +1163,15 @@ function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy
 		local x, y = EntityGetTransform( info.id )
 		pic_x, pic_y = pen.world2gui( x, y )
 		pic_x, pic_y = pic_x + 15, pic_y + 15
-	else pic_x, pic_y = unpack( index.D.xys.hp ); pic_x = pic_x - 44 end
+		tid = tid or "worldtip"
+	else
+		pic_x, pic_y = unpack( index.D.xys.hp )
+		pic_x = pic_x - 44
+		tid = tid or "hud"
+	end
 	
-	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.TIPS )
+	info.in_world = true
+	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.WORLD_FRONT - 10 )
 end
 
 --advanced mode hides the wand pic and arranges the stats in two columns
@@ -1192,7 +1217,10 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		if( pen.get_hybrid_function( stat.is_advanced, info ) and not( index.D.tip_action )) then return end
 		stats_h = stats_h + (( i ~= #index.D.wand_stats and stat.spacer ) and spacer_size or 8 )
 	end)
+
+	local mid_off_y = stats_h
 	stats_h = math.max( stats_h + 2, pic_w + 4 )
+	mid_off_y = ( stats_h - mid_off_y )/2
 
 	local spell_size = index.D.big_wand_spells and 18 or 9
 	local got_spells = ( pen.vld( spells.p ) or pen.vld( spells.n )) and not( index.D.tip_action or is_simple )
@@ -1202,10 +1230,10 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	if( pen.vld( spells.p )) then size_y = size_y + ( pen.vld( spells.n ) and 2 or 0 ) end
 
 	local shown_stt = false
-	local is_internal = EntityGetRootEntity( info.id ) == index.D.player_id
 	index.D.tip_func( "", {
 		tid = tid, info = info,
-		is_left = not( is_internal ), is_active = true, allow_hover = true,
+		is_active = true, allow_hover = true,
+		is_left = info.in_world, do_corrections = not( info.in_world ),
 		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
 	}, function( t, d )
 		local info = d.info
@@ -1233,23 +1261,23 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		
 		if( info.is_frozen ) then
 			local tip = table.concat({ GameTextGet( "$inventory_info_frozen"),
-				"\n{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_info_frozen_description"), "}<color<}" })
-			local is_hovered = index.tipping( pos_x - 4, pos_y - 4,
-				pic_z, 7, 7, tip, { tid = "wtt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+				"\n{>indent>{{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_info_frozen_description"), "}<color<}}<indent<}" })
+			local is_hovered = index.tipping( pos_x - 4, pos_y - 4, pic_z, 7, 7, tip, { is_left = true,
+				fully_featured = true, pic_z = pic_z - 1, text_prefunc = function( text, data ) return text, 2, 0 end })
 			pen.new_image( pos_x - 4, pos_y - 4, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], alpha = inter_alpha, has_shadow = true })
 		end
 		if( info.wand_info.shuffle_deck_when_empty ) then
 			local tip = table.concat({ GameTextGet( "$inventory_shuffle"),
-				"\n{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_shuffle_tooltip"), "}<color<}" })
-			local is_hovered = index.tipping( pos_x + scale_x - 8,
-				pos_y + 1, pic_z, 7, 7, tip, { tid = "wtt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+				"\n{>indent>{{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_shuffle_tooltip"), "}<color<}}<indent<}" })
+			local is_hovered = index.tipping( pos_x + scale_x - 8, pos_y + 1, pic_z, 7, 7, tip, { is_left = true,
+				fully_featured = true, pic_z = pic_z - 1, text_prefunc = function( text, data ) return text, 2, 0 end })
 			pen.new_image( pos_x + scale_x - 8, pos_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], alpha = inter_alpha, has_shadow = true })
 		end
 
 		local t_x = pic_x + d.edging + 2
-		local t_y = pic_y + d.edging + title_h + desc_h + 5
+		local t_y = pic_y + d.edging + title_h + desc_h + mid_off_y + 4
 
 		pen.t.loop( index.D.wand_stats, function( i, stat )
 			if( pen.get_hybrid_function( stat.is_hidden, info )) then return end
@@ -1281,10 +1309,11 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 			local tip = pen.magic_translate( pen.get_hybrid_function( stat.name or "", info ))
 			if( pen.vld( tip )) then
 				if( pen.vld( stat.desc )) then
-					tip = table.concat({ tip, " = ", value, "\n{>color>{{-}|VNL|GREY|{-}",
-						pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info )), "}<color<}" }) end
+					tip = table.concat({ tip, " = ", value, "\n{>indent>{{>color>{{-}|VNL|GREY|{-}",
+						pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info )), "}<color<}}<indent<}" }) end
 				local is_hovered = index.tipping( t_x - 1, t_y, { pic_z, pic_z + 0.1 }, 55, 7.5,
-					tip, { tid = "wtt", is_left = true, fully_featured = true, pic_z = pic_z - 1, pos = { t_x + 55, t_y + 9 }})
+					tip, { tid = "wtt_stat", is_left = true, fully_featured = true, pic_z = pic_z - 1,
+					pos = { t_x + 55, t_y + 9 }, text_prefunc = function( text, data ) return text, 2, 0 end })
 				if( is_hovered ) then clr, alpha = "YELLOW", 1 end
 			end
 
@@ -1294,19 +1323,19 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		end)
 		
 		off_x, off_y = pen.rotate_offset( -pic_w/2, -pic_h/2, -math.rad( 90 ))
-		local icon_x, icon_y = pic_x + size_x - ( size_x - 60 )/2 + off_x, t_y + 2 - ( stats_h )/2 + off_y
+		local icon_x, icon_y = pic_x + size_x - ( size_x - 60 )/2 + off_x, t_y - ( stats_h )/2 + off_y + mid_off_y
 		pen.new_image( icon_x, icon_y, pic_z + 0.001, info.pic, {
 			s_x = pic_scale, s_y = pic_scale, alpha = inter_alpha, angle = -math.rad( 90 )})
 		
 		if( pen.vld( info.desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { alpha = 0.5*inter_alpha })
 		end
 
 		local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 2, pic_y - 2, size_x + 4, size_y + 4, pic_z + 0.1 )
 		
 		if( got_spells ) then
-			t_x, t_y = t_x - 2, t_y + 8
+			t_x, t_y = t_x - 2, t_y + 7 + mid_off_y
 			pen.new_image( t_x - 1, t_y - 4, pic_z,
 				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
 			
@@ -1314,10 +1343,11 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 				local cnt = 0
 				if( i == 1 and pen.vld( tbl )) then
 					local icon_scale, icon_off = spell_size/9, spell_size/18
-					local tip = table.concat({ GameTextGet( "$streamingevent_add_always_cast" ),
-						"\n{>color>{{-}|VNL|GREY|{-}", "The following spells are permanently attached to the wand.", "}<color<}" })
-					local is_hovered = index.tipping( t_x + icon_off, t_y + icon_off, pic_z,
-						7*icon_scale, 7*icon_scale, tip, { tid = "wtt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+					local tip = table.concat({
+						GameTextGet( "$streamingevent_add_always_cast" ), "\n{>indent>{{>color>{{-}|VNL|GREY|{-}",
+						"The following spells are permanently attached to the wand.", "}<color<}}<indent<}" })
+					local is_hovered = index.tipping( t_x + icon_off, t_y + icon_off, pic_z, 7*icon_scale, 7*icon_scale, tip, {
+						is_left = true, fully_featured = true, pic_z = pic_z - 1, text_prefunc = function( text, data ) return text, 2, 0 end })
 					pen.new_image( t_x + icon_off, t_y + icon_off, pic_z,
 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { s_x = icon_scale, s_y = icon_scale,
 						color = is_hovered and pen.PALETTE.VNL.YELLOW or nil, alpha = inter_alpha, has_shadow = true })
@@ -1338,6 +1368,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 					local is_pinned = pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3]
 					if( is_hovered or is_pinned ) then
+						spell.in_world = info.in_world
 						index.cat_callback( spell, "on_tooltip",
 							{ tid, t_x + spell_size*( cnt + 1 ), t_y + spell_size - 1, pic_z - 1, true })
 						index.M.stt_safety, shown_stt = tid, true
@@ -1382,21 +1413,21 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	
 	local size_x, size_y = math.max( title_w, desc_w + 2, stats_w ), title_h + desc_h + stats_h + 7
 
-	local is_internal = EntityGetRootEntity( info.id ) == index.D.player_id
 	index.D.tip_func( "", {
 		tid = tid, info = info,
-		is_left = not( is_internal ), is_active = true, allow_hover = true,
+		is_active = true, allow_hover = true,
+		is_left = info.in_world, do_corrections = not( info.in_world ),
 		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
 	}, function( t, d )
 		local info = d.info
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
-
+		
 		local tip = table.concat({ GameTextGet( "$inventory_actiontype" ),
 			": {>color>{{-}|VNL|GREY|{-}", GameTextGet( index.FRAMER[ info.spell_info.type ][2]), "}<color<}" })
 		local is_hovered = index.tipping( pic_x + d.edging - 0.5, pic_y + d.edging - 0.5,
-			pic_z, 7, 7, tip, { tid = "stt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+			pic_z, 7, 7, tip, { is_left = true, fully_featured = true, pic_z = pic_z - 1 })
 		pen.new_image( pic_x + d.edging - 0.5, pic_y + d.edging - 0.5, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", {
 			color = is_hovered and pen.PALETTE.VNL.YELLOW or index.FRAMER[ info.spell_info.type ][1], alpha = inter_alpha, has_shadow = true })
 		pen.new_shadowed_text( pic_x + d.edging + 9, pic_y + d.edging - 2,
@@ -1407,8 +1438,8 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		if( info.charges >= 0 ) then
 			local tip = table.concat({ GameTextGet( "$inventory_usesremaining" ),
 				" = {>color>{{-}|VNL|GREY|{-}", info.charges, "/", info.spell_info.max_uses, "}<color<}" })
-			local is_hovered = index.tipping( pic_x + size_x - ( 20 + d.edging ) + 0.5, pic_y + d.edging - 0.5,
-				pic_z, 30, 7, tip, { tid = "stt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+			local is_hovered = index.tipping( pic_x + size_x - ( 20 + d.edging ) + 0.5,
+				pic_y + d.edging - 0.5, pic_z, 30, 7, tip, { is_left = true, fully_featured = true, pic_z = pic_z - 1 })
 			pen.new_image( pic_x + size_x - ( 7 + d.edging ) + 0.5, pic_y + d.edging - 0.5,
 				pic_z, "data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
 			pen.new_shadowed_text( pic_x + size_x - ( 7 + d.edging ), pic_y + d.edging - 2, pic_z, pen.get_tiny_num( info.charges ),
@@ -1426,7 +1457,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		if( not( is_simple or index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { alpha = 0.5*inter_alpha })
 		end
 
 		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
@@ -1455,10 +1486,10 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 				local tip = pen.magic_translate( pen.get_hybrid_function( stat.name or "", info ))
 				if( pen.vld( tip )) then
 					if( pen.vld( stat.desc )) then
-						tip = table.concat({ tip, " = ", value, "\n{>color>{{-}|VNL|GREY|{-}",
-							pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info )), "}<color<}" }) end
-					local is_hovered = index.tipping( t_x - ( is_right and 41 or 0 ),
-						t_y - 1, pic_z, 50, 7, tip, { tid = "stt", is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+						tip = table.concat({ tip, " = ", value, "\n{>indent>{{>color>{{-}|VNL|GREY|{-}",
+							pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info )), "}<color<}}<indent<}" }) end
+					local is_hovered = index.tipping( t_x - ( is_right and 41 or 0 ), t_y - 1, pic_z, 50, 7, tip, { is_left = true,
+						fully_featured = true, pic_z = pic_z - 1, text_prefunc = function( text, data ) return text, 2, 0 end })
 					if( is_hovered ) then clr, alpha = "YELLOW", 1 end
 				end
 				
@@ -1519,10 +1550,10 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		size_y = size_y + matter_wh[2] + 7
 	end
 
-	local is_internal = EntityGetRootEntity( info.id ) == index.D.player_id
 	index.D.tip_func( "", {
 		tid = tid, info = info,
-		is_left = not( is_internal ), is_active = true,
+		is_active = true, allow_hover = true,
+		is_left = info.in_world, do_corrections = not( info.in_world ),
 		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
 	}, function( t, d )
 		local info = d.info
@@ -1558,7 +1589,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 		if( pen.vld( matter_desc ) and not( index.D.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
-				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { color = pen.PALETTE.VNL.GREY, alpha = 0.8*inter_alpha })
+				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { alpha = 0.5*inter_alpha })
 		end
 
 		if( not( will_matter )) then return end
@@ -1593,10 +1624,10 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 	local desc_w, desc_h = unpack( pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
 	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
 
-	local is_internal = EntityGetRootEntity( info.id ) == index.D.player_id
 	index.D.tip_func( "", {
 		tid = tid, info = info,
-		is_left = not( is_internal ), is_active = true,
+		is_active = true, allow_hover = true,
+		is_left = info.in_world, do_corrections = not( info.in_world ),
 		pic_z = pic_z, pos = { pic_x, pic_y }, dims = { size_x, size_y },
 	}, function( t, d )
 		local info = d.info
@@ -1648,8 +1679,8 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 	local w, h = pen.get_pic_dims( pic )
 	local pic_data = pen.cache({ "index_pic_data", pic }) or { xy = { 0, 0 }}
 	if( is_wand ) then
-		local x, y = unpack( pic_data.xy )
-		off_x, off_y = pen.rotate_offset( x, y, angle )
+		local xml_offs = pic_data.xy_xml or { 0, 0 }
+		off_x, off_y = pen.rotate_offset( pic_data.xy[1] + xml_offs[1], pic_data.xy[2] + xml_offs[2], angle )
 	else off_x, off_y = w/2, h/2 end
 	
 	pic_x, pic_y = pic_x - hov_scale*off_x, pic_y - hov_scale*off_y
@@ -1667,12 +1698,11 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 end
 
 function index.new_spell_frame( pic_x, pic_y, pic_z, spell_type, alpha )
-	local angle = math.rad( 135 )
-	local off_x, off_y = pen.rotate_offset( -10, -9.5, angle )
-	return pen.new_image( pic_x + off_x, pic_y + off_y, pic_z, "mods/index_core/files/pics/spell_frame.png",
-		{ has_shadow = true, alpha = alpha, angle = angle, color = index.FRAMER[ spell_type ][1]})
+	pen.new_image( pic_x - 12, pic_y - 12, pic_z,
+		"mods/index_core/files/pics/spell_frame.png", { has_shadow = true, alpha = alpha, color = index.FRAMER[ spell_type ][1]})
 end
 
+-- generic game effects should only be displayed if uiicons was detected
 function index.new_vanilla_icon( pic_x, pic_y, pic_z, info, kind )
 	if( not( pen.vld( info ))) then return 0, 0 end
 	if( not( pen.vld( info.pic ))) then return 0, 0 end
@@ -1731,14 +1761,14 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, info, kind )
 	local tip_x, tip_y = pic_x + 15, pic_y + 16
 	if( pen.vld( info.tip )) then
 		local text_prefunc = nil
-		local dims, text, tid = {}, "", ""
+		local dims, text, tid = {}, "", "perk_tip"
 		local is_extra = type( info.tip ) == "function"
 		if( is_extra ) then
 			dims = {
 				14*math.min( #info.other_perks, 10 ),
 				14*math.max( math.ceil(( #info.other_perks )/10 ), 1 ) + 1
 			}
-			tid, tip_y = "extra_perks_tip", tip_y - 2
+			tid, tip_y = "perk_tip_extra", tip_y - 2
 		else
 			if( pen.vld( info.desc )) then
 				if( info.is_danger ) then
@@ -1772,8 +1802,6 @@ end
 
 --display slot number on hover with dragger
 function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_drag, is_full, is_quick )
-	is_full = is_full or false
-
 	local slot_pics = {
 		bg_alt = slot_data.pic_bg_alt or index.D.slot_pic.bg_alt,
 		bg = slot_data.pic_bg or index.D.slot_pic.bg,
@@ -1797,7 +1825,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	if( pen.vld( cat_tbl.on_action )) then
 		cat_tbl.on_rmb, cat_tbl.on_drag = cat_tbl.on_action( 1 ), cat_tbl.on_action( 2 ) end
 	if( pen.vld( info.id, true ) and index.D.dragger.item_id == info.id ) then pen.colourer( nil, pen.PALETTE.VNL.DGREY ) end
-	local pic_bg = is_full and index.D.slot_pic.bg_alt or index.D.slot_pic.bg
+	local pic_bg = ( is_full or false ) and slot_pics.bg_alt or slot_pics.bg
 
 	local w, h = pen.get_pic_dims( pic_bg )
 	local clicked, r_clicked, is_hovered = pen.new_image( pic_x, pic_y, pen.LAYERS.MAIN_DEEP, pic_bg, { can_click = true })
@@ -1820,7 +1848,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	local no_action = not( pen.vld( cat_tbl.on_drag ))
 	if( not( is_full ) and is_active ) then
 		pen.new_image( pic_x + 1, pic_y + 1,
-			pen.LAYERS[( not( index.D.is_opened ) or can_drag ) and "MAIN_FRONT" or "ICONS_FRONT" ] + 0.001, index.D.slot_pic.active )
+			pen.LAYERS[( not( index.D.is_opened ) or can_drag ) and "MAIN_FRONT" or "ICONS_FRONT" ] + 0.001, slot_pics.active )
 	end
 	
 	local no_hov_for_ya = true
@@ -1850,17 +1878,14 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		
 		if( index.D.dragger.item_id == info.id ) then return end
 		if( not( index.M.pending_slots[ index.D.dragger.item_id ])) then return end
-		pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.MAIN_FRONT + 0.001, index.D.slot_pic.hl )
+		pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.MAIN_FRONT + 0.001, slot_pics.hl )
 		dragger_hovered = true
 	end)
 
-	--if( no_hov_for_ya ) then is_hovered = false end --allow_tips_always is broken because of this
+	-- if( no_hov_for_ya ) then is_hovered = false end
 	if((( pen.vld( info.id, true ) and is_hovered ) or dragger_hovered ) and not( index.M.slot_hover_sfx[2])) then
 		local slot_uid = table.concat({ tonumber( slot_data.inv_id ), "|", slot_data.inv_slot[1], ":", slot_data.inv_slot[2]})
-		if( index.M.slot_hover_sfx[1] ~= slot_uid ) then
-			index.M.slot_hover_sfx[1] = slot_uid
-			index.play_sound( slot_sfxes.hover )
-		end
+		if( index.M.slot_hover_sfx[1] ~= slot_uid ) then index.M.slot_hover_sfx[1] = slot_uid; index.play_sound( slot_sfxes.hover ) end
 		index.M.slot_hover_sfx[2] = true
 	end
 	
@@ -1871,9 +1896,9 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		end
 	elseif( index.D.is_opened ) then
 		if( is_full ) then
-			pen.new_image( slot_x - 0.5, slot_y - 0.5, pen.LAYERS.ICONS_FRONT + 0.001,
-				index.D.slot_pic.bg_alt, { color = pen.PALETTE.VNL.DGREY, s_x = 21/20, s_y = 21/20, alpha = 0.75 })
-		else pen.new_image( slot_x, slot_y, pen.LAYERS.ICONS_FRONT + 0.001, index.D.slot_pic.locked ) end
+			pen.new_image( slot_x, slot_y,
+				pen.LAYERS.ICONS_FRONT + 0.001, slot_pics.bg_alt, { color = pen.PALETTE.VNL.DGREY, alpha = 0.75 })
+		else pen.new_image( slot_x, slot_y, pen.LAYERS.ICONS_FRONT + 0.001, slot_pics.locked ) end
 	end
 	
 	pen.hallway( function()
@@ -1882,7 +1907,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		local suppress_charges, suppress_action = false, false
 		local is_dragged = index.M.pending_slots[ index.D.dragger.item_id ] and index.D.dragger.item_id == info.id
 		if( pen.vld( cat_tbl.on_slot )) then
-			if( no_action and is_dragged ) then pic_x, pic_y = pic_x + 10, pic_y + 10 end
+			if( no_action and is_dragged ) then pic_x, pic_y = pic_x + 5, pic_y + 5 end
 			pic_x, pic_y = index.swap_anim( info.id, pic_x, pic_y )
 			
 			info, suppress_charges, suppress_action = cat_tbl.on_slot( info, pic_x, pic_y, {
@@ -1907,7 +1932,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		if( suppress_charges ) then return end
 		if( info.charges == -1 ) then return end
 
-		local shift = is_full and 1 or 0
+		local shift = ( is_full or false ) and 1 or 0
 		slot_x, slot_y = slot_x + 2, slot_y + 2
 		if( info.charges == 0 ) then
 			if( not( info.is_consumable )) then
@@ -1924,73 +1949,60 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	return w - 1, h - 1, clicked, r_clicked, is_hovered
 end
 
+-- wand scrolling (should work with dragger)
 function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
-	local step_x, step_y = 0, 0
-	local scale = index.D.no_wand_scaling and 1 or 1.5
-	local extra_step = ( info.wand_info.shuffle_deck_when_empty or info.wand_info.actions_per_round > 1 ) and 3 or 0
-	info.w_spacing = { extra_step - 1, 0, 19*info.wand_info.deck_capacity + 4, 0 }
+	if( not( pen.vld( info.pic ))) then return end
+	if( not( pen.vld( info.wand_info ))) then return end
+	if( not( pen.vld( index.D.slot_state[ info.id ]))) then return end
 
-	local pic_data = pen.cache({ "index_pic_data", info.pic }) --cancer, just do centered pic
-	if( pic_data ) then
-		local drift = info.w_spacing[1]
-		info.w_spacing[2] = drift
-		if( pic_data.xy ) then
-			drift = drift + scale*pic_data.xy[1]
-		end
-		info.w_spacing[1] = drift
-		
-		if( pic_data.dims ) then
-			info.w_spacing[2] = info.w_spacing[2] + scale*pic_data.dims[1] + 1
-			local min_val = math.ceil( math.max( info.w_spacing[1] + info.w_spacing[2] - extra_step, 25 )/19 )*19
-			if( info.w_spacing[2] < min_val ) then
-				info.w_spacing[1] = drift + ( min_val - info.w_spacing[2])/2
-				info.w_spacing[2] = min_val
-			end
-		end
+	local pic_scale = index.D.no_wand_scaling and 1 or 1.5
+	local icon_w, icon_h = pen.get_pic_dims( info.pic )
+	icon_w = icon_w + (( info.wand_info.shuffle_deck_when_empty or info.wand_info.actions_per_round > 1 ) and 7 or 0 )
+	icon_w, icon_h = math.ceil( math.max( pic_scale*icon_w, 25 )/19 )*19, pic_scale*icon_h
 
-		drift = scale*pic_data.dims[2] - 18
-		if( drift > 0 ) then info.w_spacing[4] = drift end
-	end
-
-	step_x, step_y = info.w_spacing[2] + info.w_spacing[3], 19 + info.w_spacing[4]
-	
-	-- local pic_scale = 1.5
-	-- local icon_w, icon_h = pen.get_pic_dims( info.pic )
-	-- icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
-
-	-- local title_w, title_h = pen.get_text_dims( info.name, true )
-	-- local desc_w, desc_h = unpack( pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
-	-- local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+	local slot_w, slot_h = 19*info.wand_info.deck_capacity, 19
+	local size_x, size_y = icon_w + slot_w + 6, math.max( icon_h, slot_h )
 
 	index.D.tip_func( "", {
 		tid = "wand"..info.id, info = info, is_active = true,
-		pic_z = pen.LAYERS.MAIN_DEEP, pos = { pic_x, pic_y }, dims = { step_x, step_y },
+		pic_z = pen.LAYERS.MAIN_DEEP, pos = { pic_x, pic_y }, dims = { size_x, size_y },
 	}, function( t, d )
 		local info = d.info
 		local size_x, size_y = unpack( d.dims )
 		local pic_x, pic_y, pic_z = unpack( d.pos )
 		
 		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
+		index.new_slot_pic(
+			pic_x + d.edging + icon_w/2, pic_y + size_y/2, pic_z, info.pic, false, pic_scale, true, inter_alpha )
 
-		local is_shuffle = info.wand_info.shuffle_deck_when_empty
-		if( is_shuffle ) then
-			pen.new_image( pic_x, pic_y, pic_z,
-				"data/ui_gfx/inventory/icon_gun_shuffle.png", { alpha = inter_alpha })
-			pen.new_image( pic_x + 0.5, pic_y + 0.5, pic_z + 0.001,
-				"data/ui_gfx/inventory/icon_gun_shuffle.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
+		if( info.wand_info.shuffle_deck_when_empty ) then
+			local tip = table.concat({ GameTextGet( "$inventory_shuffle"),
+				"\n{>indent>{{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_shuffle_tooltip"), "}<color<}}<indent<}" })
+			local is_hovered = index.tipping( pic_x, pic_y, pic_z, 7, 7, tip, {
+				fully_featured = true, text_prefunc = function( text, data ) return text, 2, 0 end })
+			pen.new_image( pic_x, pic_y, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png",
+				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha })
 		end
-
-		local is_multi = info.wand_info.actions_per_round > 1
-		if( is_multi ) then
-			local multi_y = pic_y + info.w_spacing[4]
-			pen.new_image( pic_x, multi_y + 11, pic_z,
-				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { alpha = inter_alpha })
-			pen.new_image( pic_x + 0.5, multi_y + 10.5, pic_z + 0.001,
-				"data/ui_gfx/inventory/icon_gun_actions_per_round.png", { color = pen.PALETTE.B, alpha = inter_alpha*0.75 })
-			pen.new_text( pic_x + 9, multi_y + 10, pic_z,
-				info.wand_info.actions_per_round, { color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
-			pen.new_text( pic_x + 9.5, multi_y + 9.5, pic_z + 0.001,
-				info.wand_info.actions_per_round, { color = pen.PALETTE.SHADOW, alpha = 0.5*inter_alpha })
+		if( info.wand_info.actions_per_round > 1 ) then
+			local tip = table.concat({ GameTextGet( "$inventory_actionspercast"),
+				"\n{>indent>{{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_actionspercast_tooltip"), "}<color<}}<indent<}" })
+			local extra_x = 7*( math.floor( info.wand_info.actions_per_round/10 ) + 2 )
+			local is_hovered = index.tipping( pic_x, pic_y + size_y - 7, pic_z, extra_x, 7, tip, {
+				fully_featured = true, text_prefunc = function( text, data ) return text, 2, 0 end })
+			pen.new_image( pic_x, pic_y + size_y - 7, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
+				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "" ], has_shadow = true, alpha = inter_alpha })
+			pen.new_text( pic_x + 9, pic_y + size_y - 8, pic_z,
+				info.wand_info.actions_per_round, { has_shadow = true, color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
+		end
+		if( info.is_frozen ) then
+			local tip = table.concat({ GameTextGet( "$inventory_info_frozen"),
+				"\n{>indent>{{>color>{{-}|VNL|GREY|{-}", GameTextGet( "$inventory_info_frozen_description"), "}<color<}}<indent<}" })
+			local is_hovered = index.tipping( pic_x + icon_w, pic_y + 3, pic_z, 7, 7, tip, {
+				fully_featured = true, text_prefunc = function( text, data ) return text, 2, 0 end })
+			pen.new_image( pic_x + icon_w, pic_y + 3, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png",
+				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha, can_click = true })
+			pen.new_image( pic_x + 2*d.edging + icon_w, pic_y + 2, pic_z - 0.011,
+				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_y = 3, alpha = inter_alpha })
 		end
 
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
@@ -2001,21 +2013,9 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiZSetForNextWidget( gui, pic_z + 0.01 )
 		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
-
-		local drift, section_off = info.w_spacing[1], info.w_spacing[2]
-		index.new_slot_pic( pic_x + drift, pic_y + 9 + info.w_spacing[4]/2, pic_z + 0.005, info.pic, false, scale, true, inter_alpha )
-		local clicked, r_clicked, is_hovered = pen.new_interface( pic_x, pic_y, section_off, 18 + info.w_spacing[4], pic_z - 0.001 )
-		pic_x = pic_x + section_off
-		if( info.is_frozen ) then
-			pen.new_image( pic_x - 5, pic_y + step_y - 7, pic_z - 0.01,
-				"mods/index_core/files/pics/frozen_marker.png", { has_shadow = true, alpha = inter_alpha, can_click = true })
-			index.D.tip_func( GameTextGetTranslatedOrNot( "$inventory_info_frozen_description" ), { pic_z = pic_z - 5 })
-		end
-		if( is_hovered ) then
-			index.cat_callback( info, "on_tooltip", { "", pic_x + 1, pic_y - 2, pen.LAYERS.TIPS, false, true })
-		end
-		pen.new_image( pic_x, pic_y - 1, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = step_y + 1, alpha = 0.5*inter_alpha })
+		
+		pen.new_image( pic_x + 2*d.edging + icon_w, pic_y + 1, pic_z,
+			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = size_y - 2, alpha = inter_alpha })
 		
 		local slot_count = info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
@@ -2029,35 +2029,28 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		end
 
 		local counter = 1
-		local slot_x, slot_y = pic_x + 2, pic_y - 1 + info.w_spacing[4]
-		local slot_data = index.D.slot_state[ info.id ]
-		for i,col in ipairs( slot_data ) do
+		local slot_x, slot_y = pic_x + 3*d.edging + icon_w + 1, pic_y + size_y - 21
+		for i,col in ipairs( index.D.slot_state[ info.id ]) do
 			for e,slot in ipairs( col ) do
-				local idata = nil
-				if( slot ) then
-					idata = pen.t.get( index.D.item_list, slot )
-					if( idata.is_permanent ) then
-						pen.new_image( slot_x + 1, slot_y + 12, pen.LAYERS.ICONS_FRONT,
-							"data/ui_gfx/inventory/icon_gun_permanent_actions.png" )
-						pen.new_image( slot_x + 1.5, slot_y + 11.5, pen.LAYERS.ICONS_FRONT + 0.0001,
-							"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { color = {0,0,0}, alpha = 0.75 })
-					end
-				end
-				
-				if( counter%2 == 0 and slot_count > 2 ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
-
+				if( counter%2 == 0 and slot_count > 2 ) then
+					pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
 				w, h = index.new_generic_slot( slot_x, slot_y, {
 					inv_slot = { i, e },
 					inv_id = info.id, id = slot,
 				}, can_tinker, true, false )
-				slot_x, slot_y = slot_x, slot_y + h
-				counter = counter + 1
+
+				if( pen.t.get( index.D.item_list, slot, nil, nil, {}).is_permanent ) then
+					pen.new_image( slot_x + 1, slot_y + h - 7, pen.LAYERS.ICONS_FRONT,
+						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { has_shadow = true })
+				end
+
+				slot_y, counter = slot_y + h, counter + 1
 			end
-			slot_x, slot_y = slot_x + w, pic_y - 1 + info.w_spacing[4]
+			slot_x, slot_y = slot_x + w, pic_y + size_y - 21
 		end
 	end)
 
-	return step_x + 7, step_y + 7
+	return size_x + 7, size_y + 10
 end
 
 index.GLOBAL_FUNGAL_MEMO = "INDEX_GLOBAL_FUNGAL_MEMO" --stores fungal transformations
