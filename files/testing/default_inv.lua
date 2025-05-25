@@ -4,11 +4,11 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
     if( index.D.is_opened and index.D.gmod.allow_external_inventories ) then
         local w, h, step = 0, 0, 1
         
-        local slot_data = index.D.slot_state[ inv_id ]
-        local offset_x, offset_y = 9*#slot_data + step, 9*#slot_data[1] + step
+        local inv = index.D.slot_state[ inv_id ]
+        local offset_x, offset_y = 9*#inv + step, 9*#inv[1] + step
         local core_x, core_y = pic_x - offset_x, pic_y - offset_y
         pic_x, pic_y = core_x, core_y
-        for i,col in pairs( slot_data ) do
+        for i,col in pairs( inv ) do
             for e,slot in ipairs( col ) do
                 w, h = index.new_generic_slot( pic_x, pic_y, {
                     inv_slot = { i, e },

@@ -13,6 +13,7 @@ penman_r = penman_r or ModTextFileGetContent
 penman_w = penman_w or ModTextFileSetContent
 function OnModInit()
 	dofile_once( "mods/index_core/files/_lib.lua" )
+	pen.add_translations( "mods/index_core/files/translations.csv" )
 
 	-- magic_pause = function( is_paused )
 	-- 	local ffi = require( "ffi" )
@@ -28,14 +29,14 @@ function OnModInit()
 	-- end
 
 	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
-	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
-	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
 	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
 		[176] = { pos = { 2, 0, 2 }, rect_h = 11, rect_w = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
+	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
 	pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
 		[176] = { pos = { 5, 0, 2 }, rect_h = 11, rect_w = 2 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
+	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
 	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
 		[66] = { pos = { 15, 0, 6 }, rect_h = 6, rect_w = 6 },
 		[101] = { pos = { 22, 0, 4 }, rect_h = 6, rect_w = 4 },
@@ -108,10 +109,9 @@ function OnPausePreUpdate()
 	--if noitapatcher is real, also make the inventory be closable by escape
 	--escape closes, e again picks up in the first free slot or replaces the currently held
 	--(if no noitapatcher, drop to 20 frames - off by default)
-	--pause code in a func
 	
 	--top half is the shit being picked up
-	--bottom half is the shit to pick + scrollbar
+	--bottom half is the inventory + scrollbar
 	--darker background
 	--display inv slots and the descs if said slots in as a vert paged shit
 	--only display the stuff that actually has on_gui_pause func and only check the quick+quickest invs
@@ -171,15 +171,13 @@ function OnPlayerSpawned( hooman )
 	GameAddFlagRun( initer )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
-	
 	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
 		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
 		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
 		["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
 	})))
 
-	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent",
-	{
+	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent", {
 		script_source_file = "mods/index_core/files/inv_ctrl.lua",
 		execute_every_n_frame = "1",
 	})
@@ -187,13 +185,13 @@ function OnPlayerSpawned( hooman )
 	local x, y = EntityGetTransform( hooman ); EntityAddTag( hooman, "index_ctrl" )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
-	
-	CreateItemActionEntity( "LIGHTNING", x, y )
-	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 
-	--testing_bag insert in the chest (autoarrange in the grid to match full inv width when inside player root inventory; display contents on hover tooltip)
 	--all spells wand
 	--custom spell you can seamlessly write the code into
+	--testing_bag insert in the chest (display contents on hover tooltip and allow dragging from and to it)
+
+	CreateItemActionEntity( "LIGHTNING", x, y )
+	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 end
 
 function OnPlayerDied( hooman )

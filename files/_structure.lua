@@ -2,36 +2,37 @@ dofile_once( "mods/index_core/files/_elements.lua" )
 
 local GLOBAL_MODES = {
     {
-        name = "FULL",
+        name = "FULL", color = pen.PALETTE.W,
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
+        
+        menu_capable = false, is_hidden = false, show_fullest = false,
+        can_see = false, allow_shooting = false, force_inv_open = false,
+        allow_external_inventories = false, allow_advanced_draggables = false,
     },
     {
-        name = "MANAGEMENT",
-        desc = "Complete inventory management capability.",
+        name = "MANAGEMENT", color = pen.PALETTE.VNL.YELLOW,
+        desc = "Extended inventory management capability.",
         allow_external_inventories = true, show_full = true, show_fullest = true,
     },
     {
-        name = "INTERACTIVE",
-        desc = "Dragging actions and complete in-world interactivity.",
+        name = "INTERACTIVE", color = pen.PALETTE.VNL.RUNIC,
+        desc = "Dragging actions and in-world interactivity.",
         can_see = true, allow_shooting = true, allow_advanced_draggables = true,
     },
     {
-        name = "CUSTOM_MENU",
-        desc = "Completely clears the entire right side and limits interactions.",
-        menu_capable = true, is_hidden = true, no_inv_toggle = true,
+        name = "CUSTOM_MENU", color = pen.PALETTE.VNL.DAMAGE,
+        desc = "Clears space to the right and limits interactions.",
+        menu_capable = true, is_hidden = true, force_inv_open = true,
     },
 }
 
-local GLOBAL_MUTATORS, APPLETS = {}, {
+local GLOBAL_MUTATORS, APPLETS = {}, { --allow appending to README
     l_state = not( pen.c.index_settings.mute_applets ), l_hover = {},
     r_state = not( pen.c.index_settings.mute_applets ), r_hover = {},
-
-    l = {},
-    r = {
+    l = {}, r = {
         {
-            name = "README",
-            desc = "The complete user guide.",
+            name = "README", desc = "The complete user guide.",
             pic = "data/ui_gfx/status_indicators/confusion.png",
             toggle = function( state ) end,
         },
@@ -74,7 +75,7 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 	["data/entities/animals/boss_wizard/boss_wizard.xml"] = {
 		pic = "mods/index_core/files/pics/priskips_bossbars/wizard.png",
 		color_bg = { 209, 97, 97, 47/255 }, pos = { 4, 4, 302, 15, 19, -1 },
-		func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc )
+		func_extra = function( pic_x, pic_y, pic_z, entity_id, data )
 			local mode = pen.magic_storage( entity_id, "mode", "value_int" )
 			pen.new_image( pic_x - 188.5, pic_y - 9, pic_z, "mods/index_core/files/pics/priskips_bossbars/wizard_"..mode..".png" )
 		end,
@@ -104,8 +105,7 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 local WAND_STATS = {
 	{
 		pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
-		name = "$inventory_actionspercast",
-		desc = "$inventory_actionspercast_tooltip",
+		name = "$inventory_actionspercast", desc = "$inventory_actionspercast_tooltip",
 
 		-- spacer = false,
 		-- is_hidden = false,
@@ -118,8 +118,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_gun_capacity.png",
-		name = "$inventory_capacity",
-		desc = "$inventory_capacity_tooltip",
+		name = "$inventory_capacity", desc = "$inventory_capacity_tooltip",
 
 		bigger_better = true,
 		value = function( info, w )
@@ -128,8 +127,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-		name = "$inventory_spread",
-		desc = "$inventory_spread_tooltip",
+		name = "$inventory_spread", desc = "$inventory_spread_tooltip",
 		
 		spacer = true,
 		value = function( info, w )
@@ -141,8 +139,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_mana_max.png",
-		name = "$inventory_manamax",
-		desc = "$inventory_manamax_tooltip",
+		name = "$inventory_manamax", desc = "$inventory_manamax_tooltip",
 
 		bigger_better = true,
 		value = function( info, w )
@@ -151,8 +148,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
-		name = "$inventory_manachargespeed",
-		desc = "$inventory_manachargespeed_tooltip",
+		name = "$inventory_manachargespeed", desc = "$inventory_manachargespeed_tooltip",
 
 		spacer = true,
 		bigger_better = true,
@@ -162,8 +158,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
-		name = "$inventory_castdelay",
-		desc = "$inventory_castdelay_tooltip",
+		name = "$inventory_castdelay", desc = "$inventory_castdelay_tooltip",
 
 		value = function( info, w )
 			return w.delay_time or 0 end,
@@ -174,8 +169,7 @@ local WAND_STATS = {
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_gun_reload_time.png",
-		name = "$inventory_rechargetime",
-		desc = "$inventory_rechargetime_tooltip",
+		name = "$inventory_rechargetime", desc = "$inventory_rechargetime_tooltip",
 		
 		spacer = true,
 		value = function( info, w )
@@ -297,7 +291,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_mana_drain.png",
-			name = "$inventory_manadrain",
+			name = "$inventory_manadrain", --desc = "",
 			
 			value = function( info, c, c_proj )
 				return info.spell_info.mana or 0 end,
@@ -306,7 +300,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png",
-			name = "$inventory_mod_castdelay",
+			name = "$inventory_mod_castdelay", --desc = "",
 
 			value = function( info, c, c_proj )
 				return c.fire_rate_wait or 0 end,
@@ -317,7 +311,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_reload_time.png",
-			name = "$inventory_mod_rechargetime",
+			name = "$inventory_mod_rechargetime", --desc = "",
 
 			value = function( info, c, c_proj )
 				return c.reload_time or 0 end,
@@ -329,7 +323,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-			name = "$inventory_mod_spread",
+			name = "$inventory_mod_spread", --desc = "",
 			
 			spacer = true,
 			value = function( info, c, c_proj )
@@ -343,7 +337,7 @@ local SPELL_STATS = { --custom descs
 	{
 		{
 			pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
-			name = "$inventory_mod_damage",
+			name = "$inventory_mod_damage", --desc = "",
 			
 			value = function( info, c, c_proj )
 				return c_proj.damage.total or 0 end,
@@ -355,7 +349,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png",
-			name = "$inventory_mod_critchance",
+			name = "$inventory_mod_critchance", --desc = "",
 
 			value = function( info, c, c_proj )
 				return c_proj.crit.chance or 0 end,
@@ -367,7 +361,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_speed_multiplier.png",
-			name = "$inventory_mod_speed",
+			name = "$inventory_mod_speed", --desc = "",
 
 			value = function( info, c, c_proj )
 				return c_proj.speed or 0 end,
@@ -380,7 +374,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = -1,
 			pic = "data/ui_gfx/inventory/icon_bounces.png",
-			name = "$inventory_mod_bounces",
+			name = "$inventory_mod_bounces", --desc = "",
 			
 			value = function( info, c, c_proj )
 				return c_proj.bounces or 0 end,
@@ -391,7 +385,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
-			name = "$inventory_mod_explosion_radius",
+			name = "$inventory_mod_explosion_radius", --desc = "",
 
 			spacer = true,
 			value = function( info, c, c_proj )
@@ -410,10 +404,10 @@ local MATTER_DESCS = { -- description for materials (if mode is not hotkeyed, ma
 
 local ITEM_CATS = {
     {
-        name = GameTextGetTranslatedOrNot( "$item_wand" ),
-        is_wand = true,
-        is_quickest = true,
-        do_full_man = true,
+        name = GameTextGet( "$item_wand" ),
+
+        is_wand = true, is_quickest = true,
+        -- deep_processing = true, is_potion = false, is_spell = false,
 
         on_check = function( item_id )
             local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
@@ -423,7 +417,7 @@ local ITEM_CATS = {
             local name = index.get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
             return pen.vld( name ) and name or default_name
         end,
-        on_data = function( info, item_list_wip )
+        on_data = function( info, wip_item_list )
             info.wand_info = {
                 shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
                 actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
@@ -455,9 +449,10 @@ local ITEM_CATS = {
             }
             
             local check_func = function( item_info, inv_info ) return item_info.is_spell or false end
-            local update_func = function( inv_info, info_old, info_new ) return ( inv_info.in_hand or 0 ) > 0 end
+            local update_func = function( inv_info, info_old, info_new ) return pen.vld( inv_info.in_hand, true ) end
             local sort_func = function( a, b )
-                local is_perma, inv_slot = { false, false }, { 0, 0 }
+                local inv_slot = { 0, 0 }
+                local is_perma = { false, false }
                 pen.t.loop({ a, b }, function( i,v )
                     local item_comp = EntityGetFirstComponentIncludingDisabled( v, "ItemComponent" )
                     if( not( pen.vld( item_comp, true ))) then return end
@@ -475,7 +470,7 @@ local ITEM_CATS = {
         on_processed_forced = function( info )
             local children = EntityGetAllChildren( info.id )
             if( not( pen.vld( children ))) then return end
-
+            
             table.sort( children, function( a, b )
                 local inv_slot = { 0, 0 }
                 pen.t.loop({ a, b }, function( i,v )
@@ -490,12 +485,12 @@ local ITEM_CATS = {
             if( not( pen.t.loop( children, function( i, child )
                 local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
                 if( not( pen.vld( item_comp, true ))) then return end
-
+                
                 if( got_normal ) then
                     if( ComponentGetValue2( item_comp, "permanently_attached" )) then return true end
                 else got_normal = not( ComponentGetValue2( item_comp, "permanently_attached" )) end
             end))) then return end
-
+            
             pen.t.loop( children, function( i, child )
                 local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
                 if( not( pen.vld( item_comp, true ))) then return end
@@ -503,16 +498,15 @@ local ITEM_CATS = {
             end)
         end,
 
-        on_inventory = function( info, pic_x, pic_y, state_tbl )
-            if( not( index.D.gmod.allow_wand_editing )) then return end
-            if( not( state_tbl.is_quick )) then return end
-            if( not( index.D.is_opened )) then return end
-
-            pic_x, pic_y = unpack( pen.vld( index.D.wand_inventory ) and index.D.wand_inventory or index.D.xys.full_inv )
-            w, h = index.D.wand_func( pic_x + 2*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
-            index.D.wand_inventory = { pic_x, pic_y + h }
-        end,
         on_tooltip = index.new_vanilla_wtt,
+        on_inventory = function( info, pic_x, pic_y, state_tbl )
+            if( not( index.D.is_opened )) then return end
+            if( not( state_tbl.is_quick )) then return end
+            if( not( index.D.gmod.allow_wand_editing )) then return end
+            pic_x, pic_y = unpack( pen.vld( index.D.xys.wands ) and index.D.xys.wands or index.D.xys.full_inv )
+            w, h = index.D.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
+            index.D.xys.wands = { pic_x, pic_y + h }
+        end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             local w, h = pen.get_pic_dims( index.D.slot_pic.bg )
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
@@ -524,61 +518,59 @@ local ITEM_CATS = {
             if(( index.M.wtt_safety or tid ) == tid and not( state_tbl.is_hov )) then
                 index.M.wtt_safety = nil elseif(( index.M.wtt_safety or tid ) ~= tid ) then is_allowed = false end
             if( state_tbl.is_opened and ( state_tbl.is_hov or is_pinned ) and pen.vld( hov_func ) and is_allowed ) then
-                hov_func( info, tid, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS )
+                hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS )
                 index.M.wtt_safety, shown_wtt = tid, true
             end
 
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
 
-                local was_there = false
-                local slot_data = index.D.slot_state[ info.id ]
-                for i,col in ipairs( slot_data ) do
+                local is_empty = false
+                for i,col in ipairs( index.D.slot_state[ info.id ]) do
                     pen.t.loop( col, function( e, slot )
                         if( not( slot )) then return end
-                        local slot_info = pen.t.get( index.D.item_list, slot, nil, nil, {})
-                        if( not( slot_info.is_spell )) then return end
+                        local spell_info = pen.t.get( index.D.item_list, slot, nil, nil, {})
+                        if( not( spell_info.is_spell )) then return end
 
-                        if( slot_info.charges > 0 ) then
-                            info.charges = slot_info.charges; return true
-                        elseif( info.charges == 0 and slot_info.charges < 0 ) then
-                            local is_mod = slot_info.spell_info.type == 2
-                            local is_many = slot_info.spell_info.type == 3
+                        if( spell_info.charges > 0 ) then
+                            info.charges = spell_info.charges; return true
+                        elseif( info.charges == 0 and spell_info.charges < 0 ) then
+                            local is_mod = spell_info.spell_info.type == 2
+                            local is_many = spell_info.spell_info.type == 3
                             if( not( is_mod ) and not( is_many )) then info.charges = -1 end
                         end
 
-                        if( not( was_there )) then was_there = slot_info.charges == 0 end
+                        if( not( is_empty )) then is_empty = spell_info.charges == 0 end
                     end)
 
                     if( info.charges > 0 ) then break end
                 end
 
-                if( info.charges == 0 and was_there ) then info.charges = 0.1 end
+                if( info.charges == 0 and is_empty ) then info.charges = 0.1 end
             end
 
             if( not( shown_wtt )) then index.M.wtt_safety = nil end
 
             return info
         end,
-        
-        on_pickup = function( info, is_post )
-            return ({
-                function( info ) return 0 end,
-                function( info )
-                    if( ComponentGetValue2( info.ItemC, "has_been_picked_by_player" )) then return end
-                    EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( info.xy ))
-                    ComponentSetValue2( info.ItemC, "play_spinning_animation", true )
-                end,
-            })[ is_post and 2 or 1 ]( info )
-        end,
 
         on_gui_world = index.new_vanilla_worldtip,
         -- on_gui_pause = function( info ) --should know if is picked or not
         --     return
         -- end,
+        on_pickup = function( info, is_post )
+            return ({
+                function( info ) return 0 end,
+                function( info )
+                    if( ComponentGetValue2( info.ItemC, "has_been_picked_by_player" )) then return end
+                    --EntityLoad( "data/entities/particles/image_emitters/wand_effect.xml", unpack( info.xy ))
+                    ComponentSetValue2( info.ItemC, "play_spinning_animation", true )
+                end,
+            })[ is_post and 2 or 1 ]( info )
+        end,
     },
     {
-        name = GameTextGetTranslatedOrNot( "$item_potion" ),
+        name = GameTextGet( "$item_potion" ),
         is_potion = true,
 
         on_check = function( item_id )
@@ -591,24 +583,21 @@ local ITEM_CATS = {
             barrel_size = pen.vld( barrel_size ) and
                 ComponentGetValue2( barrel_size, "barrel_size" ) or ComponentGetValue2( matter_comp, "max_capacity" )
             
-            local cap = ""
-            local name = index.get_entity_name( item_id, item_comp )
+            local name, cap = index.get_entity_name( item_id, item_comp ), ""
             if( pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ), true )) then
                 local v, m = pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" ))
                 name, cap = index.get_potion_info( item_id, name, v, barrel_size, m )
             end
             return name..( cap or "" )
         end,
-        on_data = function( info, item_list_wip )
+        on_data = function( info, wip_item_list )
             info.is_true_potion = pen.vld( EntityGetFirstComponentIncludingDisabled( info.id, "PotionComponent" ), true )
 
             info.MatterC = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialInventoryComponent" )
             info.matter_info = {
                 may_drink = ComponentGetValue2( info.ItemC, "drinkable" ),
                 volume = ComponentGetValue2( info.MatterC, "max_capacity" ),
-                matter = { pen.get_matter( ComponentGetValue2( info.MatterC, "count_per_material_type" ))},
-            }
-
+                matter = { pen.get_matter( ComponentGetValue2( info.MatterC, "count_per_material_type" ))}}
             info.SuckerC = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialSuckerComponent" )
             if( pen.vld( info.SuckerC, true )) then
                 info.bottle_info = {
@@ -617,7 +606,6 @@ local ITEM_CATS = {
                     capacity = ComponentGetValue2( info.SuckerC, "barrel_size" ),
                     speed = ComponentGetValue2( info.SuckerC, "num_cells_sucked_per_frame" ),
                     may_static = ComponentGetValue2( info.SuckerC, "suck_static_materials" )}
-                
                 info.matter_info.volume = info.bottle_info.capacity
             else info.SuckerC = nil end
             
@@ -626,11 +614,11 @@ local ITEM_CATS = {
                 info.spray_info = {
                     ComponentGetValue2( info.SprayC, "file" ),
                     ComponentGetValue2( info.SprayC, "event_name" )}
-            end
+            else info.SprayC = nil end
 
             if( info.is_true_potion ) then
-                info.name, info.fullness = index.get_potion_info(
-                    info.id, info.raw_name, math.max( info.matter_info.matter[1], 0 ), info.matter_info.volume, info.matter_info.matter[2]) end
+                info.name, info.fullness = index.get_potion_info( info.id, info.raw_name,
+                    math.max( info.matter_info.matter[1], 0 ), info.matter_info.volume, info.matter_info.matter[2]) end
             if( info.matter_info.volume < 0 ) then info.matter_info.volume = info.matter_info.matter[1] end
             
             info.potion_cutout = pen.magic_storage( info.id, "potion_cutout", "value_int" )
@@ -639,6 +627,7 @@ local ITEM_CATS = {
             return info
         end,
         
+        on_tooltip = index.new_vanilla_ptt,
         on_inventory = function( info, pic_x, pic_y, state_tbl )
             local w, h = pen.get_pic_dims( index.D.slot_pic.bg )
             if( state_tbl.is_full ) then return end
@@ -652,8 +641,8 @@ local ITEM_CATS = {
             local size = k*math.min( info.matter_info.matter[1], info.matter_info.volume )
             for i,m in ipairs( info.matter_info.matter[2]) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
-                pen.new_pixel( pic_x, pic_y - math.min( delta, h ),
-                    pen.LAYERS.MAIN + tonumber( "0.001"..i ), pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
+                pen.new_pixel( pic_x, pic_y - math.min( delta, h ), pen.LAYERS.MAIN + tonumber( "0.001"..i ),
+                    pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
                 if( delta >= h ) then break end
             end
 
@@ -661,17 +650,16 @@ local ITEM_CATS = {
                 pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, w, 0.5 )
             end
         end,
-        on_tooltip = index.new_vanilla_ptt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, nil, pic_x - 10, pic_y + 10, pen.LAYERS.TIPS ) end
+                hov_func( info, "ptt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
             
             local nuke_it = true
             local target_angle = 0
             if( state_tbl.is_dragged ) then
                 if( pen.vld( drag_func ) and index.D.drag_action ) then nuke_it, target_angle = unpack( drag_func( info )) end
-            elseif( pen.vld( rmb_func ) and state_tbl.is_rmb and index.D.is_opened and state_tbl.is_quick ) then rmb_func( info ) end
+            elseif( pen.vld( rmb_func ) and state_tbl.is_rmb and state_tbl.is_quick ) then rmb_func( info ) end
 
             local pic_data = pen.cache({ "index_pic_data", info.pic })
             if( not( nuke_it )) then
@@ -699,12 +687,11 @@ local ITEM_CATS = {
                 pic_y = pic_y + pen.estimate( "sucking_drift", 0, "exp5", 1 )
             end
             
-            local z = index.slot_z( info.id, pen.LAYERS.ICONS )
+            local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
-            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, z, info.pic, false, hov_scale, false, 0.8 - 0.5*ratio, angle )
-            pen.new_image( pic_x, pic_y, z - 0.01, info.pic,
+            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, 0.8 - 0.5*ratio, angle )
+            pen.new_image( pic_x, pic_y, pic_z - 0.01, info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
-            
             return info, info.matter_info.matter[1] ~= 0, true
         end,
 
@@ -712,11 +699,10 @@ local ITEM_CATS = {
             return ({
                 function( info )
                     if( not( info.matter_info.may_drink )) then return end
-
                     if( info.matter_info.matter[1] > 0 ) then
                         index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
-                        pen.magic_chugger( info.matter_info.matter[2], index.D.player_id,
-                            info.id, info.matter_info.volume, index.D.shift_action and 1 or 0.1 )
+                        pen.magic_chugger( info.matter_info.matter[2],
+                            index.D.player_id, info.id, info.matter_info.volume, index.D.shift_action and 1 or 0.1 )
                     else index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
                 end,
                 function( info )
@@ -795,6 +781,8 @@ local ITEM_CATS = {
                 end,
             })[ type ]
         end,
+
+        on_gui_world = index.new_vanilla_worldtip,
         on_pickup = function( info, is_post )
             return ({
                 function( info ) return 0 end,
@@ -807,18 +795,16 @@ local ITEM_CATS = {
                 end,
             })[ is_post and 2 or 1 ]( info )
         end,
-
-        on_gui_world = index.new_vanilla_worldtip,
     },
     {
-        name = string.sub( string.lower( GameTextGetTranslatedOrNot( "$hud_title_actionstorage" )), 1, -2 ),
+        name = string.sub( string.lower( GameTextGet( "$hud_title_actionstorage" )), 1, -2 ),
         is_spell = true,
 
         on_check = function( item_id )
             if( EntityHasTag( item_id, "card_action" )) then return true end
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ), true )
         end,
-        on_data = function( info, item_list_wip )
+        on_data = function( info, wip_item_list )
             if( info.is_permanent ) then info.charges = -1 end
 
             info.ActionC = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
@@ -834,7 +820,7 @@ local ITEM_CATS = {
             
             local parent_id = EntityGetParent( info.id )
             if( pen.vld( parent_id, true ) and pen.vld( index.D.invs[ parent_id ])) then
-                parent_id = pen.t.get( item_list_wip, parent_id, nil, nil, {})
+                parent_id = pen.t.get( wip_item_list, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then info.in_wand = parent_id.id end
             end
 
@@ -849,13 +835,13 @@ local ITEM_CATS = {
             if( pen.vld( pic_comp, true )) then EntityRemoveComponent( info.id, pic_comp ) end
         end,
 
+        on_tooltip = index.new_vanilla_stt,
         on_inv_check = function( info, inv_info )
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
         on_inv_swap = function( info, slot_data )
             if( index.D.active_item == info.id ) then pen.reset_active_item( index.D.player_id ) end
         end,
-        on_tooltip = index.new_vanilla_stt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             local angle, anim_speed = 0, index.D.spell_anim_frames
             local is_considered = state_tbl.is_dragged or state_tbl.is_hov
@@ -873,16 +859,14 @@ local ITEM_CATS = {
                 pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "stt"..info.id, pic_x - 10, pic_y + 5, pen.LAYERS.TIPS )
-            end
-
+                hov_func( info, "stt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info
         end,
 
         on_gui_world = index.new_vanilla_worldtip,
     },
     {
-        name = "tablet",
+        name = GameTextGet( "$index_cat_tablet" ),
 
         on_check = function( item_id )
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ), true )
@@ -891,22 +875,18 @@ local ITEM_CATS = {
         on_tooltip = index.new_vanilla_ttt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
-            
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
-            end
-
+                hov_func( info, "ttt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info, true
         end,
 
         on_gui_world = index.new_vanilla_worldtip,
     },
     {
-        name = GameTextGetTranslatedOrNot( "$mat_item_box2d" ),
+        name = GameTextGet( "$mat_item_box2d" ),
 
         on_check = function( item_id ) return true end,
-        on_data = function( info, item_list_wip )
+        on_data = function( info, wip_item_list )
             if( not( EntityHasTag( info.id, "this_is_sampo" ))) then return info end
             if( EntityGetRootEntity( info.id ) == index.D.player_id ) then index.D.sampo = info.id end
             info.inv_cat = 0
@@ -916,15 +896,12 @@ local ITEM_CATS = {
         on_tooltip = index.new_vanilla_itt,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
-
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                pic_x, pic_y = pic_x - 10, pic_y + 10
-                hov_func( info, nil, pic_x, pic_y, pen.LAYERS.TIPS )
-            end
-            
+                hov_func( info, "itt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info
         end,
 
+        on_gui_world = index.new_vanilla_worldtip,
         on_pickup = function( info, is_post )
             return ({
                 function( info )
@@ -935,8 +912,6 @@ local ITEM_CATS = {
                 function() end,
             })[ is_post and 2 or 1 ]( info )
         end,
-
-        on_gui_world = index.new_vanilla_worldtip,
     },
 }
 
@@ -947,8 +922,8 @@ local GUI_STRUCT = {
     box = index.new_vanilla_box,
     wand = index.new_vanilla_wand,
 
+    gmodder = index.new_generic_gmod,
     full_inv = index.new_generic_inventory,
-    modder = index.new_generic_modder,
     applet_strip = index.new_generic_applets,
     
     bars = {

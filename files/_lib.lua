@@ -6,24 +6,30 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- another code audit
+-- another code audit (return pinned state from tips?)
 -- clean up Twin-Linked
 -- docs
+-- selected wand's tip should be highlighted in orange
+-- hide spell charge count on hover
 -- two slots can be highlighted at once
 -- make in-inv tips be hoverable
+-- in-world spells should have their frames changed too (just do default one with no color)
+-- rmb dragger action throws
 -- send to storage (put at the bottom rows of inv) + shift clicks
+-- reload and delay bars are shaking on fire
 -- launch second alpha
+
+------------------------------------------------------
 
 -- wand pickup + pickup inv
 -- conjurer wands are in reversed order
--- allow fake spell injection (add a spell that gets lua input through text2func; the icon is hermes logo; make one per-wand and one global)
+-- allow fake spell injection (add a spell that gets lua input through text2func; the icon is hermes logo; should work per spell entity)
 -- make custom monospace highres font
 
--- figure out performance
+-- figure out performance (check performance of addressing globals vs locals)
 -- seems to be related with amount of unique items over the course of the run?
 -- try leaving game running for an hour at hiisi base
 -- try restarting
-
 
 -- new_vanilla_wtt
 -- new_vanilla_stt
@@ -133,7 +139,7 @@ function index.get_status_data( hooman )
 		local message = GameTextGet( "$ingestion_status_caused_by"..( is_many and "_many" or "" ), mtr == "" and "???" or mtr )
 		if( ing_perc >= 100 and hardcoded_cancer_fucking_ass_list[ effect_info.id ]) then
 			if( GameGetGameEffectCount( hooman, "IRON_STOMACH" ) == 0 ) then
-				message, time = GameTextGetTranslatedOrNot( "$ingestion_status_caused_by_overingestion" ), -1
+				message, time = GameTextGet( "$ingestion_status_caused_by_overingestion" ), -1
 			else time = 0 end
 		end
 		if( time == 0 ) then return end
@@ -157,9 +163,9 @@ function index.get_status_data( hooman )
 		local total_delay = ComponentGetValue2( ing_comp, "ingestion_cooldown_delay_frames" )
 		table.insert( effect_tbl.ings, 1, {
 			txt = ing_perc.."%",
-			desc = GameTextGetTranslatedOrNot( "$status_satiated0"..stomach_step ),
+			desc = GameTextGet( "$status_satiated0"..stomach_step ),
 			pic = "data/ui_gfx/status_indicators/satiation_0"..stomach_step..".png",
-			tip = GameTextGetTranslatedOrNot( "$statusdesc_satiated0"..stomach_step ),
+			tip = GameTextGet( "$statusdesc_satiated0"..stomach_step ),
 
 			is_stomach = true,
 			digestion_delay = math.min( math.floor( 10*delay/total_delay + 0.5 )/10, 1 ),
@@ -283,7 +289,7 @@ function index.get_status_data( hooman )
 		table.sort( e.time_tbl, function( a, b ) return a > b end)
         effect_tbl.misc[1].txt = index.get_effect_timer( e.time_tbl[1])
         if( #e.time_tbl <= 1 ) then return end
-		local tip = GameTextGetTranslatedOrNot( "$menu_replayedit_writinggif_timeremaining" )
+		local tip = GameTextGet( "$menu_replayedit_writinggif_timeremaining" )
 		effect_tbl.misc[1].tip = effect_tbl.misc[1].tip.."\n"..string.gsub(
 			tip, "%$0 ", index.get_effect_timer( e.time_tbl[ #e.time_tbl ], true ))
 	end)
@@ -489,9 +495,9 @@ function index.inv_check( item_info, info )
 	return is_fit
 end
 
-function index.slot_swap_check( item_in, item_out, slot_info )
+function index.slot_swap_check( item_in, item_out, slot_data )
 	local inv_memo, slot_memo = item_out.inv_id, item_out.inv_slot
-	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_info.inv_id, item_out.inv_slot or slot_info.inv_slot
+	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_data.inv_id, item_out.inv_slot or slot_data.inv_slot
 	local is_fit = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
 	item_out.inv_id, item_out.inv_slot = inv_memo, slot_memo
 	return is_fit
@@ -530,7 +536,7 @@ function index.inventory_man( info, in_hand, force_full )
 	pen.child_play_full( item_id, function( child, params )
 		info.id = child
 		index.inventory_boy( info, in_hand )
-		if( not( force_full ) and index.D.invs[ child ] ~= nil ) then return true end
+		if( not( force_full ) and pen.vld( index.D.invs[ child ])) then return true end
 	end)
 	info.id = item_id
 end
@@ -602,17 +608,17 @@ function index.set_to_slot( info, is_player )
 	return info
 end
 
-function index.slot_swap( item_in, slot_info )
+function index.slot_swap( item_in, slot_data )
 	local reset, idata = { 0, 0 }, {}
 	idata[1] = pen.t.get( index.D.item_list, item_in, nil, nil, {})
-	idata[2] = pen.t.get( index.D.item_list, slot_info.id, nil, nil, {})
-	local parent1, parent2 = EntityGetParent( item_in ), slot_info.inv_id
+	idata[2] = pen.t.get( index.D.item_list, slot_data.id, nil, nil, {})
+	local parent1, parent2 = EntityGetParent( item_in ), slot_data.inv_id
 	
 	pen.t.loop({ parent1, parent2 }, function( i, p )
 		if( not( pen.vld( p, true ))) then return end
-		local p_info = index.D.invs[p] or {}
-		if( not( pen.vld( p_info.update ))) then return end
-		if( p_info.update( pen.t.get( index.D.item_list, p, nil, nil, p_info ), idata[( i + 1 )%2 + 1 ], idata[ i%2 + 1 ])) then
+		local inv_info = index.D.invs[p] or {}
+		if( not( pen.vld( inv_info.update ))) then return end
+		if( inv_info.update( pen.t.get( index.D.item_list, p, nil, nil, inv_info ), idata[( i + 1 )%2 + 1 ], idata[ i%2 + 1 ])) then
 			table.insert( reset, pen.get_item_owner( p ))
 		end
 	end)
@@ -620,25 +626,25 @@ function index.slot_swap( item_in, slot_info )
 		reset[1] = pen.get_item_owner( item_in )
 		EntityRemoveFromParent( item_in )
 		EntityAddChild( parent2, item_in )
-		if( pen.vld( slot_info.id, true )) then
-			reset[2] = pen.get_item_owner( slot_info.id )
-			EntityRemoveFromParent( slot_info.id )
-			EntityAddChild( parent1, slot_info.id )
+		if( pen.vld( slot_data.id, true )) then
+			reset[2] = pen.get_item_owner( slot_data.id )
+			EntityRemoveFromParent( slot_data.id )
+			EntityAddChild( parent1, slot_data.id )
 		end
 	end
 	
 	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_in, "ItemComponent" )
 	local slot1 = { ComponentGetValue2( item_comp1, "inventory_slot" )}
-	local slot2 = slot_info.inv_slot
+	local slot2 = slot_data.inv_slot
 	ComponentSetValue2( item_comp1, "inventory_slot", slot2[1] - 1, slot2[2] < 0 and slot2[2] or slot2[2] - 1 )
-	if( slot_info.id > 0 ) then
-		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_info.id, "ItemComponent" )
+	if( slot_data.id > 0 ) then
+		local item_comp2 = EntityGetFirstComponentIncludingDisabled( slot_data.id, "ItemComponent" )
 		ComponentSetValue2( item_comp2, "inventory_slot", unpack( slot1 ))
 	end
 	
 	pen.t.loop( idata, function( i, d )
 		if( not( pen.vld( d.id, true ))) then return end
-		index.cat_callback( d, "on_inv_swap", { slot_info })
+		index.cat_callback( d, "on_inv_swap", { slot_data })
 	end)
 	for i,deadman in pairs( reset ) do
 		if( pen.vld( deadman, true )) then pen.reset_active_item( deadman ) end
@@ -682,7 +688,7 @@ function index.get_potion_info( entity_id, name, volume, max_volume, matters )
 	if(( max_volume or 0 ) > 0 ) then
 		v = GameTextGet( "$item_potion_fullness", tostring( math.floor( 100*volume/max_volume + 0.5 ))) end
 	if( string.sub( name, 1, 1 ) == "$" ) then
-		name = pen.capitalizer( GameTextGet( name, ( info == "" and GameTextGetTranslatedOrNot( "$item_potion_empty" ) or info )))
+		name = pen.capitalizer( GameTextGet( name, ( info == "" and GameTextGet( "$item_potion_empty" ) or info )))
 	else name = string.gsub( GameTextGetTranslatedOrNot( name ), " %(%)", "" ) end
 	return table.concat({ info, ( info == "" and info or " " ), name }), v
 end
@@ -769,7 +775,7 @@ function index.get_item_data( item_id, inv_info, item_list )
 		info.is_spell = cat.is_spell or false
 		info.is_quickest = cat.is_quickest or false
 		info.is_hidden = cat.is_hidden or false
-		info.do_full_man = cat.do_full_man or false
+		info.deep_processing = cat.deep_processing or false
 		return true
 	end)
 	
@@ -794,7 +800,7 @@ function index.get_items( hooman )
 	pen.t.loop({ "invs", "invs_i" }, function( k, inv )
 		for i,inv_info in pairs( index.D[ inv ]) do
 			if( k == 2 ) then index.D.invs[i] = inv_info end
-			pen.child_play( inv_info.id, function( parent, child, e )
+			pen.child_play( inv_info.id, function( parent, child )
 				local new_info = index.get_item_data( child, inv_info, item_tbl )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
@@ -803,7 +809,7 @@ function index.get_items( hooman )
 					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
 					EntityAddTag( new_info.id, "index_processed" )
 				end
-
+				
 				index.cat_callback( new_info, "on_processed_forced", {})
 				index.register_item_pic( new_info )
 				table.insert( item_tbl, new_info )
@@ -859,7 +865,7 @@ function index.pick_up_item( hooman, info, is_audible, is_silent )
 			ComponentSetValue2( info.ItemC, "has_been_picked_by_player", true )
 			ComponentSetValue2( info.ItemC, "mFramePickedUp", index.D.frame_num )
 
-			index.inventory_man( info, false )
+			index.inventory_man( info, false, info.deep_processing )
 		end
 	elseif( gonna_pause == 1 ) then
 		--engage the pause
@@ -910,7 +916,7 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 
 	EntitySetTransform( item_id, from_x, from_y, nil, 1, 1 )
 	-- EntityApplyTransform( item_id, from_x, from_y )
-	if( has_no_cancer ) then index.inventory_man( info, false ) end
+	if( has_no_cancer ) then index.inventory_man( info, false, info.deep_processing ) end
 	pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "SpriteComponent", "enabled_in_world" ), function( i, comp )
 		ComponentSetValue2( comp, "z_index", -1 + ( i - 1 )*0.0001 )
 		EntityRefreshSprite( item_id, comp )
@@ -945,7 +951,7 @@ function index.slot_z( dragged_id, pic_z )
 end
 
 function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
-	if( index.M.dragger_active ) then return pic_x, pic_y end
+	if( index.M.is_dragging ) then return pic_x, pic_y end
 	index.M.dragger_buffer = index.M.dragger_buffer or { 0, 0 }
 	if( index.D.frame_num - index.M.dragger_buffer[2] > 2 ) then index.M.dragger_buffer = { 0, 0 } end
 
@@ -977,7 +983,7 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 		
 		index.M.pending_slots[ id ] = drag_state > 0
 		if( index.M.pending_slots[ id ]) then index.M.dragger_buffer[2] = index.D.frame_num end
-		index.M.dragger_active = true
+		index.M.is_dragging = true
 	end
 	return pic_x, pic_y, drag_state, clicked, r_clicked, is_hovered
 end
@@ -1523,9 +1529,9 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	local desc = info.desc
 	local matter_desc = ""
 	if( matter[1] > 0 ) then
-		if( info.matter_info.may_drink ) then
+		if( info.matter_info.may_drink ) then --only if the item is in quick inv
 			desc = desc.."\n"..GameTextGet( "$item_description_potion_usage", "[RMB]" ) end
-		desc = desc.."\n"..GameTextGetTranslatedOrNot( "$inventory_capacity" ).." = "..matter[1].."/"..info.matter_info.volume
+		desc = desc.."\n"..GameTextGet( "$inventory_capacity" ).." = "..matter[1].."/"..info.matter_info.volume
 		
 		for i,m in ipairs( matter[2]) do
 			if( #matter[2] == 1 ) then break end
@@ -1698,8 +1704,10 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 end
 
 function index.new_spell_frame( pic_x, pic_y, pic_z, spell_type, alpha )
-	pen.new_image( pic_x - 12, pic_y - 12, pic_z,
-		"mods/index_core/files/pics/spell_frame.png", { has_shadow = true, alpha = alpha, color = index.FRAMER[ spell_type ][1]})
+	pen.new_image( pic_x - 10, pic_y - 10, pic_z,
+		"mods/index_core/files/pics/spell_frame.png", { alpha = alpha, color = index.FRAMER[ spell_type ][1]})
+	pen.new_image( pic_x - 10.5, pic_y - 10.5, pic_z + 0.001,
+		"mods/index_core/files/pics/spell_frame.png", { alpha = 0.5*alpha, color = pen.PALETTE.SHADOW })
 end
 
 -- generic game effects should only be displayed if uiicons was detected
@@ -1891,7 +1899,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	
 	local slot_x, slot_y = pic_x - w/2, pic_y - h/2
 	if( can_drag ) then
-		if( pen.vld( info.id, true ) and not( index.D.dragger.swap_now or index.M.dragger_active )) then
+		if( pen.vld( info.id, true ) and not( index.D.dragger.swap_now or index.M.is_dragging )) then
 			pic_x, pic_y = index.new_dragger_shell( info.id, info, pic_x, pic_y, w, h )
 		end
 	elseif( index.D.is_opened ) then

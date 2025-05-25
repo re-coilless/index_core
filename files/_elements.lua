@@ -109,13 +109,10 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
 
         if( index.D.is_opened ) then
             pic_x = pic_x + index.D.inv_spacings[2]
-            pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
-                GameTextGetTranslatedOrNot( "$hud_title_wands" ))
-            pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
-                GameTextGetTranslatedOrNot( "$hud_title_throwables" ))
+            pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_wands" ))
+            pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_throwables" ))
             if( index.D.gmod.show_full ) then
-                pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP,
-                    GameTextGetTranslatedOrNot( "$menuoptions_heading_misc" ))
+                pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$menuoptions_heading_misc" ))
             end
         end
         
@@ -340,7 +337,7 @@ function index.new_generic_mana( screen_w, screen_h, xys )
             local mana_max = data.wand_info.mana_max
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
             if( index.M.mana_shake[ index.D.active_item ] == nil ) then
-                if( index.D.no_mana_4life ) then index.M.mana_shake[ index.D.active_item ] = index.D.frame_num end
+                if( index.D.no_mana ) then index.M.mana_shake[ index.D.active_item ] = index.D.frame_num end
             end
 
             local shake_frame = index.D.frame_num - ( index.M.mana_shake[ index.D.active_item ] or index.D.frame_num )
@@ -508,7 +505,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             pen.new_text( t_x, t_y, pic_z + 0.007, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
             
             if( pen.vld( data.custom.func_extra ) and not( in_world )) then
-                data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data, hp/max_hp ) end
+                data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data ) end
             return length, height
         end
 
@@ -847,7 +844,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
                 info_func( screen_h, screen_w, {
                     id = sampo_spot,
-                    desc = { pen.capitalizer( GameTextGetTranslatedOrNot( "$biome_boss_victoryroom" )), msg },
+                    desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
                     txt = "[COMPLETE]",
                     color = { pen.PALETTE.VNL.RUNIC, clr },
                 }, xys )
@@ -1110,14 +1107,14 @@ function index.new_generic_extra( screen_w, screen_h, xys )
     end
 end
 
-function index.new_generic_modder( screen_w, screen_h, xys )
-    local mode_data = index.D.gmod
-    if( not( pen.vld( mode_data )) or not( index.D.is_opened )) then return end
+function index.new_generic_gmod( screen_w, screen_h, xys )
+    local data = index.D.gmod
+    if( not( pen.vld( data )) or not( index.D.is_opened )) then return end
     if( index.D.gmod.is_hidden and not( index.D.gmod.force_show )) then return end
     
-    local w,h = pen.get_text_dims( mode_data.name, true )
+    local w, h = pen.get_text_dims( data.name, true )
     local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
-    if( not( mode_data.show_full )) then
+    if( not( data.show_full )) then
         pic_x = xys.inv_root[1] + 7 + w
         pic_y = xys.full_inv[2] + 13
     elseif( xys.applets_r[1] <= ( pic_x + 5 )) then return end
@@ -1136,7 +1133,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
     
     local tip_x, tip_y = unpack( xys.hp )
-    local tip = mode_data.name.."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..mode_data.desc.."}<color<}}<indent<}"
+    local tip = data.name.."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..data.desc.."}<color<}}<indent<}"
     is_hovered, clicked, r_clicked = index.tipping(
         pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, w + 6, 10, tip, { fully_featured = true,
         pos = { tip_x - 44, tip_y }, is_left = true, text_prefunc = function( text, data ) return text, 2, 0 end })
@@ -1149,7 +1146,7 @@ function index.new_generic_modder( screen_w, screen_h, xys )
         end
     end
 
-    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, mode_data.name, { alpha = alpha })
+    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, data.name, { color = data.color, alpha = alpha })
     index.D.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
     
     pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
