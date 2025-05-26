@@ -292,6 +292,17 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
+			{
+				id = "SPELL_FRAME",
+				ui_name = "Action Type Indicator",
+				ui_description = "Changes the shape of the spell frame.",
+				values = { "Solid", "Fading", "Star", "Bottom", "Corners", "Frame" },
+				value_default = 4,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				ui_fn = mod_setting_custom_enum,
+				change_fn = sync_settings,
+			},
 		},
 	},
 }

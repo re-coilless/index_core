@@ -1,29 +1,30 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
 function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
+    local xD = index.D
 	local info = slot_data.idata or {}
 	if( not( slot_data.id )) then
 		slot_data.id = -1
 		info = { id = slot_data.id, in_hand = 0 }
 	elseif( not( pen.vld( info.id, true ))) then
-		info = pen.t.get( index.D.item_list, slot_data.id )
+		info = pen.t.get( xD.item_list, slot_data.id )
 	end
 	if( pen.vld( slot_data.id, true )) then
 		if( EntityHasTag( info.id, "index_unlocked" )) then
 			can_drag = true
 		elseif( info.is_locked ) then can_drag = false end
-	elseif( EntityHasTag( index.D.dragger.item_id, "index_unlocked" )) then
-		local inv_info = pen.t.get( index.D.item_list, slot_data.inv_id, nil, nil, {})
+	elseif( EntityHasTag( xD.dragger.item_id, "index_unlocked" )) then
+		local inv_info = pen.t.get( xD.item_list, slot_data.inv_id, nil, nil, {})
 		if( not( pen.vld( inv_info.id, true )) or not( inv_info.is_frozen )) then can_drag = true end
 	end
 	
-	local w, h, clicked, r_clicked, is_hovered = index.D.slot_func(
+	local w, h, clicked, r_clicked, is_hovered = xD.slot_func(
 		pic_x, pic_y, slot_data, info, pen.vld( info.in_hand, true ), can_drag, is_full, is_quick )
 	if( pen.vld( info.cat )) then
 		index.cat_callback( info, "on_inventory", {
 			pic_x, pic_y, {
 				can_drag = can_drag,
-				is_dragged = pen.vld( index.D.dragger.item_id, true ) and index.D.dragger.item_id == info.id,
+				is_dragged = pen.vld( xD.dragger.item_id, true ) and xD.dragger.item_id == info.id,
 				in_hand = pen.vld( info.in_hand, true ),
 				is_quick = is_quick,
 				is_full = is_full,
@@ -42,14 +43,15 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
     end
     
+    local xD, xM = index.D, index.M
     pen.hallway( function()
         local full_depth = 1
-        if( index.D.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
-            full_depth = #index.D.slot_state[ index.D.invs_p.f ][1] end
-        if( index.D.is_opened ) then
+        if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
+            full_depth = #xD.slot_state[ xD.invs_p.f ][1] end
+        if( xD.is_opened ) then
             local bg_x, bg_y = pic_x - 3, pic_y - 3
             pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
-            for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.q ].quickest - 1 ) do
+            for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest - 1 ) do
                 bg_x = bg_x + 4
                 pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
             end
@@ -59,15 +61,15 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
             pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
             bg_x = bg_x + 5
             pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
-            for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.q ].quick - 1 ) do
+            for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick - 1 ) do
                 pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
                 bg_x = bg_x + 4
             end
             pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_e.xml" )
-            if( index.D.gmod.show_full and full_depth == 1 and not( index.D.gmod.allow_external_inventories )) then
+            if( xD.gmod.show_full and full_depth == 1 and not( xD.gmod.allow_external_inventories )) then
                 bg_x = bg_x + 7
                 pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
-                for i = 1,( 5*#index.D.slot_state[ index.D.invs_p.f ]) do
+                for i = 1,( 5*#xD.slot_state[ xD.invs_p.f ]) do
                     bg_x = bg_x + 4
                     pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
                 end
@@ -75,10 +77,10 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
                 pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_e.xml" )
             end
             
-            if( not( index.D.gmod.can_see )) then
-                local delta = math.max(( index.M.inv_alpha or index.D.frame_num ) - index.D.frame_num, 0 )
+            if( not( xD.gmod.can_see )) then
+                local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
                 local alpha = 0.5*math.cos( math.pi*delta/30 )
-                pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1,
+                pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
                     "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
             end
         end
@@ -87,42 +89,42 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
 
         local cat_wands = pic_x
         local w, h, step = 0, 0, 1
-        for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quickest ) do
+        for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quickest ) do
             w, h = index.new_generic_slot( pic_x, pic_y, {
                 inv_slot = { i, -1 },
-                inv_id = index.D.invs_p.q, id = slot,
+                inv_id = xD.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, true ),
-            }, index.D.is_opened, false, true )
+            }, xD.is_opened, false, true )
             pic_x = pic_x + w + step
         end
-        pic_x = pic_x + index.D.inv_spacings[1]
+        pic_x = pic_x + xD.inv_spacings[1]
 
         local cat_items = pic_x
-        for i,slot in ipairs( index.D.slot_state[ index.D.invs_p.q ].quick ) do
+        for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quick ) do
             w, h = index.new_generic_slot( pic_x, pic_y, {
                 inv_slot = { i, -2 },
-                inv_id = index.D.invs_p.q, id = slot,
+                inv_id = xD.invs_p.q, id = slot,
                 force_equip = check_shortcut( i, false ),
-            }, index.D.is_opened, false, true )
+            }, xD.is_opened, false, true )
             pic_x = pic_x + w + step
         end
 
-        if( index.D.is_opened ) then
-            pic_x = pic_x + index.D.inv_spacings[2]
+        if( xD.is_opened ) then
+            pic_x = pic_x + xD.inv_spacings[2]
             pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_wands" ))
             pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_throwables" ))
-            if( index.D.gmod.show_full ) then
+            if( xD.gmod.show_full ) then
                 pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$menuoptions_heading_misc" ))
             end
         end
         
-        if( index.D.gmod.show_full and ( index.D.is_opened or index.D.always_show_full )) then
-            for i,col in ipairs( index.D.slot_state[ index.D.invs_p.f ]) do
+        if( xD.gmod.show_full and ( xD.is_opened or xD.always_show_full )) then
+            for i,col in ipairs( xD.slot_state[ xD.invs_p.f ]) do
                 for e = 1,full_depth do
                     w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_slot = { i, e },
-                        inv_id = index.D.invs_p.f, id = col[e],
-                    }, index.D.is_opened, true, index.D.is_opened )
+                        inv_id = xD.invs_p.f, id = col[e],
+                    }, xD.is_opened, true, xD.is_opened )
                     pic_y = pic_y + h + step
                 end
                 pic_x, pic_y = pic_x + w + step, root_y
@@ -130,23 +132,24 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         end
 
         pic_y = pic_y + h
-        index.D.xys.inv_root_orig = { root_x, root_y }
-        index.D.xys.full_inv_orig = { pic_x, pic_y }
-        if( index.D.is_opened ) then
+        xD.xys.inv_root_orig = { root_x, root_y }
+        xD.xys.full_inv_orig = { pic_x, pic_y }
+        if( xD.is_opened ) then
             root_x, root_y = root_x - 3, root_y - 3
             pic_x, pic_y = pic_x + 3 - step, pic_y + 3
         end
 
         -- if( InputIsKeyJustDown( 41--[[escape]])) then
-        --     index.D.inv_toggle = index.D.is_opened
+        --     xD.inv_toggle = xD.is_opened
         -- else
-        if( index.D.Controls.inv[2]) then index.D.inv_toggle = true end
+        if( xD.Controls.inv[2]) then xD.inv_toggle = true end
     end)
     return { root_x, root_y }, { pic_x, pic_y }
 end
 
 function index.new_generic_applets( screen_w, screen_h, xys )
-    local data = index.D.applets
+    local xD = index.D
+    local data = xD.applets
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
 
     local function applet_setup( pic_x, type )
@@ -163,17 +166,17 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         if( not( data[ tbl[ type ][2]])) then
             local clicked, r_clicked, is_hovered = pen.new_interface(
                 is_left and -1 or ( screen_w - 10 ), -1, 11, 19, pen.LAYERS.TIPS_FRONT )
-            index.D.tip_func( "[APPLETS]", { is_active = is_hovered })
+            xD.tip_func( "[APPLETS]", { is_active = is_hovered })
             if( not( is_hovered )) then drift_target = 0 end
 
             if( clicked ) then
                 allow_clicks = false
                 index.play_sound( "click" )
                 data[ tbl[ type ][2]] = true
-                data[ tbl[ type ][3]] = index.D.frame_num
+                data[ tbl[ type ][3]] = xD.frame_num
             end
         else
-            local delta = index.D.frame_num - ( data[ tbl[ type ][3]] or 0 )
+            local delta = xD.frame_num - ( data[ tbl[ type ][3]] or 0 )
             if( delta < 16 ) then
                 local k = 5
                 allow_clicks = false
@@ -182,7 +185,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
             else core_off = total_drift end
         end
         
-        index.D[ tbl[ type ][4]] = total_drift
+        xD[ tbl[ type ][4]] = total_drift
         local arrow_off = is_left and ( l - 8 ) or 0
         local extra_off = pen.estimate( tbl[ type ][4], drift_target, "exp5", 1 )
         pic_x = pic_x - sign*( core_off + extra_off )
@@ -200,14 +203,14 @@ function index.new_generic_applets( screen_w, screen_h, xys )
 
                 pen.hallway( function()
                     if( not( allow_clicks )) then return end
-                    index.D.tip_func( icon.name..( pen.vld( icon.desc ) and "\n"..icon.desc or "" ), { tid = "applet_tip",
+                    xD.tip_func( icon.name..( pen.vld( icon.desc ) and "\n"..icon.desc or "" ), { tid = "applet_tip",
                         pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
                     if( not( clicked and reset_em == 0 )) then return end
                     if( not( icon.mute or false )) then index.play_sound( "click" ) end
                     
                     reset_em = i
                     if( pen.vld( icon.toggle ) and icon.toggle( true ) and not( is_left )) then
-                        pen.t.loop( index.D.gmods, function( i, gmod )
+                        pen.t.loop( xD.gmods, function( i, gmod )
                             if( not( gmod.menu_capable )) then return end
                             GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( i ))
                             return true
@@ -226,7 +229,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         if( is_left ) then pic_x = pic_x - ( l - 10 ) end
         pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
             pen.LAYERS.MAIN_BACK - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-        index.D.box_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
+        xD.box_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
         if( is_left ) then
             pic_x = pic_x + arrow_off + 11
         else pic_x = pic_x - ( 3 + arrow_off ) end
@@ -235,49 +238,51 @@ function index.new_generic_applets( screen_w, screen_h, xys )
 
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         
-        if( index.D.is_opened ) then
-            if( index.D.gmod.show_full and #data.r > 1 ) then pic_x_r = applet_setup( pic_x_r, 2 ) end
+        if( xD.is_opened ) then
+            if( xD.gmod.show_full and #data.r > 1 ) then pic_x_r = applet_setup( pic_x_r, 2 ) end
         elseif( #data.l > 1 ) then pic_x_l = applet_setup( pic_x_l, 1 ) end
     end)
     return { pic_x_l, pic_y }, { pic_x_r, pic_y }
 end
 
 function index.new_generic_hp( screen_w, screen_h, xys )
-    local data = index.D.DamageModel
+    local xD = index.D
+    local data = xD.DamageModel
     local red_shift, length, height = 0, 0, 0
     local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
         local max_hp, hp = data.hp_max, data.hp
         if( max_hp <= 0 ) then return end
         
         length, height, max_hp, hp, red_shift = index.new_vanilla_hp(
-            pic_x, pic_y, pen.LAYERS.MAIN_BACK, index.D.player_id, { dmg_data = data })
+            pic_x, pic_y, pen.LAYERS.MAIN_BACK, xD.player_id, { dmg_data = data })
         
         local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
         pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
-        local tip = index.hud_text_fix( "$hud_health" )..( index.D.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
+        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
         index.tipping( pic_x - ( length + 2 ), pic_y - 1, nil, length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
 
-    GameSetPostFxParameter( "low_health_indicator_alpha_proper", index.D.hp_flashing_intensity*red_shift, 0, 0, 0 )
+    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*red_shift, 0, 0, 0 )
 
     return { pic_x, pic_y }
 end
 
 function index.new_generic_air( screen_w, screen_h, xys )
-    local data = index.D.DamageModel
+    local xD = index.D
+    local data = xD.DamageModel
     local pic_x, pic_y = unpack( xys.hp )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
         if( not( data.can_air ) or data.air/data.air_max > 0.9 ) then return end
 
@@ -294,40 +299,42 @@ function index.new_generic_air( screen_w, screen_h, xys )
 end
 
 function index.new_generic_flight( screen_w, screen_h, xys )
-    local data = index.D.CharacterData
+    local xD, xM = index.D, index.M
+    local data = xD.CharacterData
     local pic_x, pic_y = unpack( xys.air )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         if( data.flight_always or data.flight_max == 0 ) then return end
 
-        if( index.M.flight_shake == nil ) then
-            if( index.D.Controls.fly[1] and data.flight <= 0 ) then
-                index.M.flight_shake = index.D.frame_num
+        if( xM.flight_shake == nil ) then
+            if( xD.Controls.fly[1] and data.flight <= 0 ) then
+                xM.flight_shake = xD.frame_num
             end
         end
 
-        local shake_frame = index.D.frame_num - ( index.M.flight_shake or index.D.frame_num )
+        local shake_frame = xD.frame_num - ( xM.flight_shake or xD.frame_num )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
         index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
-            pen.PALETTE.VNL.FLIGHT, index.M.flight_shake ~= nil and shake_frame or nil )
+            pen.PALETTE.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( data.flight, data.flight_max, 2 )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then index.M.flight_shake = nil end
+        if( shake_frame >= 20 ) then xM.flight_shake = nil end
         pic_y = pic_y + 8
     end)
     return { pic_x, pic_y }
 end
 
 function index.new_generic_mana( screen_w, screen_h, xys )
-    local data = index.D.active_info
+    local xD, xM = index.D, index.M
+    local data = xD.active_info
     local pic_x, pic_y = unpack( xys.flight )
     pen.hallway( function()
         if( not( pen.vld( data.id, true ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
-        index.M.mana_shake = index.M.mana_shake or {}
+        if( xD.gmod.menu_capable ) then return end
+        xM.mana_shake = xM.mana_shake or {}
 
         local value = { 0, 0 }
         local potion_info = {}
@@ -336,18 +343,18 @@ function index.new_generic_mana( screen_w, screen_h, xys )
             local mana = data.wand_info.mana
             local mana_max = data.wand_info.mana_max
             value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
-            if( index.M.mana_shake[ index.D.active_item ] == nil ) then
-                if( index.D.no_mana ) then index.M.mana_shake[ index.D.active_item ] = index.D.frame_num end
+            if( xM.mana_shake[ xD.active_item ] == nil ) then
+                if( xD.no_mana ) then xM.mana_shake[ xD.active_item ] = xD.frame_num end
             end
 
-            local shake_frame = index.D.frame_num - ( index.M.mana_shake[ index.D.active_item ] or index.D.frame_num )
-            throw_it_back = index.M.mana_shake[ index.D.active_item ] ~= nil and -shake_frame or nil
-            if( shake_frame >= 20 ) then index.M.mana_shake[ index.D.active_item ] = nil end
+            local shake_frame = xD.frame_num - ( xM.mana_shake[ xD.active_item ] or xD.frame_num )
+            throw_it_back = xM.mana_shake[ xD.active_item ] ~= nil and -shake_frame or nil
+            if( shake_frame >= 20 ) then xM.mana_shake[ xD.active_item ] = nil end
         elseif( pen.vld( data.matter_info ) and data.matter_info.volume >= 0 ) then
             value = { math.max( data.matter_info.matter[1], 0 ), data.matter_info.volume }
             potion_info = { pic = "data/ui_gfx/hud/potion.png" }
-            if( index.D.fancy_potion_bar ) then
-                potion_info.color = pen.magic_uint( GameGetPotionColorUint( index.D.active_item ))
+            if( xD.fancy_potion_bar ) then
+                potion_info.color = pen.magic_uint( GameGetPotionColorUint( xD.active_item ))
                 potion_info.alpha = 0.8
             end
         end
@@ -374,31 +381,32 @@ function index.new_generic_mana( screen_w, screen_h, xys )
 end
 
 function index.new_generic_reload( screen_w, screen_h, xys )
-    local data = index.D.active_info
+    local xD, xM = index.D, index.M
+    local data = xD.active_info
     local pic_x, pic_y = unpack( xys.mana )
-    local is_real = pen.vld( data.wand_info, true )
+    local is_real = pen.vld( data.wand_info )
 
-    index.M.reload_max = index.M.reload_max or {}
-    index.M.reload_shake = index.M.reload_shake or {}
-
+    xM.reload_max = xM.reload_max or {}
+    xM.reload_shake = xM.reload_shake or {}
+    
     pen.hallway( function()
         if( not( is_real )) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         if( data.wand_info.never_reload ) then return end
 
         local reloading = data.wand_info.reload_frame
-        local reloading_full = index.M.reload_max[ index.D.active_item ]
+        local reloading_full = xM.reload_max[ xD.active_item ]
         if(( reloading_full or -1 ) < reloading ) then reloading_full = reloading end
-        index.M.reload_max[ index.D.active_item ] = reloading_full
+        xM.reload_max[ xD.active_item ] = reloading_full
         
-        if( reloading_full <= index.D.reload_threshold ) then return end
-
-        local reloading_shake = index.M.reload_shake[ index.D.active_item ]
-        local it_is_time = index.D.just_fired and reloading_full ~= reloading 
-        if( not( pen.vld( reloading_shake )) and it_is_time ) then reloading_shake = index.D.frame_num end
-        index.M.reload_shake[ index.D.active_item ] = reloading_shake
+        if( reloading_full <= xD.reload_threshold ) then return end
         
-        local shake_frame = index.D.frame_num - ( reloading_shake or index.D.frame_num )
+        local reloading_shake = xM.reload_shake[ xD.active_item ]
+        local it_is_time = xD.just_fired and reloading_full ~= reloading
+        if( not( pen.vld( reloading_shake )) and it_is_time ) then reloading_shake = xD.frame_num end
+        xM.reload_shake[ xD.active_item ] = reloading_shake
+        
+        local shake_frame = xD.frame_num - ( reloading_shake or xD.frame_num )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
         index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
             { 40, 2, 40*reloading/reloading_full }, pen.PALETTE.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
@@ -406,40 +414,41 @@ function index.new_generic_reload( screen_w, screen_h, xys )
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then index.M.reload_shake[ index.D.active_item ] = nil end
+        if( shake_frame >= 20 ) then xM.reload_shake[ xD.active_item ] = nil end
         pic_y = pic_y + 8
     end)
 
     local is_done = (( data.wand_info or {}).reload_frame or 0 ) == 0 
-    if( not( is_real ) or is_done ) then index.M.reload_max[ index.D.active_item ] = nil end
+    if( not( is_real ) or is_done ) then xM.reload_max[ xD.active_item ] = nil end
     return { pic_x, pic_y }
 end
 
 function index.new_generic_delay( screen_w, screen_h, xys )
-    local data = index.D.active_info
+    local xD, xM = index.D, index.M
+    local data = xD.active_info
     local pic_x, pic_y = unpack( xys.reload )
     local is_real = pen.vld( data.wand_info, true )
     
-    index.M.delay_max = index.M.delay_max or {}
-    index.M.delay_shake = index.M.delay_shake or {}
+    xM.delay_max = xM.delay_max or {}
+    xM.delay_shake = xM.delay_shake or {}
 
     pen.hallway( function()
         if( not( is_real )) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
 
         local delay = data.wand_info.delay_frame
-        local delay_full = index.M.delay_max[ index.D.active_item ]
+        local delay_full = xM.delay_max[ xD.active_item ]
         if(( delay_full or -1 ) < delay ) then delay_full = delay end
-        index.M.delay_max[ index.D.active_item ] = delay_full
+        xM.delay_max[ xD.active_item ] = delay_full
         
-        if( delay_full <= index.D.reload_threshold ) then return end
-
-        local delay_shake = index.M.delay_shake[ index.D.active_item ]
-        local it_is_time = index.D.just_fired and delay_full ~= delay
-        if( not( pen.vld( delay_shake )) and it_is_time ) then delay_shake = index.D.frame_num end
-        index.M.delay_shake[ index.D.active_item ] = delay_shake
+        if( delay_full <= xD.reload_threshold ) then return end
         
-        local shake_frame = index.D.frame_num - ( delay_shake or index.D.frame_num )
+        local delay_shake = xM.delay_shake[ xD.active_item ]
+        local it_is_time = xD.just_fired and delay_full ~= delay
+        if( not( pen.vld( delay_shake )) and it_is_time ) then delay_shake = xD.frame_num end
+        xM.delay_shake[ xD.active_item ] = delay_shake
+        
+        local shake_frame = xD.frame_num - ( delay_shake or xD.frame_num )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
         index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
             { 40, 2, 40*delay/delay_full }, pen.PALETTE.VNL.CAST, pen.vld( delay_shake ) and -shake_frame or nil )
@@ -447,26 +456,27 @@ function index.new_generic_delay( screen_w, screen_h, xys )
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then index.M.delay_shake[ index.D.active_item ] = nil end
+        if( shake_frame >= 20 ) then xM.delay_shake[ xD.active_item ] = nil end
         pic_y = pic_y + 8
     end)
     
     local is_done = (( data.wand_info or {}).delay_frame or 0 ) == 0 
-    if( not( is_real ) or is_done ) then index.M.delay_max[ index.D.active_item ] = nil end
+    if( not( is_real ) or is_done ) then xM.delay_max[ xD.active_item ] = nil end
     return { pic_x, pic_y }
 end
 
 function index.new_generic_bossbar( screen_w, screen_h, xys )
-    local x, y = unpack( index.D.player_xy )
+    local xD = index.D
+    local x, y = unpack( xD.player_xy )
     local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 23 })
-    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy )
-        local bar_comp = EntityGetFirstComponent( enemy, "HealthBarComponent" )
+    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy_id )
+        local bar_comp = EntityGetFirstComponent( enemy_id, "HealthBarComponent" )
         if( not( pen.vld( bar_comp, true ))) then return end
         
-        local b_x, b_y = EntityGetTransform( enemy )
+        local b_x, b_y = EntityGetTransform( enemy_id )
         local distance = math.sqrt(( b_x - x )^2 + ( b_y - y )^2 )
         if( distance > ComponentGetValue2( bar_comp, "gui_max_distance_visible" )) then return end
-        local in_world, is_boss = ComponentGetValue2( bar_comp, "in_world" ), EntityHasTag( enemy, "boss" )
+        local in_world, is_boss = ComponentGetValue2( bar_comp, "in_world" ), EntityHasTag( enemy_id, "boss" )
 
         local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
             local custom_pos = ( data.custom or {}).pos or {}
@@ -509,20 +519,21 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             return length, height
         end
 
-        local func_path = pen.magic_storage( enemy, "index_bar", "value_string" )
+        local func_path = pen.magic_storage( enemy_id, "index_bar", "value_string" )
         if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
 
-        local custom = index.D.boss_bars[ EntityGetFilename( enemy )] or {}
-        local pics = EntityGetComponent( enemy, "SpriteComponent", "health_bar" )
+        local custom = xD.boss_bars[ EntityGetFilename( enemy_id )] or {}
+        local pics = EntityGetComponent( enemy_id, "SpriteComponent", "health_bar" )
         if( pen.vld( pics ) and pen.vld( custom )) then
-            for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy, pic, false ) end
+            for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy_id, pic, false ) end
         elseif( pen.vld( pics )) then return end
 
         local bar_x, bar_y = pic_x, pic_y
         in_world = ( in_world or custom.in_world )
-        if( index.D.boss_bar_mode ~= 1 ) then in_world = index.D.boss_bar_mode == 2 end
-        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y ); bar_y = bar_y + 20 end --pen.get_creature_dimensions
-        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_BACK, enemy, {
+        if( xD.boss_bar_mode ~= 1 ) then in_world = xD.boss_bar_mode == 2 end
+        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y )
+            bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id, true )).max_y + 10 end
+        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_BACK, enemy_id, {
             custom = custom,
             centered = true, in_world = in_world, is_boss = is_boss,
             low_hp = 0, low_hp_min = 0, only_slider = pen.vld( custom ) and not( in_world ),
@@ -535,18 +546,19 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
 end
 
 function index.new_generic_gold( screen_w, screen_h, xys )
-    local data = index.D.Wallet
+    local xD = index.D
+    local data = xD.Wallet
     local pic_x, pic_y = unpack( xys.delay )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         if( data.money < 0 ) then return end
         
         local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp10", data.money/1000 ))
         
         local tip_x, tip_y = unpack( xys.hp )
         local v = pen.get_short_num( le_money )
-        local money_string = " "..(( data.money_always or index.D.short_gold ) and v or le_money ).."$"
+        local money_string = " "..(( data.money_always or xD.short_gold ) and v or le_money ).."$"
         local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "\n$", money_string )
         local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.LAYERS.TIPS,
             10.5 + pen.get_text_dims( v, true ), 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
@@ -561,13 +573,14 @@ function index.new_generic_gold( screen_w, screen_h, xys )
 end
 
 function index.new_generic_orbs( screen_w, screen_h, xys )
+    local xD = index.D
     local pic_x, pic_y = unpack( xys.gold )
     pen.hallway( function()
-        if( index.D.gmod.menu_capable ) then return end
-        if( index.D.orbs <= 0 ) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( xD.orbs <= 0 ) then return end
         pic_y = pic_y + 1
         
-        local v = tostring( index.D.orbs )
+        local v = tostring( xD.orbs )
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", v )
         local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.LAYERS.TIPS,
@@ -595,17 +608,18 @@ function index.new_generic_info( screen_w, screen_h, xys )
         pen.new_shadowed_text( p_x, p_y, pen.LAYERS.MAIN, txt, { color = color, alpha = alpha })
     end
     
+    local xD, xM = index.D, index.M
     local pic_x, pic_y = 0, 0
-    index.M.ui_info = index.M.ui_info or { 0, 0 }
+    xM.ui_info = xM.ui_info or { 0, 0 }
     pen.hallway( function()
-        if( index.D.is_opened and index.D.gmod.show_full ) then return end
-        if( index.M.ui_info[1] == 0 and index.D.pointer_delta[3] >= index.D.info_threshold ) then return end
+        if( xD.is_opened and xD.gmod.show_full ) then return end
+        if( xM.ui_info[1] == 0 and xD.pointer_delta[3] >= xD.info_threshold ) then return end
 
         local info = ""
         local best_kind, dist_tbl = -1, {}
-        local x, y = unpack( index.D.pointer_world )
-        pen.t.loop( EntityGetInRadius( x, y, index.D.info_radius ), function( i, entity_id )
-            if( entity_id == index.D.player_id ) then return end
+        local x, y = unpack( xD.pointer_world )
+        pen.t.loop( EntityGetInRadius( x, y, xD.info_radius ), function( i, entity_id )
+            if( entity_id == xD.player_id ) then return end
             if( EntityGetRootEntity( entity_id ) ~= entity_id ) then return end
 
             local kind, name = {}, ""
@@ -620,7 +634,7 @@ function index.new_generic_info( screen_w, screen_h, xys )
                     local name = index.get_entity_name( item_id, item_comp )
                     return pen.vld( name ) and name or default_name
                 end
-                pen.t.loop( index.D.item_cats, function( k, cat )
+                pen.t.loop( xD.item_cats, function( k, cat )
                     if( not( cat.on_check( entity_id ))) then return end
                     local func = pen.vld( cat.on_info_name ) and cat.on_info_name or name_func
                     kind = { k, func( entity_id, item_comp, cat.name )}
@@ -637,68 +651,68 @@ function index.new_generic_info( screen_w, screen_h, xys )
         end)
         if( pen.vld( dist_tbl )) then
             local the_one = pen.get_closest(
-                index.D.pointer_world[1], index.D.pointer_world[2], dist_tbl, nil, nil, function( thing ) return thing[2] == best_kind end)
+                xD.pointer_world[1], xD.pointer_world[2], dist_tbl, nil, nil, function( thing ) return thing[2] == best_kind end)
             if( the_one ~= 0 ) then info = the_one[3] end
         end
         
         local fading = 1
         if( index.check_item_name( info )) then
-            index.M.ui_info = { info, math.max( index.M.ui_info[2], index.D.frame_num )}
-        elseif( index.M.ui_info[1] ~= 0 ) then
-            info = index.M.ui_info[1]
+            xM.ui_info = { info, math.max( xM.ui_info[2], xD.frame_num )}
+        elseif( xM.ui_info[1] ~= 0 ) then
+            info = xM.ui_info[1]
 
-            local delta = index.D.frame_num - index.M.ui_info[2]
-            if( delta > 2*index.D.info_fading ) then
-                index.M.ui_info, info = nil, ""
-            elseif( delta > index.D.info_fading ) then
-                fading = math.max( fading*math.sin(( 2*index.D.info_fading - delta )*math.pi/( 2*index.D.info_fading )), 0.01 )
+            local delta = xD.frame_num - xM.ui_info[2]
+            if( delta > 2*xD.info_fading ) then
+                xM.ui_info, info = nil, ""
+            elseif( delta > xD.info_fading ) then
+                fading = math.max( fading*math.sin(( 2*xD.info_fading - delta )*math.pi/( 2*xD.info_fading )), 0.01 )
             end
         end
 
         if( not( pen.vld( info ))) then return end
         local tip_anim = (( pen.c.ttips or {})[ "dft" ] or {}).going or 0
-        local is_obstructed = index.D.dragger.item_id > 0 or ( index.D.frame_num - tip_anim ) < 2
-        if( index.D.always_show_full or index.D.info_pointer ) then
-            pic_x, pic_y = unpack( index.D.pointer_ui )
+        local is_obstructed = xD.dragger.item_id > 0 or ( xD.frame_num - tip_anim ) < 2
+        if( xD.always_show_full or xD.info_pointer ) then
+            pic_x, pic_y = unpack( xD.pointer_ui )
             pic_x, pic_y = pic_x + ( is_obstructed and -2 or 6 ), pic_y + 3
-            fading = fading*index.D.info_pointer_alpha
+            fading = fading*xD.info_pointer_alpha
         else
             pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
-            pic_x, pic_y = pic_x + 3, pic_y + 5 + ( index.D.is_opened and 3 or 0 )
+            pic_x, pic_y = pic_x + 3, pic_y + 5 + ( xD.is_opened and 3 or 0 )
             is_obstructed = false
         end
 
         do_info( pic_x, pic_y, info, fading, is_obstructed )
     end)
     pen.hallway( function()
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
 
-        index.M.mtr_prb = index.M.mtr_prb or { 0, 0 }
-        local fading, matter = 0.5, index.M.mtr_prb[1]
-        if( index.D.pointer_matter > 0 ) then
-            matter = index.D.pointer_matter
-            index.M.mtr_prb = { index.D.pointer_matter, math.max( index.M.mtr_prb[2], index.D.frame_num )}
-        elseif( index.M.mtr_prb[1] > 0 ) then
-            local delta = index.D.frame_num - index.M.mtr_prb[2]
-            if( delta > 2*index.D.info_fading ) then
-                index.M.mtr_prb, matter = nil, 0
-            elseif( delta > index.D.info_fading ) then
-                fading = math.max( fading*math.sin(( 2*index.D.info_fading - delta )*math.pi/( 2*index.D.info_fading )), 0.01 )
+        xM.mtr_prb = xM.mtr_prb or { 0, 0 }
+        local fading, matter = 0.5, xM.mtr_prb[1]
+        if( xD.pointer_matter > 0 ) then
+            matter = xD.pointer_matter
+            xM.mtr_prb = { xD.pointer_matter, math.max( xM.mtr_prb[2], xD.frame_num )}
+        elseif( xM.mtr_prb[1] > 0 ) then
+            local delta = xD.frame_num - xM.mtr_prb[2]
+            if( delta > 2*xD.info_fading ) then
+                xM.mtr_prb, matter = nil, 0
+            elseif( delta > xD.info_fading ) then
+                fading = math.max( fading*math.sin(( 2*xD.info_fading - delta )*math.pi/( 2*xD.info_fading )), 0.01 )
             end
         end
 
-        if( matter == 0 and index.D.info_mtr_state ~= 3 ) then return end
-        if( index.D.info_mtr_state ~= 1 or index.M.mtr_prb[2] > index.D.frame_num ) then
-            fading = index.D.info_mtr_state == 3 and 1 or math.min( fading*4, 1 )
+        if( matter == 0 and xD.info_mtr_state ~= 3 ) then return end
+        if( xD.info_mtr_state ~= 1 or xM.mtr_prb[2] > xD.frame_num ) then
+            fading = xD.info_mtr_state == 3 and 1 or math.min( fading*4, 1 )
         end
         
-        local no_matter = index.D.info_mtr_state == 3 and matter == 0
+        local no_matter = xD.info_mtr_state == 3 and matter == 0
         local txt = GameTextGetTranslatedOrNot( no_matter and "$mat_air" or CellFactory_GetUIName( matter ))
         
         pic_x, pic_y = unpack( xys.delay )
         do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
             local _,_,is_hovered = pen.new_interface( pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.LAYERS.TIPS )
-            if( is_hovered ) then index.M.mtr_prb = { matter, index.D.frame_num + 300 } end
+            if( is_hovered ) then xM.mtr_prb = { matter, xD.frame_num + 300 } end
             return is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
         end)
     end)
@@ -706,20 +720,21 @@ function index.new_generic_info( screen_w, screen_h, xys )
 end
 
 function index.new_generic_ingestions( screen_w, screen_h, xys )
+    local xD = index.D
     local pic_x, pic_y = unpack( xys.hp )
-    pic_y = pic_y + index.D.effect_icon_spacing
+    pic_y = pic_y + xD.effect_icon_spacing
     local orb_x, orb_y = unpack( xys.orbs )
     pic_x, orb_y = orb_x, orb_y + 5
     if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
 
-    local data = index.D.icon_data.ings
+    local data = xD.icon_data.ings
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
         pic_y = pic_y + 3
 
         for i,this_one in ipairs( data ) do
-            local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 1 )
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
 
@@ -729,14 +744,15 @@ function index.new_generic_ingestions( screen_w, screen_h, xys )
 end
 
 function index.new_generic_stains( screen_w, screen_h, xys )
-    local data = index.D.icon_data.stains
+    local xD = index.D
+    local data = xD.icon_data.stains
     local pic_x, pic_y = unpack( xys.ingestions )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
 
         for i,this_one in ipairs( data ) do
-            local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 2 )
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
 
@@ -746,15 +762,16 @@ function index.new_generic_stains( screen_w, screen_h, xys )
 end
 
 function index.new_generic_effects( screen_w, screen_h, xys )
-    local data = index.D.icon_data.misc
+    local xD = index.D
+    local data = xD.icon_data.misc
     local pic_x, pic_y = unpack( xys.stains )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
 
         for i,this_one in ipairs( data ) do
             if( this_one.amount < 2 ) then this_one.txt = "" end
-            local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 3 )
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
 
@@ -764,11 +781,12 @@ function index.new_generic_effects( screen_w, screen_h, xys )
 end
 
 function index.new_generic_perks( screen_w, screen_h, xys )
-    local data = index.D.perk_data
+    local xD = index.D
+    local data = xD.perk_data
     local pic_x, pic_y = unpack( xys.effects )
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
-        if( index.D.gmod.menu_capable ) then return end
+        if( xD.gmod.menu_capable ) then return end
 
         local perk_tbl_short, extra_perk = {}, {
             pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
@@ -782,9 +800,9 @@ function index.new_generic_perks( screen_w, screen_h, xys )
             end,
         }
 
-        if( #data > index.D.max_perks ) then
+        if( #data > xD.max_perks ) then
             for i,perk in ipairs( data ) do
-                if( #perk_tbl_short >= index.D.max_perks ) then
+                if( #perk_tbl_short >= xD.max_perks ) then
                     for k = 1,( perk.count or 1 ) do table.insert( extra_perk.other_perks, perk.pic ) end
                 else table.insert( perk_tbl_short, perk ) end
             end
@@ -792,7 +810,7 @@ function index.new_generic_perks( screen_w, screen_h, xys )
         else perk_tbl_short = data end
         
         for i,this_one in ipairs( perk_tbl_short ) do
-            local step_x, step_y = index.D.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 4 )
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
 
@@ -801,62 +819,68 @@ function index.new_generic_perks( screen_w, screen_h, xys )
     return { pic_x, pic_y }
 end
 
-function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
-    local data = index.D.ItemPickUpper
-    if( not( pen.vld( data ))) then return end
+function index.new_generic_ending( x, y, screen_w, screen_h, xys, info_func )
+    local xD = index.D
+    if( not( pen.vld( xD.sampo, true ))) then return end
 
-    local x, y = unpack( index.D.player_xy )
-    y = y - index.D.player_core_off
-    
-    if( pen.vld( index.D.sampo, true )) then
-        local msg, clr = GameTextGet( "$hint_endingmcguffin_use", "[USE]" ), nil
-        local sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_underground" )
+    local msg, clr = GameTextGet( "$hint_endingmcguffin_use", "[USE]" ), nil
+    local sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_underground" )
+    if( not( pen.vld( sampo_spot, true ))) then
+        sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_mountain" )
         if( pen.vld( sampo_spot, true )) then
-            sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_mountain" )
-            if( pen.vld( sampo_spot, true )) then
-                local ng_num = tonumber( SessionNumbersGetValue( "NEW_GAME_PLUS_COUNT" ))
-                local check_num, going_ng = ng_num + 5, false
-                if( index.D.orbs < 33 ) then
-                    local seven_eleven = index.D.orbs > ORB_COUNT_IN_WORLD and check_num >= ORB_COUNT_IN_WORLD and index.D.orbs >= check_num
-                    local eleven_seven = index.D.orbs >= check_num and index.D.orbs < ORB_COUNT_IN_WORLD
-                    if( seven_eleven or eleven_seven ) then
-                        going_ng, msg = true, "+"
-                        if( ng_num < 5 ) then
-                            for i = 1,ng_num do msg = msg.."+" end
-                        else msg = msg.."("..( ng_num + 1 )..")" end
-                        msg = GameTextGet( "$hint_endingmcguffin_enter_newgameplus", "[USE]", msg )
-                    end
-                end
-                
-                if( not( going_ng )) then
-                    if( index.D.orbs == 11 ) then
-                        clr = pen.PALETTE.VNL.YELLOW
-                    elseif( index.D.orbs > 32 ) then
-                        clr = pen.PALETTE.VNL.RUNIC
-                    else clr = pen.PALETTE.VNL.RED end
+            local ng_num = tonumber( SessionNumbersGetValue( "NEW_GAME_PLUS_COUNT" ))
+            local check_num, going_ng = ng_num + 5, false
+            if( xD.orbs < 33 ) then
+                local seven_eleven = xD.orbs > ORB_COUNT_IN_WORLD and check_num >= ORB_COUNT_IN_WORLD and xD.orbs >= check_num
+                local eleven_seven = xD.orbs >= check_num and xD.orbs < ORB_COUNT_IN_WORLD
+                if( seven_eleven or eleven_seven ) then
+                    going_ng, msg = true, "+"
+                    if( ng_num < 5 ) then
+                        for i = 1,ng_num do msg = msg.."+" end
+                    else msg = msg.."("..( ng_num + 1 )..")" end
+                    msg = GameTextGet( "$hint_endingmcguffin_enter_newgameplus", "[USE]", msg )
                 end
             end
-        elseif( index.D.orbs > 11 ) then clr = pen.PALETTE.VNL.RED end
-        
-        if( pen.vld( sampo_spot, true )) then
-            local sampo_x, sampo_y = EntityGetTransform( index.D.sampo )
-            local spot_x, spot_y = EntityGetTransform( sampo_spot )
-            if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
-                info_func( screen_h, screen_w, {
-                    id = sampo_spot,
-                    desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
-                    txt = "[COMPLETE]",
-                    color = { pen.PALETTE.VNL.RUNIC, clr },
-                }, xys )
+            
+            if( not( going_ng )) then
+                if( xD.orbs == 11 ) then
+                    clr = pen.PALETTE.VNL.YELLOW
+                elseif( xD.orbs > 32 ) then
+                    clr = pen.PALETTE.VNL.RUNIC
+                else clr = pen.PALETTE.VNL.RED end
             end
         end
+    elseif( xD.orbs > 11 ) then clr = pen.PALETTE.VNL.RED end
+    
+    if( pen.vld( sampo_spot, true )) then
+        local sampo_x, sampo_y = EntityGetTransform( xD.sampo )
+        local spot_x, spot_y = EntityGetTransform( sampo_spot )
+        if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
+            info_func( screen_h, screen_w, {
+                id = sampo_spot,
+                desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
+                txt = "[COMPLETE]",
+                color = { pen.PALETTE.VNL.RUNIC, clr },
+            }, xys )
+        end
     end
+end
 
-    local entities = EntityGetInRadius( x, y, index.D.pickup_distance )
+function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
+    local xD, xM = index.D, index.M
+    local data = xD.ItemPickUpper
+    if( not( pen.vld( data ))) then return end
+    
+    local x, y = unpack( xD.player_xy )
+    y = y - xD.player_core_off
+
+    index.new_generic_ending( x, y, screen_w, screen_h, xys, info_func )
+
+    local entities = EntityGetInRadius( x, y, xD.pickup_distance )
     if( not( pen.vld( entities ))) then return end
 
     local interactables = {}
-    local stuff_to_figure = pen.t.init( #index.D.item_cats + 1, {})
+    local stuff_to_figure = pen.t.init( #xD.item_cats + 1, {})
     pen.t.loop( entities, function( i, id )
         local action_comp = EntityGetFirstComponentIncludingDisabled( id, "InteractableComponent" )
         if( pen.vld( action_comp, true ) and pen.vld( EntityGetFirstComponent( id, "LuaComponent", "index_ctrl" ), true )) then
@@ -897,7 +921,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             }
 
             if( pen.vld( data.pick_only, true ) and id ~= data.pick_only ) then return end
-            if( not( info.may_pick ) or info.pick_frame > index.D.frame_num ) then return end
+            if( not( info.may_pick ) or info.pick_frame > xD.frame_num ) then return end
 
             if( info.pick_radius == 0 ) then
                 info.may_pick = pen.check_bounds({ x, y }, EntityGetFirstComponent( id, "HitboxComponent" ), { i_x, i_y })
@@ -929,7 +953,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             if( pen.vld( cost_comp, true )) then
                 is_shop = true
                 local cost = ComponentGetValue2( cost_comp, "cost" )
-                if( index.D.Wallet.money_always or ( cost <= index.D.Wallet.money )) then
+                if( xD.Wallet.money_always or ( cost <= xD.Wallet.money )) then
                     info.data.cost = cost
                 else cost_check = false end
             end
@@ -954,7 +978,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                         if( info.may_desc ) then pickup_data.desc = { pickup_data.desc, info.data.desc } end
 
                         is_button = false; break
-                    else index.pick_up_item( index.D.player_id, info.data, info.may_sfx ) end
+                    else index.pick_up_item( xD.player_id, info.data, info.may_sfx ) end
                 elseif( not( got_info )) then no_space, info_dump = true, true end
             elseif( not( got_info )) then cant_buy, info_dump = true, true end
 
@@ -968,7 +992,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     end)
     
     --[[
-    if( index.D.is_opened and index.D.gmod.show_fullest ) then
+    if( xD.is_opened and xD.gmod.show_fullest ) then
         --create inv with -1 id
         
         for i,tbl in ipairs( stuff_to_figure ) do
@@ -988,11 +1012,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                             idata = this_info,
                         }, true, true, false )
 
-                        --cleanup the thing once again, make sure the shit inherently supports virtual invs
-                        --update the documentation
-
-                        --slot_pic gotta autoinit the pic
-                        --10 in a row, scales vertically based on the item count; don't allow to swap
+                        --10 in a row, scales vertically based on the item count; swapping autodrops
                     end
                 end
             end
@@ -1012,7 +1032,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     if( pickup_data.id ~= 0 ) then
         local ignore_default = false
         local guiing = index.cat_callback( pickup_data.info, "on_gui_world" )
-        if( index.D.is_opened and index.D.gmod.show_full ) then
+        if( xD.is_opened and xD.gmod.show_full ) then
             pickup_data.id = -1
             pickup_data.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_data.info.name ), true }
         elseif( pen.vld( guiing )) then
@@ -1023,19 +1043,19 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         end
         
         if( not( ignore_default )) then info_func( screen_h, screen_w, pickup_data, xys ) end
-        if( pen.vld( pickup_data.id, true ) and index.D.Controls.act[2]) then
+        if( pen.vld( pickup_data.id, true ) and xD.Controls.act[2]) then
             local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
             local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
-            table.insert( index.M.slot_anim, {
+            table.insert( xM.slot_anim, {
                 id = pickup_data.id,
                 x = anim_x, y = anim_y,
-                frame = index.D.frame_num,
+                frame = xD.frame_num,
             })
             
             local orig_name = pickup_data.info.name
             if( pen.vld( pickup_data.info.fullness )) then
                 pickup_data.info.name = pickup_data.info.name..pickup_data.info.fullness end
-            index.pick_up_item( index.D.player_id, pickup_data.info, pickup_data.do_sound )
+            index.pick_up_item( xD.player_id, pickup_data.info, pickup_data.do_sound )
             pickup_data.info.name = orig_name
         end
     end
@@ -1059,111 +1079,103 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
         end
     end
 
-    if( index.D.Controls.act[2]) then
-        index.D.Controls.act[2] = false
+    if( xD.Controls.act[2]) then
+        xD.Controls.act[2] = false
         
-        if( do_action and not( index.M.skip_next_action )) then
+        if( do_action and not( xM.skip_next_action )) then
             local action_id = interactables[1].id
             EntitySetComponentIsEnabled( action_id, EntityGetFirstComponentIncludingDisabled( action_id, "InteractableComponent" ), true )
             EntitySetComponentIsEnabled( action_id, EntityGetFirstComponent( action_id, "LuaComponent", "index_ctrl" ), false )
-            ComponentSetValue2( index.D.Controls.comp, "mButtonFrameInteract", index.D.frame_num + 1 )
-            index.M.skip_next_action = true
+            ComponentSetValue2( xD.Controls.comp, "mButtonFrameInteract", xD.frame_num + 1 )
+            xM.skip_next_action = true
         else
-            ComponentSetValue2( index.D.Controls.comp, "mButtonFrameInteract", 0 )
-            index.M.skip_next_action = false
+            ComponentSetValue2( xD.Controls.comp, "mButtonFrameInteract", 0 )
+            xM.skip_next_action = false
         end
     end
 end
 
 function index.new_generic_drop( item_id )
+    local xD = index.D
     local dude = EntityGetRootEntity( item_id )
-    if( dude ~= index.D.player_id ) then index.play_sound( "error" ); return end
-
+    if( dude ~= xD.player_id ) then index.play_sound( "error" ); return end
     index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
     
     local do_default = true
-    local info = pen.t.get( index.D.item_list, item_id )
-    local inv_info = index.D.invs[ info.inv_id ] or {}
+    local info = pen.t.get( xD.item_list, item_id )
     local callback = index.cat_callback( info, "on_drop" )
     if( pen.vld( callback )) then do_default = callback( info, false ) end
-    if( pen.vld( inv_info.update ) and inv_info.update( pen.t.get( index.D.item_list, p, nil, nil, inv_info ), info, {})) then
+    
+    local inv_info = xD.invs[ info.inv_id ] or {}
+    if( pen.vld( inv_info.update ) and inv_info.update( pen.t.get( xD.item_list, p, nil, nil, inv_info ), info, {})) then
         local reset_id = pen.get_item_owner( p, true )
         if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
     end
-    if( do_default ) then
-        local x, y = unpack( index.D.player_xy )
-        index.drop_item( x, y, info, index.D.throw_force, not( index.D.no_action_on_drop ))
-    end
+
+    if( do_default ) then index.drop_item( xD.player_xy[1], xD.player_xy[2], info, xD.throw_force, not( xD.no_action_on_drop )) end
     if( pen.vld( callback )) then callback( info, true ) end
 end
 
 function index.new_generic_extra( screen_w, screen_h, xys )
-    if( not( pen.vld( index.D.invs_e ))) then return end
-    for i,extra_inv in ipairs( index.D.invs_e ) do
+    local xD = index.D
+    if( not( pen.vld( xD.invs_e ))) then return end
+    for i,extra_inv in ipairs( xD.invs_e ) do
         local x, y = EntityGetTransform( extra_inv )
         local pic_x, pic_y = pen.world2gui( x, y )
-        local inv_info = index.D.invs[ extra_inv ]
-        inv_info.func( pic_x, pic_y, inv_info, xys, index.D.slot_func )
+        local inv_info = xD.invs[ extra_inv ]
+        inv_info.func( pic_x, pic_y, inv_info, xys, xD.slot_func )
     end
 end
 
 function index.new_generic_gmod( screen_w, screen_h, xys )
-    local data = index.D.gmod
-    if( not( pen.vld( data )) or not( index.D.is_opened )) then return end
-    if( index.D.gmod.is_hidden and not( index.D.gmod.force_show )) then return end
+    local xD = index.D
+    local data = xD.gmod
+    if( not( xD.is_opened )) then return end
+    if( not( pen.vld( data ))) then return end
+    if( data.is_hidden and not( data.force_show )) then return end
     
     local w, h = pen.get_text_dims( data.name, true )
     local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
     if( not( data.show_full )) then
-        pic_x = xys.inv_root[1] + 7 + w
-        pic_y = xys.full_inv[2] + 13
+        pic_x, pic_y = xys.inv_root[1] + 7 + w, xys.full_inv[2] + 13
     elseif( xys.applets_r[1] <= ( pic_x + 5 )) then return end
     
-    local new_mode = index.D.global_mode
+    local new_mode = xD.global_mode
+    local arrow_left_c, arrow_right_c = nil, nil
     local gonna_reset, gonna_highlight, arrow_left_a, arrow_right_a = false, false, 0.3, 0.3
-    local arrow_left_c, arrow_right_c, arrow_hl_c = {255,255,255}, {255,255,255}, pen.PALETTE.VNL.YELLOW
     local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.LAYERS.TIPS )
-    if( is_hovered ) then arrow_left_c, arrow_left_a = arrow_hl_c, 1 end
+    if( is_hovered ) then arrow_left_c, arrow_left_a = pen.PALETTE.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_previous" )) then new_mode, arrow_left_a = new_mode - 1, 1 end
 
     clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 10, pic_y - 11, 15, 10, pen.LAYERS.TIPS )
-    if( is_hovered ) then arrow_right_c, arrow_right_a = arrow_hl_c, 1 end
+    if( is_hovered ) then arrow_right_c, arrow_right_a = pen.PALETTE.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
     
-    local tip_x, tip_y = unpack( xys.hp )
-    local tip = data.name.."\n{>indent>{{>color>{{-}|VNL|GREY|{-}"..data.desc.."}<color<}}<indent<}"
-    is_hovered, clicked, r_clicked = index.tipping(
-        pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, w + 6, 10, tip, { fully_featured = true,
-        pos = { tip_x - 44, tip_y }, is_left = true, text_prefunc = function( text, data ) return text, 2, 0 end })
+    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, w + 6, 10,
+        { data.name, data.desc }, { tid = "gmod", fully_featured = true, pos = { pic_x, pic_y }, is_left = true, do_corrections = true })
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
-    local alpha = gonna_highlight and 1 or 0.3
     if( gonna_reset ) then
-        for i,gmod in ipairs( index.D.gmods ) do
-            if( gmod.is_default ) then new_mode = i; break end
-        end
+        for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end
     end
 
-    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ), pen.LAYERS.MAIN, data.name, { color = data.color, alpha = alpha })
-    index.D.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
+    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
+        pen.LAYERS.MAIN, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
+    xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
     
     pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
         "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
     pen.new_image( pic_x - 2, pic_y - 10, pen.LAYERS.MAIN_BACK,
         "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
 
-    if( index.D.global_mode == new_mode ) then return end
+    if( xD.global_mode == new_mode ) then return end
 
     local go_ahead = true
     while( go_ahead ) do
-        if( new_mode < 1 ) then
-            new_mode = #index.D.gmods
-        elseif( new_mode > #index.D.gmods ) then
-            new_mode = 1
-        end
-        go_ahead = index.D.gmods[ new_mode ].is_hidden or false
+        if( new_mode > #xD.gmods ) then new_mode = 1 elseif( new_mode < 1 ) then new_mode = #xD.gmods end
+        go_ahead = xD.gmods[ new_mode ].is_hidden or false
         if( go_ahead ) then new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 ) end
     end
 

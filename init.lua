@@ -38,8 +38,9 @@ function OnModInit()
 	}, "mods/index_core/files/pics/font_atlas.png" )
 	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
 	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
-		[66] = { pos = { 15, 0, 6 }, rect_h = 6, rect_w = 6 },
-		[101] = { pos = { 22, 0, 4 }, rect_h = 6, rect_w = 4 },
+		[45] = { pos = { 17, 0, 4 }, rect_h = 6, rect_w = 4 },
+		[66] = { pos = { 23, 0, 6 }, rect_h = 6, rect_w = 6 },
+		[101] = { pos = { 29, 0, 4 }, rect_h = 6, rect_w = 4 },
 	}, "mods/index_core/files/pics/font_atlas.png" )
 
 	local shader_file = "data/shaders/post_final.frag"

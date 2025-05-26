@@ -500,36 +500,38 @@ local ITEM_CATS = {
 
         on_tooltip = index.new_vanilla_wtt,
         on_inventory = function( info, pic_x, pic_y, state_tbl )
-            if( not( index.D.is_opened )) then return end
+            local xD = index.D
+            if( not( xD.is_opened )) then return end
             if( not( state_tbl.is_quick )) then return end
-            if( not( index.D.gmod.allow_wand_editing )) then return end
-            pic_x, pic_y = unpack( pen.vld( index.D.xys.wands ) and index.D.xys.wands or index.D.xys.full_inv )
-            w, h = index.D.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
-            index.D.xys.wands = { pic_x, pic_y + h }
+            if( not( xD.gmod.allow_wand_editing )) then return end
+            pic_x, pic_y = unpack( pen.vld( xD.xys.wands ) and xD.xys.wands or xD.xys.full_inv )
+            w, h = xD.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
+            xD.xys.wands = { pic_x, pic_y + h }
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            local w, h = pen.get_pic_dims( index.D.slot_pic.bg )
+            local xD, xM = index.D, index.M
+            local w, h = pen.get_pic_dims( xD.slot_pic.bg )
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
                 index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
             local is_allowed = true
             local tid, shown_wtt = "wtt"..info.id, false
             local is_pinned = pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3]
-            if(( index.M.wtt_safety or tid ) == tid and not( state_tbl.is_hov )) then
-                index.M.wtt_safety = nil elseif(( index.M.wtt_safety or tid ) ~= tid ) then is_allowed = false end
+            if(( xM.wtt_safety or tid ) == tid and not( state_tbl.is_hov )) then
+                xM.wtt_safety = nil elseif(( xM.wtt_safety or tid ) ~= tid ) then is_allowed = false end
             if( state_tbl.is_opened and ( state_tbl.is_hov or is_pinned ) and pen.vld( hov_func ) and is_allowed ) then
                 hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS )
-                index.M.wtt_safety, shown_wtt = tid, true
+                xM.wtt_safety, shown_wtt = tid, true
             end
 
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
 
                 local is_empty = false
-                for i,col in ipairs( index.D.slot_state[ info.id ]) do
+                for i,col in ipairs( xD.slot_state[ info.id ]) do
                     pen.t.loop( col, function( e, slot )
                         if( not( slot )) then return end
-                        local spell_info = pen.t.get( index.D.item_list, slot, nil, nil, {})
+                        local spell_info = pen.t.get( xD.item_list, slot, nil, nil, {})
                         if( not( spell_info.is_spell )) then return end
 
                         if( spell_info.charges > 0 ) then
@@ -549,7 +551,7 @@ local ITEM_CATS = {
                 if( info.charges == 0 and is_empty ) then info.charges = 0.1 end
             end
 
-            if( not( shown_wtt )) then index.M.wtt_safety = nil end
+            if( not( shown_wtt )) then xM.wtt_safety = nil end
 
             return info
         end,
@@ -651,6 +653,7 @@ local ITEM_CATS = {
             end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
+            local xD, xM = index.D, index.M
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 hov_func( info, "ptt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
@@ -658,7 +661,7 @@ local ITEM_CATS = {
             local nuke_it = true
             local target_angle = 0
             if( state_tbl.is_dragged ) then
-                if( pen.vld( drag_func ) and index.D.drag_action ) then nuke_it, target_angle = unpack( drag_func( info )) end
+                if( pen.vld( drag_func ) and xD.drag_action ) then nuke_it, target_angle = unpack( drag_func( info )) end
             elseif( pen.vld( rmb_func ) and state_tbl.is_rmb and state_tbl.is_quick ) then rmb_func( info ) end
 
             local pic_data = pen.cache({ "index_pic_data", info.pic })
@@ -674,9 +677,9 @@ local ITEM_CATS = {
                         ( pen.c.estimator_memo.sucking_drift or 0 ) + ( pic_data.dims[2]/2 + 2 )
                     pic_data.xy = pic_data.memo_xy; pic_data.memo_xy = nil
                 end
-                if( not( pen.vld( index.D.dragger.item_id, true )) or index.D.dragger.item_id == info.id ) then
-                    if( EntityGetIsAlive( index.M.john_pouring or 0 )) then
-                        EntityKill( index.M.john_pouring ); index.M.john_pouring = nil
+                if( not( pen.vld( xD.dragger.item_id, true )) or xD.dragger.item_id == info.id ) then
+                    if( EntityGetIsAlive( xM.john_pouring or 0 )) then
+                        EntityKill( xM.john_pouring ); xM.john_pouring = nil
                     end
                 end
             end
@@ -698,44 +701,46 @@ local ITEM_CATS = {
         on_action = function( type )
             return ({
                 function( info )
+                    local xD = index.D
                     if( not( info.matter_info.may_drink )) then return end
                     if( info.matter_info.matter[1] > 0 ) then
                         index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink" })
                         pen.magic_chugger( info.matter_info.matter[2],
-                            index.D.player_id, info.id, info.matter_info.volume, index.D.shift_action and 1 or 0.1 )
+                            xD.player_id, info.id, info.matter_info.volume, xD.shift_action and 1 or 0.1 )
                     else index.play_sound({ "data/audio/Desktop/misc.bank", "misc/potion_drink_empty" }) end
                 end,
                 function( info )
+                    local xD, xM = index.D, index.M
                     local out = { true, 0 }
                     
-                    local x, y = unpack( index.D.player_xy )
-                    local p_x, p_y = unpack( index.D.pointer_world )
+                    local x, y = unpack( xD.player_xy )
+                    local p_x, p_y = unpack( xD.pointer_world )
                     if( RaytraceSurfaces( x, y, p_x, p_y )) then return out end
                     
-                    if( not( EntityGetIsAlive( index.M.john_pouring or 0 ))) then
-                        index.M.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y )
+                    if( not( EntityGetIsAlive( xM.john_pouring or 0 ))) then
+                        xM.john_pouring = EntityLoad( "mods/index_core/files/misc/potion_nerd.xml", x, y )
                         if( pen.vld( info.spray_info )) then
-                            local loop_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "AudioLoopComponent" )
+                            local loop_comp = EntityGetFirstComponentIncludingDisabled( xM.john_pouring, "AudioLoopComponent" )
                             ComponentSetValue2( loop_comp, "file", info.spray_info[1])
                             ComponentSetValue2( loop_comp, "event_name", info.spray_info[2])
                         end
                     end
-                    EntitySetTransform( index.M.john_pouring, p_x, p_y )
+                    EntitySetTransform( xM.john_pouring, p_x, p_y )
 
                     local volume = info.matter_info.volume
                     local matter = info.matter_info.matter
-                    if( index.D.shift_action ) then
+                    if( xD.shift_action ) then
                         out[1], out[2] = false, 45 + 90*( 1 - math.min( matter[1]/volume, 1 ))
                         
                         if( matter[1] == 0 ) then return out end
-                        GameEntityPlaySoundLoop( index.M.john_pouring, "spray", 1 )
-                        if( index.D.frame_num%5 == 0 ) then pen.magic_chugger( matter[2], index.D.pointer_world, info.id, volume ) end
+                        GameEntityPlaySoundLoop( xM.john_pouring, "spray", 1 )
+                        if( xD.frame_num%5 == 0 ) then pen.magic_chugger( matter[2], xD.pointer_world, info.id, volume ) end
                     elseif( pen.vld( info.bottle_info )) then
                         out[1] = false
                         
-                        local sucker_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "MaterialSuckerComponent" )
-                        if( EntityGetName( index.M.john_pouring ) ~= "done" ) then
-                            EntitySetName( index.M.john_pouring, "done" )
+                        local sucker_comp = EntityGetFirstComponentIncludingDisabled( xM.john_pouring, "MaterialSuckerComponent" )
+                        if( EntityGetName( xM.john_pouring ) ~= "done" ) then
+                            EntitySetName( xM.john_pouring, "done" )
                             ComponentSetValue2( sucker_comp, "suck_tag", info.bottle_info.tag )
                             ComponentSetValue2( sucker_comp, "material_type", info.bottle_info.type )
                             ComponentSetValue2( sucker_comp, "barrel_size", info.bottle_info.capacity )
@@ -744,7 +749,7 @@ local ITEM_CATS = {
                         end
 
                         local do_sound = false
-                        local mtr_comp = EntityGetFirstComponentIncludingDisabled( index.M.john_pouring, "MaterialInventoryComponent" )
+                        local mtr_comp = EntityGetFirstComponentIncludingDisabled( xM.john_pouring, "MaterialInventoryComponent" )
                         pen.hallway( function()
                             if( not( ComponentGetIsEnabled( mtr_comp ))) then return end
                             local total, mttrs = pen.get_matter( ComponentGetValue2( mtr_comp, "count_per_material_type" ))
@@ -761,14 +766,14 @@ local ITEM_CATS = {
                                     do_sound, pm = true, matter[2][ pm or -1 ] or { 0, 0 }
                                     AddMaterialInventoryMaterial( info.id, name, pm[2] + count )
                                 end
-                                AddMaterialInventoryMaterial( index.M.john_pouring, name, 0 )
+                                AddMaterialInventoryMaterial( xM.john_pouring, name, 0 )
                             end)
 
                             info.matter_info.matter[1] = matter[1]
                         end)
                         
-                        EntitySetComponentIsEnabled( index.M.john_pouring, sucker_comp, matter[1] < volume )
-                        if( not( do_sound and index.D.frame_num%5 == 0 )) then return out end
+                        EntitySetComponentIsEnabled( xM.john_pouring, sucker_comp, matter[1] < volume )
+                        if( not( do_sound and xD.frame_num%5 == 0 )) then return out end
                         
                         if( info.bottle_info.type == 0 ) then
                             index.play_sound({ "data/audio/Desktop/materials.bank", "collision/glass_potion/liquid_container_hit" }, p_x, p_y )
@@ -805,6 +810,7 @@ local ITEM_CATS = {
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ), true )
         end,
         on_data = function( info, wip_item_list )
+            local xD = index.D
             if( info.is_permanent ) then info.charges = -1 end
 
             info.ActionC = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
@@ -819,13 +825,13 @@ local ITEM_CATS = {
             info.tip_name = string.upper( info.tip_name )
             
             local parent_id = EntityGetParent( info.id )
-            if( pen.vld( parent_id, true ) and pen.vld( index.D.invs[ parent_id ])) then
+            if( pen.vld( parent_id, true ) and pen.vld( xD.invs[ parent_id ])) then
                 parent_id = pen.t.get( wip_item_list, parent_id, nil, nil, {})
                 if( parent_id.is_wand ) then info.in_wand = parent_id.id end
             end
 
             local may_use = pen.vld( info.AbilityC, true )
-            may_use = may_use and GameGetGameEffectCount( index.D.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0
+            may_use = may_use and GameGetGameEffectCount( xD.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0
             may_use = may_use and ComponentGetValue2( info.AbilityC, "use_entity_file_as_projectile_info_proxy" )
             if( may_use ) then info.inv_cat = 0 end
             return info
@@ -840,18 +846,20 @@ local ITEM_CATS = {
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
         on_inv_swap = function( info, slot_data )
-            if( index.D.active_item == info.id ) then pen.reset_active_item( index.D.player_id ) end
+            local xD = index.D
+            if( xD.active_item == info.id ) then pen.reset_active_item( xD.player_id ) end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            local angle, anim_speed = 0, index.D.spell_anim_frames
+            local xD = index.D
+            local angle, anim_speed = 0, xD.spell_anim_frames
             local is_considered = state_tbl.is_dragged or state_tbl.is_hov
             if( state_tbl.can_drag ) then
                 angle = -math.rad( 5 )
                 if( not( is_considered )) then
-                    angle = anim_speed == 0 and 0 or angle*math.sin(( index.D.frame_num%anim_speed )*math.pi/anim_speed )
+                    angle = anim_speed == 0 and 0 or angle*math.sin(( xD.frame_num%anim_speed )*math.pi/anim_speed )
                 else angle = 1.5*angle end
             end
-
+            
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
             index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
             if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
@@ -860,7 +868,7 @@ local ITEM_CATS = {
 
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 hov_func( info, "stt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
-            return info
+            return info, state_tbl.is_hov
         end,
 
         on_gui_world = index.new_vanilla_worldtip,
@@ -887,8 +895,9 @@ local ITEM_CATS = {
 
         on_check = function( item_id ) return true end,
         on_data = function( info, wip_item_list )
+            local xD = index.D
             if( not( EntityHasTag( info.id, "this_is_sampo" ))) then return info end
-            if( EntityGetRootEntity( info.id ) == index.D.player_id ) then index.D.sampo = info.id end
+            if( EntityGetRootEntity( info.id ) == xD.player_id ) then xD.sampo = info.id end
             info.inv_cat = 0
             return info
         end,
