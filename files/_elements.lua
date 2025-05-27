@@ -28,7 +28,7 @@ function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_
 				in_hand = pen.vld( info.in_hand, true ),
 				is_quick = is_quick,
 				is_full = is_full,
-			}
+			}, { w + 1, h + 1 }
 		})
 	end
 	
@@ -36,6 +36,7 @@ function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_
 end
 
 function index.new_generic_inventory( screen_w, screen_h, xys )
+    local xD, xM = index.D, index.M
     local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
     local pic_x, pic_y = root_x, root_y
     
@@ -43,7 +44,6 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
     end
     
-    local xD, xM = index.D, index.M
     pen.hallway( function()
         local full_depth = 1
         if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
@@ -124,7 +124,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
                     w, h = index.new_generic_slot( pic_x, pic_y, {
                         inv_slot = { i, e },
                         inv_id = xD.invs_p.f, id = col[e],
-                    }, xD.is_opened, true, xD.is_opened )
+                    }, xD.is_opened, true, false )
                     pic_y = pic_y + h + step
                 end
                 pic_x, pic_y = pic_x + w + step, root_y
@@ -139,9 +139,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
             pic_x, pic_y = pic_x + 3 - step, pic_y + 3
         end
 
-        -- if( InputIsKeyJustDown( 41--[[escape]])) then
-        --     xD.inv_toggle = xD.is_opened
-        -- else
+        -- if( InputIsKeyJustDown( 41--[[escape]])) then xD.inv_toggle = xD.is_opened else
         if( xD.Controls.inv[2]) then xD.inv_toggle = true end
     end)
     return { root_x, root_y }, { pic_x, pic_y }
@@ -203,7 +201,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
 
                 pen.hallway( function()
                     if( not( allow_clicks )) then return end
-                    xD.tip_func( icon.name..( pen.vld( icon.desc ) and "\n"..icon.desc or "" ), { tid = "applet_tip",
+                    xD.tip_func({ icon.name, icon.desc }, { tid = "applet_tip",
                         pos = { is_left and 2 or ( screen_w - 1 ), pic_y + 14 }, is_active = metahover, is_left = not( is_left )})
                     if( not( clicked and reset_em == 0 )) then return end
                     if( not( icon.mute or false )) then index.play_sound( "click" ) end
@@ -250,18 +248,19 @@ end
 function index.new_generic_hp( screen_w, screen_h, xys )
     local xD = index.D
     local data = xD.DamageModel
-    local red_shift, length, height = 0, 0, 0
     local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
+
+    local pain_flash = 0
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
-        local max_hp, hp = data.hp_max, data.hp
-        if( max_hp <= 0 ) then return end
+        if( data.hp_max <= 0 ) then return end
         
-        length, height, max_hp, hp, red_shift = index.new_vanilla_hp(
+        local length, height, max_hp, hp, red_shift = index.new_vanilla_hp(
             pic_x, pic_y, pen.LAYERS.MAIN_BACK, xD.player_id, { dmg_data = data })
-        
+        pain_flash = red_shift
+
         local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
         pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
@@ -270,8 +269,7 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         index.tipping( pic_x - ( length + 2 ), pic_y - 1, nil, length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
-
-    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*red_shift, 0, 0, 0 )
+    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
 
     return { pic_x, pic_y }
 end
@@ -308,7 +306,7 @@ function index.new_generic_flight( screen_w, screen_h, xys )
         if( data.flight_always or data.flight_max == 0 ) then return end
 
         if( xM.flight_shake == nil ) then
-            if( xD.Controls.fly[1] and data.flight <= 0 ) then
+            if( xD.Controls.fly[1] and data.flight < 1 ) then
                 xM.flight_shake = xD.frame_num
             end
         end
@@ -370,7 +368,7 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         
         local tip = ""
         if( pen.vld( potion_info )) then
-            tip = data.name..( data.fullness ~= nil and "\n"..data.fullness or "" )
+            tip = data.name..( pen.vld( data.fullness ) and "\n"..data.fullness or "" )
         else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
 
         local tip_x, tip_y = unpack( xys.hp )
@@ -540,7 +538,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             length_mult = in_world and 0.75 or 2, height = in_world and 9 or 13,
         })
         
-        if( not( in_world )) then pic_y = pic_y - ( h + 4 ) end
+        if( not( in_world )) then pic_y = pic_y - ( h + 6 ) end
     end)
     return { pic_x, pic_y }
 end
@@ -596,6 +594,7 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
 end
 
 function index.new_generic_info( screen_w, screen_h, xys )
+    local xD, xM = index.D, index.M
     local function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         txt = pen.capitalizer( txt )
@@ -608,7 +607,6 @@ function index.new_generic_info( screen_w, screen_h, xys )
         pen.new_shadowed_text( p_x, p_y, pen.LAYERS.MAIN, txt, { color = color, alpha = alpha })
     end
     
-    local xD, xM = index.D, index.M
     local pic_x, pic_y = 0, 0
     xM.ui_info = xM.ui_info or { 0, 0 }
     pen.hallway( function()
@@ -733,8 +731,8 @@ function index.new_generic_ingestions( screen_w, screen_h, xys )
         if( xD.gmod.menu_capable ) then return end
         pic_y = pic_y + 3
 
-        for i,this_one in ipairs( data ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 1 )
+        for i,info in ipairs( data ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, info, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
 
@@ -751,8 +749,8 @@ function index.new_generic_stains( screen_w, screen_h, xys )
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
 
-        for i,this_one in ipairs( data ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 2 )
+        for i,info in ipairs( data ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, info, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
 
@@ -769,9 +767,9 @@ function index.new_generic_effects( screen_w, screen_h, xys )
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
 
-        for i,this_one in ipairs( data ) do
-            if( this_one.amount < 2 ) then this_one.txt = "" end
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 3 )
+        for i,info in ipairs( data ) do
+            if( info.amount < 2 ) then info.txt = "" end
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, info, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
 
@@ -801,16 +799,16 @@ function index.new_generic_perks( screen_w, screen_h, xys )
         }
 
         if( #data > xD.max_perks ) then
-            for i,perk in ipairs( data ) do
+            for i,info in ipairs( data ) do
                 if( #perk_tbl_short >= xD.max_perks ) then
-                    for k = 1,( perk.count or 1 ) do table.insert( extra_perk.other_perks, perk.pic ) end
-                else table.insert( perk_tbl_short, perk ) end
+                    for k = 1,( info.count or 1 ) do table.insert( extra_perk.other_perks, info.pic ) end
+                else table.insert( perk_tbl_short, info ) end
             end
             table.insert( perk_tbl_short, extra_perk )
         else perk_tbl_short = data end
         
-        for i,this_one in ipairs( perk_tbl_short ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, this_one, 4 )
+        for i,info in ipairs( perk_tbl_short ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.LAYERS.MAIN, info, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
 
@@ -870,7 +868,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     local xD, xM = index.D, index.M
     local data = xD.ItemPickUpper
     if( not( pen.vld( data ))) then return end
-    
+
     local x, y = unpack( xD.player_xy )
     y = y - xD.player_core_off
 
@@ -932,9 +930,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             local data = index.get_item_data( id )
             if( data.id ~= nil ) then
                 info.data = data
-                if( info.pick_auto ) then
-                    mode = 1
-                else mode = data.cat + 1 end
+                mode = info.pick_auto and 1 or ( data.cat + 1 )
             else return end
             table.insert( stuff_to_figure[ mode ], info )
         end
@@ -993,8 +989,6 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     
     --[[
     if( xD.is_opened and xD.gmod.show_fullest ) then
-        --create inv with -1 id
-        
         for i,tbl in ipairs( stuff_to_figure ) do
             if( i > 1 and #tbl > 0 ) then
                 table.sort( tbl, function( a, b )
@@ -1017,8 +1011,6 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                 end
             end
         end
-        
-        --destroy inv with -1 id
     end
     ]]
 
@@ -1132,7 +1124,7 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
     local data = xD.gmod
     if( not( xD.is_opened )) then return end
     if( not( pen.vld( data ))) then return end
-    if( data.is_hidden and not( data.force_show )) then return end
+    if( data.is_hidden ) then return end
     
     local w, h = pen.get_text_dims( data.name, true )
     local pic_x, pic_y = xys.full_inv[1], xys.inv_root[2]
@@ -1157,10 +1149,8 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
         { data.name, data.desc }, { tid = "gmod", fully_featured = true, pos = { pic_x, pic_y }, is_left = true, do_corrections = true })
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
-    if( gonna_reset ) then
-        for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end
-    end
-
+    if( gonna_reset ) then for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end end
+    
     pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
         pen.LAYERS.MAIN, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
     xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })

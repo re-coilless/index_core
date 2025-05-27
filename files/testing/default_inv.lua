@@ -13,7 +13,7 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
                 w, h = index.new_generic_slot( pic_x, pic_y, {
                     inv_slot = { i, e },
                     inv_id = inv_id, id = slot,
-                }, xD.is_opened, 1 )
+                }, xD.is_opened, true )
                 pic_x, pic_y = pic_x, pic_y + h + step
             end
             pic_x, pic_y = pic_x + w + step, core_y

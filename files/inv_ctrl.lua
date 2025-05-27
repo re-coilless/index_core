@@ -10,6 +10,7 @@ xM.slot_anim = xM.slot_anim or {} --fancy dragging anim
 xM.is_dragging = xM.is_dragging or false --a check that makes sure only one slot is being dragged at a time
 xM.pending_slots = xM.pending_slots or {} --a table of slot states that enables slot code even if the pointer is outside the box
 xM.slot_hover_sfx = xM.slot_hover_sfx or { 0, false } --context sensitive hover sfx
+xM.pinned_tips = xM.pinned_tips or {} --tooltips that are prevented from closing
 
 xM.mouse_memo = xM.mouse_memo or {} --for getting pointer delta
 xM.mouse_memo_world = xM.mouse_memo_world or {} --for getting pointer delta in-world
@@ -312,7 +313,6 @@ for i = #get_out,1,-1 do table.remove( xD.item_list, get_out[i]) end
 --gmods and applets init
 xD.gmod = xD.gmods[ xD.global_mode ]
 xD.gmod.name, xD.gmod.desc = pen.magic_translate( xD.gmod.name ), pen.magic_translate( xD.gmod.desc )
-if( xD.do_vanilla_dropping and not( xD.gmod.allow_advanced_draggables )) then xD.drag_action = false end
 for i,mut in ipairs( global_mutators ) do xD.xys = mut( xD.xys ) end
 
 if( xD.applets.done == nil ) then

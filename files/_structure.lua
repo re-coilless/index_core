@@ -6,9 +6,9 @@ local GLOBAL_MODES = {
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
         
-        menu_capable = false, is_hidden = false, show_fullest = false,
-        can_see = false, allow_shooting = false, force_inv_open = false,
-        allow_external_inventories = false, allow_advanced_draggables = false,
+        -- menu_capable = false, is_hidden = false, show_fullest = false,
+        -- can_see = false, allow_shooting = false, force_inv_open = false,
+        -- allow_external_inventories = false, allow_advanced_draggables = false,
     },
     {
         name = "MANAGEMENT", color = pen.PALETTE.VNL.YELLOW,
@@ -90,18 +90,6 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 	},
 }
 
--- info.wand_info.speed_multiplier
--- info.wand_info.lifetime_add
--- info.wand_info.bounces
-
--- info.wand_info.crit_chance
--- info.wand_info.crit_mult
-
--- info.wand_info.damage_electricity_add
--- info.wand_info.damage_explosion_add
--- info.wand_info.damage_fire_add
--- info.wand_info.damage_melee_add
--- info.wand_info.damage_projectile_add
 local WAND_STATS = {
 	{
 		pic = "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
@@ -180,89 +168,22 @@ local WAND_STATS = {
 			return v.."s", is_dft
 		end,
 	},
+
+    -- info.wand_info.speed_multiplier
+    -- info.wand_info.lifetime_add
+    -- info.wand_info.bounces
+
+    -- info.wand_info.crit_chance
+    -- info.wand_info.crit_mult
+
+    -- info.wand_info.damage_electricity_add
+    -- info.wand_info.damage_explosion_add
+    -- info.wand_info.damage_fire_add
+    -- info.wand_info.damage_melee_add
+    -- info.wand_info.damage_projectile_add
 }
 
---[[
-	c.damage_total_add
-	icon_damage_projectile.png=c.damage_projectile_add
-	icon_damage_curse.png=c.damage_curse_add
-	icon_damage_explosion.png=c.damage_explosion_add
-	icon_damage_slice.png=c.damage_slice_add
-	icon_damage_melee.png=c.damage_melee_add
-	icon_damage_ice.png=c.damage_ice_add
-	icon_damage_electricity.png=c.damage_electricity_add
-	icon_damage_drill.png=c.damage_drill_add
-	icon_damage_healing.png=c.damage_healing_add
-	c.damage_fire_add
-	c.damage_holy_add
-	c.damage_physics_add
-	c.damage_poison_add
-	c.damage_radioactive_add
-
-	--c.explosion_damage_to_materials
-	c.damage_critical_multiplier
-	
-	c.lifetime_add
-
-	c_proj.damage.total
-	c_proj.damage.curse
-	c_proj.damage.drill
-	c_proj.damage.electricity
-	c_proj.damage.explosion
-	c_proj.damage.fire
-	c_proj.damage.healing
-	c_proj.damage.ice
-	c_proj.damage.melee
-	c_proj.damage.overeating
-	c_proj.damage.physics_hit
-	c_proj.damage.poison
-	c_proj.damage.projectile
-	c_proj.damage.radioactive
-	c_proj.damage.slice
-	c_proj.damage.holy
-
-	c_proj.damage_scaled_by_speed
-	c_proj.damage_every_x_frames
-		
-	c_proj.lifetime
-	
-	c_proj.on_collision_die
-	c_proj.on_death_duplicate
-	c_proj.on_death_explode
-	c_proj.on_lifetime_out_explode
-
-	c_proj.collide_with_entities
-	c_proj.penetrate_entities
-	c_proj.dont_collide_with_tag
-	c_proj.never_hit_player
-	c_proj.friendly_fire
-	c_proj.explosion_dont_damage_shooter
-
-	c_proj.collide_with_world
-	c_proj.penetrate_world
-	c_proj.go_through_this_material
-	c_proj.ground_penetration_coeff
-	c_proj.ground_penetration_max_durability
-	
-	c_proj.explosion.damage_mortals
-	c_proj.explosion.damage
-	c_proj.explosion.is_digger
-	c_proj.explosion.explosion_radius
-	c_proj.explosion.max_durability_to_destroy
-	c_proj.explosion.ray_energy
-	
-	c_proj.crit.chance
-	c_proj.crit.damage_multiplier
-	
-	c_proj.lightning.damage_mortals
-	c_proj.lightning.damage
-	c_proj.lightning.is_digger
-	c_proj.lightning.explosion_radius
-	c_proj.lightning.max_durability_to_destroy
-	c_proj.lightning.ray_energy
-]]
-
-local SPELL_STATS = { --custom descs
+local SPELL_STATS = {
 	{
 		{
 			off_x = 0, off_y = 0,
@@ -291,7 +212,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_mana_drain.png",
-			name = "$inventory_manadrain", --desc = "",
+			name = "$inventory_manadrain", desc = "The amount of mana this spell will consume on cast.",
 			
 			value = function( info, c, c_proj )
 				return info.spell_info.mana or 0 end,
@@ -300,7 +221,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png",
-			name = "$inventory_mod_castdelay", --desc = "",
+			name = "$inventory_mod_castdelay", desc = "The cooldown time after one group of spells has been cast.",
 
 			value = function( info, c, c_proj )
 				return c.fire_rate_wait or 0 end,
@@ -311,7 +232,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_reload_time.png",
-			name = "$inventory_mod_rechargetime", --desc = "",
+			name = "$inventory_mod_rechargetime", desc = "The cooldown time after all the spells have been cast.",
 
 			value = function( info, c, c_proj )
 				return c.reload_time or 0 end,
@@ -323,7 +244,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
-			name = "$inventory_mod_spread", --desc = "",
+			name = "$inventory_mod_spread", desc = "Additional divergence of fired spells from the aiming direction.",
 			
 			spacer = true,
 			value = function( info, c, c_proj )
@@ -337,7 +258,7 @@ local SPELL_STATS = { --custom descs
 	{
 		{
 			pic = "data/ui_gfx/inventory/icon_damage_projectile.png",
-			name = "$inventory_mod_damage", --desc = "",
+			name = "$inventory_mod_damage", desc = "The combined damage across all infliction types.",
 			
 			value = function( info, c, c_proj )
 				return c_proj.damage.total or 0 end,
@@ -349,7 +270,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_damage_critical_chance.png",
-			name = "$inventory_mod_critchance", --desc = "",
+			name = "$inventory_mod_critchance", desc = "The likelyhood of the spell delivering a critical hit.",
 
 			value = function( info, c, c_proj )
 				return c_proj.crit.chance or 0 end,
@@ -361,7 +282,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = 1,
 			pic = "data/ui_gfx/inventory/icon_speed_multiplier.png",
-			name = "$inventory_mod_speed", --desc = "",
+			name = "$inventory_mod_speed", desc = "Baseline muzzle velocity.",
 
 			value = function( info, c, c_proj )
 				return c_proj.speed or 0 end,
@@ -374,7 +295,7 @@ local SPELL_STATS = { --custom descs
 		{
 			off_y = -1,
 			pic = "data/ui_gfx/inventory/icon_bounces.png",
-			name = "$inventory_mod_bounces", --desc = "",
+			name = "$inventory_mod_bounces", desc = "Total amount of times the projectile will persist after hitting the ground.",
 			
 			value = function( info, c, c_proj )
 				return c_proj.bounces or 0 end,
@@ -385,7 +306,7 @@ local SPELL_STATS = { --custom descs
 		},
 		{
 			pic = "data/ui_gfx/inventory/icon_explosion_radius.png",
-			name = "$inventory_mod_explosion_radius", --desc = "",
+			name = "$inventory_mod_explosion_radius", desc = "The size of the created explosion.",
 
 			spacer = true,
 			value = function( info, c, c_proj )
@@ -393,6 +314,84 @@ local SPELL_STATS = { --custom descs
 			txt = function( value, info, c, c_proj ) return index.get_stat( value, c.explosion_radius, 0 ) end,
 		},
 	},
+    
+    -- c.damage_total_add
+	-- icon_damage_projectile.png=c.damage_projectile_add
+	-- icon_damage_curse.png=c.damage_curse_add
+	-- icon_damage_explosion.png=c.damage_explosion_add
+	-- icon_damage_slice.png=c.damage_slice_add
+	-- icon_damage_melee.png=c.damage_melee_add
+	-- icon_damage_ice.png=c.damage_ice_add
+	-- icon_damage_electricity.png=c.damage_electricity_add
+	-- icon_damage_drill.png=c.damage_drill_add
+	-- icon_damage_healing.png=c.damage_healing_add
+	-- c.damage_fire_add
+	-- c.damage_holy_add
+	-- c.damage_physics_add
+	-- c.damage_poison_add
+	-- c.damage_radioactive_add
+
+	-- c.explosion_damage_to_materials
+	-- c.damage_critical_multiplier
+	
+	-- c.lifetime_add
+
+	-- c_proj.damage.total
+	-- c_proj.damage.curse
+	-- c_proj.damage.drill
+	-- c_proj.damage.electricity
+	-- c_proj.damage.explosion
+	-- c_proj.damage.fire
+	-- c_proj.damage.healing
+	-- c_proj.damage.ice
+	-- c_proj.damage.melee
+	-- c_proj.damage.overeating
+	-- c_proj.damage.physics_hit
+	-- c_proj.damage.poison
+	-- c_proj.damage.projectile
+	-- c_proj.damage.radioactive
+	-- c_proj.damage.slice
+	-- c_proj.damage.holy
+
+	-- c_proj.damage_scaled_by_speed
+	-- c_proj.damage_every_x_frames
+		
+	-- c_proj.lifetime
+	
+	-- c_proj.on_collision_die
+	-- c_proj.on_death_duplicate
+	-- c_proj.on_death_explode
+	-- c_proj.on_lifetime_out_explode
+
+	-- c_proj.collide_with_entities
+	-- c_proj.penetrate_entities
+	-- c_proj.dont_collide_with_tag
+	-- c_proj.never_hit_player
+	-- c_proj.friendly_fire
+	-- c_proj.explosion_dont_damage_shooter
+
+	-- c_proj.collide_with_world
+	-- c_proj.penetrate_world
+	-- c_proj.go_through_this_material
+	-- c_proj.ground_penetration_coeff
+	-- c_proj.ground_penetration_max_durability
+	
+	-- c_proj.explosion.damage_mortals
+	-- c_proj.explosion.damage
+	-- c_proj.explosion.is_digger
+	-- c_proj.explosion.explosion_radius
+	-- c_proj.explosion.max_durability_to_destroy
+	-- c_proj.explosion.ray_energy
+	
+	-- c_proj.crit.chance
+	-- c_proj.crit.damage_multiplier
+	
+	-- c_proj.lightning.damage_mortals
+	-- c_proj.lightning.damage
+	-- c_proj.lightning.is_digger
+	-- c_proj.lightning.explosion_radius
+	-- c_proj.lightning.max_durability_to_destroy
+	-- c_proj.lightning.ray_energy
 }
 
 local MATTER_DESCS = { -- description for materials (if mode is not hotkeyed, make the desc tip be hotkey openable)
@@ -418,6 +417,7 @@ local ITEM_CATS = {
             return pen.vld( name ) and name or default_name
         end,
         on_data = function( info, wip_item_list )
+            local xD = index.D
             info.wand_info = {
                 shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
                 actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
@@ -431,8 +431,8 @@ local ITEM_CATS = {
                 reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) +
                                 ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
                 delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-                reload_frame = math.max( ComponentGetValue2( info.AbilityC, "mReloadNextFrameUsable" ) - index.D.frame_num, 0 ),
-                delay_frame = math.max( ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - index.D.frame_num, 0 ),
+                reload_frame = math.max( ComponentGetValue2( info.AbilityC, "mReloadNextFrameUsable" ) - xD.frame_num, 0 ),
+                delay_frame = math.max( ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - xD.frame_num, 0 ),
 
                 speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
                 lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
@@ -462,7 +462,7 @@ local ITEM_CATS = {
                 return ( is_perma[1] and not( is_perma[2])) or ( not( is_perma[2]) and inv_slot[1] < inv_slot[2])
             end
             
-            index.D.invs_i[ info.id ] = index.get_inv_info(
+            xD.invs_i[ info.id ] = index.get_inv_info(
                 info.id, { info.wand_info.deck_capacity, 1 }, { "full" }, nil, check_func, update_func, nil, sort_func )
             
             return info
@@ -499,7 +499,7 @@ local ITEM_CATS = {
         end,
 
         on_tooltip = index.new_vanilla_wtt,
-        on_inventory = function( info, pic_x, pic_y, state_tbl )
+        on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims )
             local xD = index.D
             if( not( xD.is_opened )) then return end
             if( not( state_tbl.is_quick )) then return end
@@ -508,20 +508,21 @@ local ITEM_CATS = {
             w, h = xD.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
             xD.xys.wands = { pic_x, pic_y + h }
         end,
-        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             local xD, xM = index.D, index.M
-            local w, h = pen.get_pic_dims( xD.slot_pic.bg )
+            local w, h = unpack( slot_dims )
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
                 index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
-            local is_allowed = true
-            local tid, shown_wtt = "wtt"..info.id, false
-            local is_pinned = pen.vld( pen.c.ttips[ tid ]) and pen.c.ttips[ tid ].inter_state[3]
-            if(( xM.wtt_safety or tid ) == tid and not( state_tbl.is_hov )) then
-                xM.wtt_safety = nil elseif(( xM.wtt_safety or tid ) ~= tid ) then is_allowed = false end
-            if( state_tbl.is_opened and ( state_tbl.is_hov or is_pinned ) and pen.vld( hov_func ) and is_allowed ) then
-                hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS )
-                xM.wtt_safety, shown_wtt = tid, true
+            local tid = "slot"
+            local is_pinned = xM.pinned_tips[ tid ] == info.id
+            local got_pin = pen.vld( xM.pinned_tips[ tid ], true )
+            local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
+            if( is_pinned or ( is_active and not( got_pin ))) then
+                local _,_,may_pin = hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true )
+                if( is_active or may_pin ) then
+                    xM.pinned_tips[ tid ] = xM.pinned_tips[ tid ] or info.id
+                elseif( is_pinned ) then xM.pinned_tips[ tid ] = nil end
             end
 
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
@@ -550,8 +551,6 @@ local ITEM_CATS = {
 
                 if( info.charges == 0 and is_empty ) then info.charges = 0.1 end
             end
-
-            if( not( shown_wtt )) then xM.wtt_safety = nil end
 
             return info
         end,
@@ -630,8 +629,8 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = index.new_vanilla_ptt,
-        on_inventory = function( info, pic_x, pic_y, state_tbl )
-            local w, h = pen.get_pic_dims( index.D.slot_pic.bg )
+        on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims )
+            local w, h = unpack( slot_dims )
             if( state_tbl.is_full ) then return end
 
             pic_x, pic_y = pic_x + w/2, pic_y + h/2
@@ -652,42 +651,35 @@ local ITEM_CATS = {
                 pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, w, 0.5 )
             end
         end,
-        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             local xD, xM = index.D, index.M
+            local pic_data = pen.cache({ "index_pic_data", info.pic })
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "ptt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
-            
-            local nuke_it = true
+
+            local is_done = true
             local target_angle = 0
             if( state_tbl.is_dragged ) then
-                if( pen.vld( drag_func ) and xD.drag_action ) then nuke_it, target_angle = unpack( drag_func( info )) end
+                local w, h = unpack( slot_dims )
+                pen.c.dragger_data[ info.id ].off = { -w/2, -h/2 }
+                if( pen.vld( drag_func ) and xD.drag_action ) then is_done, target_angle = unpack( drag_func( info )) end
             elseif( pen.vld( rmb_func ) and state_tbl.is_rmb and state_tbl.is_quick ) then rmb_func( info ) end
-
-            local pic_data = pen.cache({ "index_pic_data", info.pic })
-            if( not( nuke_it )) then
-                if( pen.vld( pic_data.memo_xy )) then -- potion is not shifting properly on action
-                    pic_data.memo_xy = pic_data.xy; pic_data.xy = { pic_data.dims[1]/2, -2 }
-                    pen.c.estimator_memo.sucking_drift =
-                        ( pen.c.estimator_memo.sucking_drift or 0 ) - ( pic_data.dims[2]/2 + 2 )
-                end
-            else
-                if( pen.vld( pic_data.memo_xy )) then
-                    pen.c.estimator_memo.sucking_drift =
-                        ( pen.c.estimator_memo.sucking_drift or 0 ) + ( pic_data.dims[2]/2 + 2 )
-                    pic_data.xy = pic_data.memo_xy; pic_data.memo_xy = nil
-                end
-                if( not( pen.vld( xD.dragger.item_id, true )) or xD.dragger.item_id == info.id ) then
-                    if( EntityGetIsAlive( xM.john_pouring or 0 )) then
-                        EntityKill( xM.john_pouring ); xM.john_pouring = nil
-                    end
-                end
+            if( is_done ) then _,pic_data.dims[2] = pen.get_pic_dims( info.pic ) end
+            
+            local target_off = 0
+            if( not( is_done )) then
+                if( not( xD.shift_action )) then
+                    target_off = pic_data.dims[2]/2
+                else pic_data.dims[2] = pen.estimate( "pouring_drift", { 0, pic_data.dims[2]}, "exp5", 0.5 ) end
+            elseif( not( pen.vld( xD.dragger.item_id, true )) or xD.dragger.item_id == info.id ) then
+                if( EntityGetIsAlive( xM.john_pouring or 0 )) then EntityKill( xM.john_pouring ); xM.john_pouring = nil end
             end
             
             local angle = 0
             if( state_tbl.is_dragged ) then
                 angle = math.rad( pen.estimate( "pouring_angle", target_angle, "exp5", 1 ))
-                pic_y = pic_y + pen.estimate( "sucking_drift", 0, "exp5", 1 )
+                pic_y = pic_y + pen.estimate( "sucking_drift", target_off, "exp5", 1 )
             end
             
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
@@ -842,15 +834,15 @@ local ITEM_CATS = {
         end,
 
         on_tooltip = index.new_vanilla_stt,
-        on_inv_check = function( info, inv_info )
+        on_slot_check = function( info, inv_info )
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
-        on_inv_swap = function( info, slot_data )
+        on_swap = function( info, slot_data )
             local xD = index.D
             if( xD.active_item == info.id ) then pen.reset_active_item( xD.player_id ) end
         end,
-        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
-            local xD = index.D
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
+            local xD, xM = index.D, index.M
             local angle, anim_speed = 0, xD.spell_anim_frames
             local is_considered = state_tbl.is_dragged or state_tbl.is_hov
             if( state_tbl.can_drag ) then
@@ -866,9 +858,18 @@ local ITEM_CATS = {
             index.new_spell_frame( pic_x, pic_y,
                 pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
 
-            if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "stt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
-            return info, state_tbl.is_hov
+            local tid = "slot"
+            local is_pinned = xM.pinned_tips[ tid ] == info.id
+            local got_pin = pen.vld( xM.pinned_tips[ tid ], true )
+            local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
+            if( is_pinned or ( is_active and not( got_pin ))) then
+                local _,_,may_pin = hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS )
+                if( is_active or may_pin ) then
+                    xM.pinned_tips[ tid ] = xM.pinned_tips[ tid ] or info.id
+                elseif( is_pinned ) then xM.pinned_tips[ tid ] = nil end
+            end
+
+            return info, state_tbl.is_hov and state_tbl.can_drag
         end,
 
         on_gui_world = index.new_vanilla_worldtip,
@@ -881,10 +882,10 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = index.new_vanilla_ttt,
-        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "ttt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info, true
         end,
 
@@ -903,10 +904,10 @@ local ITEM_CATS = {
         end,
         
         on_tooltip = index.new_vanilla_itt,
-        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale )
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "itt"..info.id, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info
         end,
 
