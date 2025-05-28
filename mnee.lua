@@ -20,8 +20,15 @@ _BINDINGS[ "index_core" ] = {
 		desc = "Displays additional info in the tooltip.",
 		keys = {[ "left_alt" ] = 1 },
 	},
-	matter_action = {
+	hide_slot_tips = {
 		order_id = "ad",
+		allow_special = true,
+		name = "Hide Slot Tips",
+		desc = "Hides all the inventory item tooltips to make organizing easier.",
+		keys = {[ "left_ctrl" ] = 1 },
+	},
+	matter_action = {
+		order_id = "ae",
 		name = "Matter Probing",
 		desc = "Displays the name of the matter below the pointer.",
 		keys = {[ "`" ] = 1 },

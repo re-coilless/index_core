@@ -195,9 +195,10 @@ function index.new_generic_applets( screen_w, screen_h, xys )
             local clicked, is_hovered = false, false
             for i,icon in ipairs( data[ tbl[ type ][1]]) do
                 local t_x = pic_x + sign*( i - 1 )*11
+                local off_x, off_y = icon.off_x or -1, icon.off_y or -1
                 local metahover = not( got_one ) and data[ tbl[ type ][5]][i]
                 local clicked,_,is_hovered = pen.new_interface( t_x, pic_y, 10, 10, pen.LAYERS.MAIN_BACK )
-                pen.new_image( t_x - 1, pic_y - 1, pen.LAYERS.MAIN_BACK, icon.pic, { angle = metahover and math.rad( -5 ) or 0 })
+                pen.new_image( t_x + off_x, pic_y + off_y, pen.LAYERS.MAIN_BACK, icon.pic, { angle = metahover and math.rad( -5 ) or 0 })
 
                 pen.hallway( function()
                     if( not( allow_clicks )) then return end
@@ -960,8 +961,8 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
 
                 local will_pause = pen.vld( index.cat_callback( info.data, "on_gui_pause" ))
                 local is_slotless = will_pause or i == 1 or EntityHasTag( info.id, "index_slotless" )
-                local new_data = is_slotless and { inv_slot = 0 } or index.set_to_slot( info.data, true )
-                if( pen.vld( new_data.inv_slot )) then
+                local new_info = is_slotless and { inv_slot = 0 } or index.set_to_slot( info.data, true )
+                if( pen.vld( new_info.inv_slot )) then
                     if( i > 1 ) then
                         pickup_data.desc = info.pick_desc
                         if( not( pen.vld( pickup_data.desc ))) then
@@ -1090,7 +1091,7 @@ end
 function index.new_generic_drop( item_id )
     local xD = index.D
     local dude = EntityGetRootEntity( item_id )
-    if( dude ~= xD.player_id ) then index.play_sound( "error" ); return end
+    if( dude ~= xD.player_id ) then return index.play_sound( "error" ) end
     index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
     
     local do_default = true
@@ -1150,7 +1151,7 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
     if( gonna_reset ) then for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end end
-    
+
     pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
         pen.LAYERS.MAIN, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
     xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })

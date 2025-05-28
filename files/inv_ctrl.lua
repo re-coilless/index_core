@@ -186,6 +186,7 @@ index.D = {
     tip_action = index.get_input( "tip_action", true ),
     drag_action = index.get_input( "drag_action", true ),
     shift_action = index.get_input( "shift_action", true ),
+    hide_slot_tips = index.get_input( "hide_slot_tips", true ),
 
     item_list = {}, slot_state = {},
     invs = {}, invs_i = {}, invs_e = {},
@@ -256,13 +257,12 @@ pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
     xD.invs[ inv ] = index.get_inv_info( inv ); table.insert( xD.invs_e, inv )
 end)
 
-if( pen.vld( xD.active_item, true )) then
-    if( EntityGetParent( xD.active_item ) == xD.invs_p.f ) then
+if( pen.vld( xD.active_item, true )) then --just fix this with phantom "hand" item
+    local got_items = pen.vld( EntityGetAllChildren( xD.invs_p.q ))
+    if( EntityGetParent( xD.active_item ) == xD.invs_p.f and got_items ) then
         xD.active_item = 0; pen.reset_active_item( xD.player_id )
     end
 end
-
-
 
 --item data init
 index.get_items( hooman )

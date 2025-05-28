@@ -514,16 +514,8 @@ local ITEM_CATS = {
             index.new_slot_pic( pic_x - w/8, pic_y + h/8,
                 index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
-            local tid = "slot"
-            local is_pinned = xM.pinned_tips[ tid ] == info.id
-            local got_pin = pen.vld( xM.pinned_tips[ tid ], true )
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
-            if( is_pinned or ( is_active and not( got_pin ))) then
-                local _,_,may_pin = hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true )
-                if( is_active or may_pin ) then
-                    xM.pinned_tips[ tid ] = xM.pinned_tips[ tid ] or info.id
-                elseif( is_pinned ) then xM.pinned_tips[ tid ] = nil end
-            end
+            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true })
 
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
@@ -858,18 +850,10 @@ local ITEM_CATS = {
             index.new_spell_frame( pic_x, pic_y,
                 pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
 
-            local tid = "slot"
-            local is_pinned = xM.pinned_tips[ tid ] == info.id
-            local got_pin = pen.vld( xM.pinned_tips[ tid ], true )
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
-            if( is_pinned or ( is_active and not( got_pin ))) then
-                local _,_,may_pin = hov_func( info, tid, pic_x - 10, pic_y + 7, pen.LAYERS.TIPS )
-                if( is_active or may_pin ) then
-                    xM.pinned_tips[ tid ] = xM.pinned_tips[ tid ] or info.id
-                elseif( is_pinned ) then xM.pinned_tips[ tid ] = nil end
-            end
+            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true })
 
-            return info, state_tbl.is_hov and state_tbl.can_drag
+            return info, ( state_tbl.is_hov and state_tbl.can_drag ) and 1 or nil
         end,
 
         on_gui_world = index.new_vanilla_worldtip,
