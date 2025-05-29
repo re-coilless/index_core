@@ -6,12 +6,14 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- docs
--- dragger gets active on hovering with lmb down instead of waiting for button to go down
--- launch second alpha
-
 ------------------------------------------------------
 
+-- all spells wand
+-- testing_bag insert in the chest (display contents on hover tooltip and allow dragging from and to it)
+
+-- report shift-clicking in inv check
+-- dragger gets active on hovering with lmb down instead of waiting for button to go down
+-- if message suppression magic number is active, draw custom log automatically (a setting to save old messages with a scrollbar and clear button)
 -- validate z-levels
 -- two slots can be highlighted at once
 -- make sure the shit inherently supports virtual invs
@@ -33,12 +35,7 @@ function index.get_input( mnee_id, is_continuous, is_clean )
 end
 
 --A wrapper for Penman sound player.
----@param sfx table
----@param x? number
----@param y? number
-function index.play_sound( sfx, x, y ) end
---A wrapper for Penman sound player.
----@param sfx string
+---@param sfx table|string
 ---@param x? number
 ---@param y? number
 function index.play_sound( sfx, x, y )
@@ -332,7 +329,7 @@ function index.get_thresholded_effect( effects, frames )
 	end
 	return effects[ final_id ]
 end
-function index.get_stat( main_value, added_value, default, allow_inf )
+function index.get_vanilla_stat( main_value, added_value, default, allow_inf )
 	main_value, added_value = main_value or default, added_value or 0
 	local is_dft = main_value == default
 	local value = pen.get_short_num(
@@ -342,13 +339,14 @@ end
 
 ------------------------------------------------------		[INVENTORY]		------------------------------------------------------
 
-function index.is_inv_empty( slot_state )
-	for i,col in pairs( slot_state ) do
-		for e,slot in ipairs( col ) do
-			if( slot ) then return false end
-		end
-	end
-	return true
+function index.get_inv_space( inv_id )
+	local total, count = 0, 0
+	pen.t.loop( index.D.slot_state[ inv_id ], function( i,col )
+		pen.t.loop( col, function( e,slot )
+			total = total + 1; if( not( slot )) then count = count + 1 end
+		end)
+	end)
+	return count, total == count
 end
 
 function index.cat_callback( info, callback, input, fallback, do_default )
@@ -430,7 +428,7 @@ function index.inv_check( item_info, info )
 	return is_fit
 end
 
-function index.inventory_boy( info, in_hand )
+function index.inv_boy( info, in_hand )
 	local item_id = info.id
 	local in_wand = pen.vld( info.in_wand, true )
 	if( in_wand or in_hand == nil ) then
@@ -458,11 +456,11 @@ function index.inventory_boy( info, in_hand )
 	EntityApplyTransform( item_id, x, y )
 end
 
-function index.inventory_man( info, in_hand, force_full )
+function index.inv_man( info, in_hand, force_full )
 	local item_id = info.id
 	pen.child_play_full( item_id, function( child, params )
 		info.id = child
-		index.inventory_boy( info, in_hand )
+		index.inv_boy( info, in_hand )
 		if( not( force_full ) and pen.vld( index.D.invs[ child ])) then return true end
 	end)
 	info.id = item_id
@@ -534,6 +532,20 @@ function index.set_to_slot( info, is_player )
 	slot_num[2] = slot_num[2] < 0 and slot_num[2] or slot_num[2] + 1
 	info.inv_slot = slot_num
 	return info
+end
+
+function index.find_a_slot( info, inv_id )
+	local found_slot = false
+	local old_inv = info.inv_id
+	local old_slot = { ComponentGetValue2( info.ItemC, "inventory_slot" )}
+	ComponentSetValue2( info.ItemC, "inventory_slot", -5, -5 )
+
+	info.inv_id, info.inv_slot = inv_id or info.inv_id, nil
+	if( pen.vld( index.set_to_slot( info, inv_id == nil ).inv_slot )) then return true end
+
+	info.inv_id, info.inv_slot = old_inv, old_slot
+	ComponentSetValue2( info.ItemC, "inventory_slot", old_slot[1], old_slot[2])
+	return false
 end
 
 function index.swap_check( item_in, item_out, slot_data )
@@ -611,14 +623,15 @@ function index.get_entity_name( entity_id, item_comp, abil_comp )
 end
 
 function index.get_potion_info( entity_id, name, volume, max_volume, matters )
-	--build a table of unique names, if repeat is encountered, skip it
-	
-	local cnt = 1
+	local cnt, memo_tbl = 1, {}
 	local info = pen.t.loop_concat( matters, function( i, mtr )
 		if( cnt > 3 ) then return end
 		if( i ~= 1 and mtr[2] <= 5 ) then return end
-		cnt = cnt + 1
-		return { i == 1 and "" or " + ", pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1]))), nil }
+		local name = pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
+		if( memo_tbl[ name ] ~= nil ) then return end
+		memo_tbl[ name ], cnt = 1, cnt + 1
+
+		return { i == 1 and "" or " + ", name, nil }
 	end) or ""
 	
 	local v = nil
@@ -801,7 +814,7 @@ function index.pick_up_item( hooman, info, is_audible, is_silent )
 		if( not( EntityGetIsAlive( item_id ))) then return end
 		ComponentSetValue2( info.ItemC, "has_been_picked_by_player", true )
 		ComponentSetValue2( info.ItemC, "mFramePickedUp", xD.frame_num )
-		index.inventory_man( info, false, info.deep_processing )
+		index.inv_man( info, false, info.deep_processing )
 	elseif( gonna_pause == 1 ) then
 		--engage the pause
 	end
@@ -850,7 +863,7 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 
 	EntitySetTransform( item_id, from_x, from_y, nil, 1, 1 )
 	-- EntityApplyTransform( item_id, from_x, from_y )
-	if( has_no_cancer ) then index.inventory_man( info, false, info.deep_processing ) end
+	if( has_no_cancer ) then index.inv_man( info, false, info.deep_processing ) end
 	pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "SpriteComponent", "enabled_in_world" ), function( i, comp )
 		ComponentSetValue2( comp, "z_index", -1 + ( i - 1 )*0.0001 )
 		EntityRefreshSprite( item_id, comp )
@@ -949,7 +962,7 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 	return pic_x, pic_y, drag_state, clicked, r_clicked, is_hovered
 end
 
-function index.swap_anim( item_id, end_x, end_y )
+function index.slot_anim( item_id, end_x, end_y )
 	local xD, xM = index.D, index.M
 	local anim_info, anim_id = pen.t.get( xM.slot_anim, item_id, nil, nil, {})
 	if( not( pen.vld( anim_info.id ))) then return end_x, end_y, false end
@@ -1584,10 +1597,10 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		if( matter[1] > 0 ) then
 			local cut = pic_scale*info.potion_cutout
 			local step = ( icon_h - 2*cut )*math.max( math.min( 1 - matter[1]/info.matter_info.volume, 1 ), 0 ) + cut
-			pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v )
+			pen.new_cutout( icon_x, icon_y + step, icon_w, icon_h - cut, function( v ) --breaks down in chest
 				pen.new_image( 0, -step, v[1],
 					v[2], { color = pen.get_color_matter( v[6]), s_x = v[3], s_y = v[4], alpha = v[5]})
-			end, { pic_z - 1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
+			end, { pic_z - 0.1, info.pic, pic_scale, pic_scale, 0.8*inter_alpha, CellFactory_GetName( matter[2][1][1])})
 		end
 
 		if( pen.vld( matter_desc ) and not( xD.tip_action )) then
@@ -1898,30 +1911,26 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 			if( drag_state == 2 or xD.shift_action ) then is_hovered = false end
 
 			if( xD.shift_action and ( clicked or r_clicked )) then
-				local found_slot, update_held, inv_id = false, false, info.inv_id
-				local item_slot = { ComponentGetValue2( info.ItemC, "inventory_slot" )}
-				ComponentSetValue2( info.ItemC, "inventory_slot", -5, -5 )
+				local found_slot, update_held = false, false
 
 				pen.hallway( function()
-					info.inv_slot = nil
 					found_slot = not( xD.invs_p.q == info.inv_id or xD.invs_p.f == info.inv_id )
-					found_slot = found_slot and clicked and pen.vld( index.set_to_slot( info, true ).inv_slot )
-					if( found_slot ) then update_held = xD.active_item == inv_id; return end
-					info.inv_id = xD.active_item
+					found_slot = found_slot and clicked and index.find_a_slot( info )
+					if( found_slot ) then update_held = xD.active_item == info.inv_id; return end
+					
 					found_slot = not( xD.gmod.allow_external_inventories ) and clicked
 					found_slot = found_slot and not( info.is_frozen ) and ( xD.can_tinker or EntityHasTag( info.id, "index_unlocked" ))
-					found_slot = found_slot and pen.vld( xD.active_info.wand_info ) and xD.active_info.wand_info.deck_capacity > 1
-					found_slot = found_slot and xD.invs_p.f == inv_id and pen.vld( index.set_to_slot( info, false ).inv_slot )
+					found_slot = found_slot and pen.vld( xD.active_info.wand_info ) and xD.active_info.wand_info.deck_capacity > 0
+					found_slot = found_slot and xD.invs_p.f == info.inv_id and index.find_a_slot( info, xD.active_item )
 					if( found_slot ) then update_held = true; return end
-
+					
 					found_slot = r_clicked
 					if( xD.gmod.allow_external_inventories ) then found_slot = clicked end
 					found_slot = found_slot and EntityGetRootEntity( info.id ) == xD.player_id
 					if( not( found_slot )) then return end
 					pen.t.loop( xD.invs_e, function( _,inv_e )
-						info.inv_id = inv_e
-						found_slot = pen.vld( index.set_to_slot( info, false ).inv_slot )
-						if( found_slot ) then update_held = xD.active_item == inv_id; return true end
+						found_slot = index.find_a_slot( info, inv_e )
+						if( found_slot ) then update_held = xD.active_item == info.inv_id; return true end
 					end)
 				end)
 
@@ -1933,12 +1942,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 						x = pic_x, y = pic_y,
 						frame = xD.frame_num,
 					})
-				else
-					info.inv_id = inv_id
-					info.inv_slot = item_slot
-					index.play_sound( "error" )
-					ComponentSetValue2( info.ItemC, "inventory_slot", item_slot[1], item_slot[2])
-				end
+				else index.play_sound( "error" ) end
 			end
 		end
 	elseif( xD.is_opened ) then
@@ -1958,7 +1962,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 				pic_x, pic_y = pic_x + 5, pic_y + 5
 			elseif( is_dragged ) then pen.new_interface( pic_x - w/2, pic_y - h/2, w, h, pen.LAYERS.WORLD_BACK ) end
 
-			pic_x, pic_y, is_animing = index.swap_anim( info.id, pic_x, pic_y )
+			pic_x, pic_y, is_animing = index.slot_anim( info.id, pic_x, pic_y )
 			-- local got_pinned = (( xM.pinned_tips[ tid ] or {})[1] or info.id ) == info.id
 			if( is_animing or xD.hide_slot_tips ) then is_hovered = false end
 			

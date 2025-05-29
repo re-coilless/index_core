@@ -65,7 +65,7 @@ mod_settings =
 			},
 			{
 				id = "VANILLA_DROPPING",
-				ui_name = "Drop First - Think Later",
+				ui_name = "Instant Dropping",
 				ui_description = "Restores dropping logic to its original vanilla glory.",
 				value_default = true,
 				
@@ -83,7 +83,7 @@ mod_settings =
 			},
 			{
 				id = "FORCE_VANILLA_FULLEST",
-				ui_name = "Force-Show Fullest Inventory",
+				ui_name = "Force Fullest Inventory",
 				ui_description = "Extra rows of inventory won't be hidden while in the \"Full\" Global Mode.",
 				value_default = false,
 				

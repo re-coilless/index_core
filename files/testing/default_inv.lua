@@ -31,7 +31,8 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         local clicked, _, is_hovered = pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_BACK + 0.001,
             pic, { color = pen.PALETTE.SHADOW, alpha = 0.3, can_click = true })
         if( not( xD.is_opened )) then
-            xD.tip_func( index.is_inv_empty( xD.slot_state[ inv_id ]) and "[OPEN]" or "[LOOT]", { is_active = is_hovered })
+            local _,is_empty = index.get_inv_space( inv_id )
+            xD.tip_func( is_empty and "[OPEN]" or "[LOOT]", { is_active = is_hovered })
             if( is_hovered ) then alpha = 1 end
             if( clicked ) then
                 xD.inv_toggle = true

@@ -46,7 +46,7 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 		-- color = pen.PALETTE.VNL.HP,
 		-- color_text = pen.PALETTE.VNL.ACTION_OTHER,
 		color_bg = { 120, 131, 146, 47/255 }, pos = { 20, 3, 294, 17 },
-		-- func = function( pic_x, pic_y, pic_z, entity_id, data ) return legnth, height end,
+		-- func = function( pic_x, pic_y, pic_z, entity_id, data ) return length, height end,
 		-- func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
 	},
 	-- ["data/entities/animals/boss_book/book_physics.xml"] = {},
@@ -101,7 +101,7 @@ local WAND_STATS = {
 		bigger_better = true,
 		value = function( info, w )
 			return w.actions_per_round or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+		txt = function( value, info, w ) return index.get_vanilla_stat( value, nil, 0 ) end,
 		-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
 	},
 	{
@@ -111,7 +111,7 @@ local WAND_STATS = {
 		bigger_better = true,
 		value = function( info, w )
 			return w.deck_capacity or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+		txt = function( value, info, w ) return index.get_vanilla_stat( value, nil, 0 ) end,
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_spread_degrees.png",
@@ -121,7 +121,7 @@ local WAND_STATS = {
 		value = function( info, w )
 			return w.spread_degrees or 0 end,
 		txt = function( value, info, w )
-			local v, is_dft = index.get_stat( value, nil, 0 )
+			local v, is_dft = index.get_vanilla_stat( value, nil, 0 )
 			return v.."°", is_dft
 		end,
 	},
@@ -132,7 +132,7 @@ local WAND_STATS = {
 		bigger_better = true,
 		value = function( info, w )
 			return w.mana_max or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+		txt = function( value, info, w ) return index.get_vanilla_stat( value, nil, 0 ) end,
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_mana_charge_speed.png",
@@ -142,7 +142,7 @@ local WAND_STATS = {
 		bigger_better = true,
 		value = function( info, w )
 			return w.mana_charge_speed or 0 end,
-		txt = function( value, info, w ) return index.get_stat( value, nil, 0 ) end,
+		txt = function( value, info, w ) return index.get_vanilla_stat( value, nil, 0 ) end,
 	},
 	{
 		pic = "data/ui_gfx/inventory/icon_fire_rate_wait.png", off_y = 1,
@@ -151,7 +151,7 @@ local WAND_STATS = {
 		value = function( info, w )
 			return w.delay_time or 0 end,
 		txt = function( value, info, w )
-			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
+			local v, is_dft = index.get_vanilla_stat( value/60, nil, 0, false, true )
 			return v.."s", is_dft
 		end,
 	},
@@ -164,7 +164,7 @@ local WAND_STATS = {
 			return w.reload_time or 0 end,
 		txt = function( value, info, w )
 			if( w.never_reload ) then return "Ø", 1 end
-			local v, is_dft = index.get_stat( value/60, nil, 0, false, true )
+			local v, is_dft = index.get_vanilla_stat( value/60, nil, 0, false, true )
 			return v.."s", is_dft
 		end,
 	},
@@ -207,7 +207,7 @@ local SPELL_STATS = {
 			-- is_hidden = false,
 			value = function( info, c, c_proj )
 				return (( info.spell_info.meta.state.draw_many or 0 ) == 0 ) and ( c.proj_count or 0 ) or c.draw_many end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
+			txt = function( value, info, c, c_proj ) return index.get_vanilla_stat( value, nil, 0 ) end,
 			-- func = function( pic_x, pic_y, pic_z, txt, data ) end,
 		},
 		{
@@ -216,7 +216,7 @@ local SPELL_STATS = {
 			
 			value = function( info, c, c_proj )
 				return info.spell_info.mana or 0 end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, nil, 0 ) end,
+			txt = function( value, info, c, c_proj ) return index.get_vanilla_stat( value, nil, 0 ) end,
 		},
 		{
 			off_y = 1,
@@ -226,7 +226,7 @@ local SPELL_STATS = {
 			value = function( info, c, c_proj )
 				return c.fire_rate_wait or 0 end,
 			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
+				local v, is_dft = index.get_vanilla_stat( nil, value/60, 0, false, true )
 				return v.."s", is_dft
 			end,
 		},
@@ -238,7 +238,7 @@ local SPELL_STATS = {
 				return c.reload_time or 0 end,
 			txt = function( value, info, c, c_proj )
 				if( info.spell_info.is_chainsaw ) then return "Chainsaw", 1 end
-				local v, is_dft = index.get_stat( nil, value/60, 0, false, true )
+				local v, is_dft = index.get_vanilla_stat( nil, value/60, 0, false, true )
 				return v.."s", is_dft
 			end,
 		},
@@ -250,7 +250,7 @@ local SPELL_STATS = {
 			value = function( info, c, c_proj )
 				return c.spread_degrees or 0 end,
 			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( nil, value, 0 )
+				local v, is_dft = index.get_vanilla_stat( nil, value, 0 )
 				return v.."°", is_dft
 			end,
 		},
@@ -264,7 +264,7 @@ local SPELL_STATS = {
 				return c_proj.damage.total or 0 end,
 			txt = function( value, info, c, c_proj )
 				if( c.damage_null_all > 0 ) then return "Ø", 1 end
-				return index.get_stat( 25*value, 25*( c.damage_total_add or 0 ), 0 )
+				return index.get_vanilla_stat( 25*value, 25*( c.damage_total_add or 0 ), 0 )
 			end,
 		},
 		{
@@ -275,7 +275,7 @@ local SPELL_STATS = {
 			value = function( info, c, c_proj )
 				return c_proj.crit.chance or 0 end,
 			txt = function( value, info, c, c_proj )
-				local v, is_dft = index.get_stat( value, c.damage_critical_chance, 0, false, true )
+				local v, is_dft = index.get_vanilla_stat( value, c.damage_critical_chance, 0, false, true )
 				return v.."%", is_dft
 			end,
 		},
@@ -301,7 +301,7 @@ local SPELL_STATS = {
 				return c_proj.bounces or 0 end,
 			txt = function( value, info, c, c_proj )
 				if( c_proj.inf_bounces ) then return "∞", 1 end
-				return index.get_stat( value, c.bounces, 0 )
+				return index.get_vanilla_stat( value, c.bounces, 0 )
 			end,
 		},
 		{
@@ -311,7 +311,7 @@ local SPELL_STATS = {
 			spacer = true,
 			value = function( info, c, c_proj )
 				return c_proj.lightning.explosion_radius or c_proj.explosion.explosion_radius or 0 end,
-			txt = function( value, info, c, c_proj ) return index.get_stat( value, c.explosion_radius, 0 ) end,
+			txt = function( value, info, c, c_proj ) return index.get_vanilla_stat( value, c.explosion_radius, 0 ) end,
 		},
 	},
     

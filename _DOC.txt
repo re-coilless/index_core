@@ -1,5 +1,3 @@
-[WARNING] THIS ENTIRE DOC IS HOPELESSLY OBSOLETE!!!
-
 [GENERAL]
 Changes to vanilla game:
 - quick/quickest are marked by negative y coord
@@ -41,3 +39,351 @@ globals
 - there's applet strip that allows to intergrate external global mods in a highly compatible way
 - gmods (why is needed + description of what is there and what can be added)
 - index.D
+
+[STRUCTURE]
+
+GLOBAL_MODES = {
+    {
+        name
+	color
+        desc
+
+        is_default
+	allow_wand_editing
+	show_full
+	menu_capable
+	is_hidden
+	show_fullest
+	can_see
+	allow_shooting
+	force_inv_open
+	allow_external_inventories
+        allow_advanced_draggables
+    },
+}
+
+GLOBAL_MUTATORS
+
+APPLETS = {
+    l = {}, r = {
+        {
+            name
+	    desc
+            pic
+            toggle
+        },
+    },
+}
+
+BOSS_BARS = { --apocalyptic thanks to Priskip
+    ["path_to_entity_xml"] = {
+        pic
+        in_world
+        color
+        color_text
+        color_bg
+        pos
+        func = function( pic_x, pic_y, pic_z, entity_id, data ) return length, height end,
+        func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
+    },
+}
+
+WAND_STATS = {
+    {
+        pic
+        name
+	desc
+        spacer
+        is_hidden
+        is_advanced
+        bigger_better
+        value = function( info, w ) return numerical_value end,
+        txt = function( value, info, w ) return displayed_value end,
+        func = function( pic_x, pic_y, pic_z, txt, data ) end,
+    },
+}
+
+SPELL_STATS = {
+    {
+        {
+            off_x
+	    off_y
+	    pic
+            name
+	    desc
+	    spacer
+	    is_hidden
+	    value = function( info, c, c_proj ) return numerical_value end,
+	    txt = function( value, info, c, c_proj ) return displayed_value end,
+	    func = function( pic_x, pic_y, pic_z, txt, data ) end,
+       },
+    }, {},
+}
+
+ITEM_CATS = {
+    {
+        name
+        is_wand
+	is_quickest
+	deep_processing
+	is_potion
+	is_spell
+	
+        on_check = function( item_id ) return is_valid end,
+        on_info_name = function( item_id, item_comp, default_name ) return name end,
+        on_data = function( info, wip_item_list ) return info end,
+        on_processed_forced = function( info ) end,
+	
+	ctrl_script
+	on_processed
+	on_slot_check
+	on_swap
+	on_action
+	on_drop
+
+        on_tooltip = function( info, tid, pic_x, pic_y, pic_z, is_simple ) end,
+        on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims ) end,
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims ) return info end,
+
+        on_gui_world = function( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func ) end,
+        on_gui_pause = function( info ) end,
+        on_pickup = function( info, is_post )
+            return ({
+                function( info ) return 0 end,
+                function( info ) end,
+            })[ is_post and 2 or 1 ]( info )
+        end,
+    },
+}
+
+GUI_STRUCT = {
+    slot = index.new_vanilla_slot,
+    icon = index.new_vanilla_icon,
+    tooltip = pen.new_tooltip,
+    box = index.new_vanilla_box,
+    wand = index.new_vanilla_wand,
+
+    gmodder = index.new_generic_gmod,
+    full_inv = index.new_generic_inventory,
+    applet_strip = index.new_generic_applets,
+    
+    bars = {
+        hp = index.new_generic_hp,
+        air = index.new_generic_air,
+        flight = index.new_generic_flight,
+        bossbar = index.new_generic_bossbar,
+        action = {
+            mana = index.new_generic_mana,
+            reload = index.new_generic_reload,
+            delay = index.new_generic_delay,
+        },
+    },
+
+    gold = index.new_generic_gold,
+    orbs = index.new_generic_orbs,
+    info = index.new_generic_info,
+    
+    icons = {
+        ingestions = index.new_generic_ingestions,
+        stains = index.new_generic_stains,
+        effects = index.new_generic_effects,
+        perks = index.new_generic_perks,
+    },
+
+    pickup = index.new_generic_pickup,
+    pickup_info = index.new_pickup_info,
+    drop = index.new_generic_drop,
+    
+    extra = index.new_generic_extra,
+    custom = {
+        unique_name = function( screen_w, screen_h, xys ) return { pic_x, pic_y } end,
+    },
+}
+
+[DATA]
+index.D = {
+    xys = {}, gmod = {},
+    applets = applets, gmods = global_modes,
+    perk_data = perk_tbl, icon_data = effect_tbl,
+    item_cats = item_cats, boss_bars = boss_bars,
+    wand_stats = wand_stats, spell_stats = spell_stats,
+
+    box_func = inv.box,
+    slot_func = inv.slot, icon_func = inv.icon,
+    wand_func = inv.wand, tip_func = inv.tooltip,
+
+    player_id = hooman,
+    player_xy = { 0, 0 },
+    can_tinker = false, sampo = 0,
+    orbs = GameGetOrbCountThisRun(),
+    just_fired = ({ mnee.vanilla_input( "Fire", hooman )})[2],
+    active_item = pen.get_active_item( hooman ), active_info = {},
+    no_mana = tonumber( GlobalsGetValue( index.GLOBAL_FUCK_YOUR_MANA, "0" )) == hooman,
+
+    Controls = {},
+    Wallet = {}, ItemPickUpper = {},
+    DamageModel = {}, CharacterData = {},
+
+    global_mode = gg( index.GLOBAL_GLOBAL_MODE, 1 ),
+    is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+
+    frame_num = frame_num,
+    screen_dims = { screen_w, screen_h },
+    pointer_world = { m_x, m_y }, pointer_ui = { mui_x, mui_y },
+    pointer_delta = { muid_x, muid_y, math.sqrt( muid_x^2 + muid_y^2 )},
+    pointer_delta_world = { md_x, md_y, math.sqrt( md_x^2 + md_y^2 )},
+    pointer_matter = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0,
+
+    matter_action = mtr_action,
+    tip_action = index.get_input( "tip_action", true ),
+    drag_action = index.get_input( "drag_action", true ),
+    shift_action = index.get_input( "shift_action", true ),
+    hide_slot_tips = index.get_input( "hide_slot_tips", true ),
+
+    item_list = {}, slot_state = {},
+    invs = {}, invs_i = {}, invs_e = {},
+    invs_p = { q = pen.get_child( hooman, "inventory_quick" ), f = pen.get_child( hooman, "inventory_full" )},
+    inv_quick_size = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - pen.c.index_settings.inv_quickest_size,
+    inv_full_size = { ComponentGetValue2( inv_comp, "full_inventory_slots_x" ), ComponentGetValue2( inv_comp, "full_inventory_slots_y" )},
+
+    dragger = {
+        item_id = gg( index.GLOBAL_DRAGGER_ITEM_ID, 0 ),
+        inv_cat = gg( index.GLOBAL_DRAGGER_INV_CAT, 0 ),
+        is_quickest = gg( index.GLOBAL_DRAGGER_IS_QUICKEST, false ),
+        swap_soon = false, swap_now = gg( index.GLOBAL_DRAGGER_SWAP_NOW, false ),
+    },
+}
+
+[GLOBALS]
+
+index.GLOBAL_FUNGAL_MEMO = "INDEX_GLOBAL_FUNGAL_MEMO" --stores fungal transformations
+index.GLOBAL_FUCK_YOUR_MANA = "INDEX_GLOBAL_FUCK_YOUR_MANA" --trigger mana bar shaking
+
+index.GLOBAL_FORCED_STATE = "INDEX_GLOBAL_FORCED_STATE" --0 checks CtrlComp for enabled, 1 is always enabled, -1 is always disabled
+index.GLOBAL_GLOBAL_MODE = "INDEX_GLOBAL_GLOBAL_MODE" --GMOD type
+index.GLOBAL_LOCK_SETTINGS = "INDEX_GLOBAL_LOCK_SETTINGS" --prevent settings from being synched or updated
+index.GLOBAL_SYNC_SETTINGS = "INDEX_GLOBAL_SYNC_SETTINGS" --apply settings to globals
+
+index.GLOBAL_DRAGGER_EXTERNAL = "INDEX_GLOBAL_DRAGGER_EXTERNAL" --compatibility brige for dragging to inventories outside Index system
+index.GLOBAL_DRAGGER_SWAP_NOW = "INDEX_GLOBAL_DRAGGER_SWAP_NOW" --si true when the dragger item is being let go
+index.GLOBAL_DRAGGER_ITEM_ID = "INDEX_GLOBAL_DRAGGER_ITEM_ID" --the entity id of the dragged item
+index.GLOBAL_DRAGGER_INV_CAT = "INDEX_GLOBAL_DRAGGER_INV_CAT" --the numerical inventory category of the dragged item
+index.GLOBAL_DRAGGER_IS_QUICKEST = "INDEX_GLOBAL_DRAGGER_IS_QUICKEST" --whether the inventory the item is being dragged from is quickest
+
+index.GLOBAL_PLAYER_OFF_Y = "INDEX_GLOBAL_PLAYER_OFF_Y" --player center offset in y axis
+index.GLOBAL_THROW_POS_RAD = "INDEX_GLOBAL_THROW_POS_RAD" --radius of valid throw position
+index.GLOBAL_THROW_POS_SIZE = "INDEX_GLOBAL_THROW_POS_SIZE" --size of the area to be checked for validity
+index.GLOBAL_THROW_FORCE = "INDEX_GLOBAL_THROW_FORCE" --force applied to thrown object
+
+index.GLOBAL_QUICKEST_SIZE = "INDEX_GLOBAL_QUICKEST_SIZE" --the size of the wand inventory
+index.GLOBAL_SLOT_SPACING = "INDEX_GLOBAL_SLOT_SPACING" --distance between individual slots
+index.GLOBAL_EFFECT_SPACING = "INDEX_GLOBAL_EFFECT_SPACING" --distance between individual effect icons
+index.GLOBAL_MIN_EFFECT_DURATION = "INDEX_GLOBAL_MIN_EFFECT_DURATION" --minimal duration required for the efect to appear as an icon
+index.GLOBAL_SPELL_ANIM_FRAMES = "INDEX_GLOBAL_SPELL_ANIM_FRAMES" --the speed of spell swaying anim
+
+index.GLOBAL_LOW_HP_FLASHING_THRESHOLD = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD" --maximal hp value at which the flashing starts
+index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN" --additional threshold correction for extreme max hps
+index.GLOBAL_LOW_HP_FLASHING_PERIOD = "INDEX_GLOBAL_LOW_HP_FLASHING_PERIOD" --the speed with which the flashing will happen
+index.GLOBAL_LOW_HP_FLASHING_INTENSITY = "INDEX_GLOBAL_LOW_HP_FLASHING_INTENSITY" --the maximum scale of the red borders
+
+index.GLOBAL_INFO_RADIUS = "INDEX_GLOBAL_INFO_RADIUS" --maximal distance to the target for the prompt to appear
+index.GLOBAL_INFO_THRESHOLD = "INDEX_GLOBAL_INFO_THRESHOLD" --minimal speed with which the pointer is being moved for the prompt to appear
+index.GLOBAL_INFO_FADING = "INDEX_GLOBAL_INFO_FADING" --speed in frames with which the info prompt will fade out
+
+index.GLOBAL_LOOT_MARKER = "INDEX_GLOBAL_LOOT_MARKER"
+index.GLOBAL_SLOT_PIC_BG = "INDEX_GLOBAL_SLOT_PIC_BG"
+index.GLOBAL_SLOT_PIC_BG_ALT = "INDEX_GLOBAL_SLOT_PIC_BG_ALT"
+index.GLOBAL_SLOT_PIC_HL = "INDEX_GLOBAL_SLOT_PIC_HL"
+index.GLOBAL_SLOT_PIC_ACTIVE = "INDEX_GLOBAL_SLOT_PIC_ACTIVE"
+index.GLOBAL_SLOT_PIC_LOCKED = "INDEX_GLOBAL_SLOT_PIC_LOCKED"
+
+index.GLOBAL_SFX_CLICK = "INDEX_GLOBAL_SFX_CLICK"
+index.GLOBAL_SFX_SELECT = "INDEX_GLOBAL_SFX_SELECT"
+index.GLOBAL_SFX_HOVER = "INDEX_GLOBAL_SFX_HOVER"
+index.GLOBAL_SFX_OPEN = "INDEX_GLOBAL_SFX_OPEN"
+index.GLOBAL_SFX_CLOSE = "INDEX_GLOBAL_SFX_CLOSE"
+index.GLOBAL_SFX_ERROR = "INDEX_GLOBAL_SFX_ERROR"
+index.GLOBAL_SFX_RESET = "INDEX_GLOBAL_SFX_RESET"
+index.GLOBAL_SFX_MOVE_EMPTY = "INDEX_GLOBAL_SFX_MOVE_EMPTY"
+index.GLOBAL_SFX_MOVE_ITEM = "INDEX_GLOBAL_SFX_MOVE_ITEM"
+
+[ELEMENTS]
+
+index.new_generic_slot
+index.new_generic_background
+index.new_generic_inventory
+index.new_generic_applets
+index.new_generic_hp
+index.new_generic_air
+index.new_generic_flight
+index.new_generic_mana
+index.new_generic_reload
+index.new_generic_delay
+index.new_generic_bossbar
+index.new_generic_gold
+index.new_generic_orbs
+index.new_generic_info
+index.new_generic_ingestions
+index.new_generic_stains
+index.new_generic_effects
+index.new_generic_perks
+index.new_generic_ending
+index.new_generic_pickup
+index.new_generic_drop
+index.new_generic_extra
+index.new_generic_gmod
+
+[LIB]
+
+index.get_input
+index.play_sound
+index.self_destruct
+index.get_status_data
+index.full_stopper
+index.hud_text_fix
+index.hud_num_fix
+index.get_stain_perc
+index.get_effect_timer
+index.get_effect_duration
+index.get_thresholded_effect
+index.get_vanilla_stat
+index.get_inv_space
+index.cat_callback
+index.get_valid_invs
+index.get_inv_info
+index.inv_check
+index.inv_boy
+index.inv_man
+index.set_to_slot
+index.find_a_slot
+index.swap_check
+index.slot_swap
+index.check_item_name
+index.get_entity_name
+index.get_potion_info
+index.get_item_data
+index.get_items
+index.vanilla_pick_up
+index.pick_up_item
+index.drop_item
+index.slot_z
+index.register_item_pic
+index.new_dragger_shell
+index.slot_anim
+index.new_vanilla_box
+index.new_vanilla_bar
+index.new_vanilla_hp
+index.new_pickup_info
+index.tipping
+index.pinning
+index.new_vanilla_worldtip
+index.new_vanilla_wtt
+index.new_vanilla_stt
+index.new_vanilla_ptt
+index.new_vanilla_itt
+index.new_vanilla_ttt
+index.new_spell_frame
+index.new_slot_pic
+index.new_vanilla_icon
+index.new_vanilla_slot
+index.new_vanilla_wand

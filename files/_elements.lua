@@ -35,6 +35,52 @@ function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_
 	return w, h
 end
 
+function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
+    local xD, xM = index.D, index.M
+
+    local full_depth = 1
+    if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
+        full_depth = #xD.slot_state[ xD.invs_p.f ][1] end
+    if( not( xD.is_opened )) then return end
+
+    local bg_x, bg_y = pic_x - 3, pic_y - 3
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest - 1 ) do
+        bg_x = bg_x + 4
+        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+    end
+    bg_x = bg_x + 4
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml" )
+    bg_x = bg_x + 3
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
+    bg_x = bg_x + 5
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
+    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick - 1 ) do
+        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+        bg_x = bg_x + 4
+    end
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+    if( xD.gmod.show_full and full_depth == 1 and not( xD.gmod.allow_external_inventories )) then
+        bg_x = bg_x + 7
+        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+        for i = 1,( 5*#xD.slot_state[ xD.invs_p.f ]) do
+            bg_x = bg_x + 4
+            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+        end
+        bg_x = bg_x + 2
+        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+    end
+    
+    if( not( xD.gmod.can_see )) then
+        local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
+        local alpha = 0.5*math.cos( math.pi*delta/30 )
+        pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
+            "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
+    end
+
+    return full_depth
+end
+
 function index.new_generic_inventory( screen_w, screen_h, xys )
     local xD, xM = index.D, index.M
     local root_x, root_y = unpack( xys.full_inv or { 19, 20 })
@@ -44,104 +90,63 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
     end
     
-    pen.hallway( function()
-        local full_depth = 1
-        if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
-            full_depth = #xD.slot_state[ xD.invs_p.f ][1] end
-        if( xD.is_opened ) then
-            local bg_x, bg_y = pic_x - 3, pic_y - 3
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
-            for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest - 1 ) do
-                bg_x = bg_x + 4
-                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
-            end
-            bg_x = bg_x + 4
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml" )
-            bg_x = bg_x + 3
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
-            bg_x = bg_x + 5
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
-            for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick - 1 ) do
-                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
-                bg_x = bg_x + 4
-            end
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_e.xml" )
-            if( xD.gmod.show_full and full_depth == 1 and not( xD.gmod.allow_external_inventories )) then
-                bg_x = bg_x + 7
-                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
-                for i = 1,( 5*#xD.slot_state[ xD.invs_p.f ]) do
-                    bg_x = bg_x + 4
-                    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
-                end
-                bg_x = bg_x + 2
-                pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_e.xml" )
-            end
-            
-            if( not( xD.gmod.can_see )) then
-                local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
-                local alpha = 0.5*math.cos( math.pi*delta/30 )
-                pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
-                    "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
-            end
-        end
+    local full_depth = index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
+    xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
 
-        xys.inv_root, xys.full_inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
+    local cat_wands = pic_x
+    local w, h, step = 0, 0, 1
+    for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quickest ) do
+        w, h = index.new_generic_slot( pic_x, pic_y, {
+            inv_slot = { i, -1 },
+            inv_id = xD.invs_p.q, id = slot,
+            force_equip = check_shortcut( i, true ),
+        }, xD.is_opened, false, true )
+        pic_x = pic_x + w + step
+    end
+    pic_x = pic_x + xD.inv_spacings[1]
 
-        local cat_wands = pic_x
-        local w, h, step = 0, 0, 1
-        for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quickest ) do
-            w, h = index.new_generic_slot( pic_x, pic_y, {
-                inv_slot = { i, -1 },
-                inv_id = xD.invs_p.q, id = slot,
-                force_equip = check_shortcut( i, true ),
-            }, xD.is_opened, false, true )
-            pic_x = pic_x + w + step
+    local cat_items = pic_x
+    for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quick ) do
+        w, h = index.new_generic_slot( pic_x, pic_y, {
+            inv_slot = { i, -2 },
+            inv_id = xD.invs_p.q, id = slot,
+            force_equip = check_shortcut( i, false ),
+        }, xD.is_opened, false, true )
+        pic_x = pic_x + w + step
+    end
+
+    if( xD.is_opened ) then
+        pic_x = pic_x + xD.inv_spacings[2]
+        pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_wands" ))
+        pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_throwables" ))
+        if( xD.gmod.show_full ) then
+            pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$menuoptions_heading_misc" ))
         end
-        pic_x = pic_x + xD.inv_spacings[1]
-
-        local cat_items = pic_x
-        for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quick ) do
-            w, h = index.new_generic_slot( pic_x, pic_y, {
-                inv_slot = { i, -2 },
-                inv_id = xD.invs_p.q, id = slot,
-                force_equip = check_shortcut( i, false ),
-            }, xD.is_opened, false, true )
-            pic_x = pic_x + w + step
-        end
-
-        if( xD.is_opened ) then
-            pic_x = pic_x + xD.inv_spacings[2]
-            pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_wands" ))
-            pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_throwables" ))
-            if( xD.gmod.show_full ) then
-                pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$menuoptions_heading_misc" ))
+    end
+    
+    if( xD.gmod.show_full and ( xD.is_opened or xD.always_show_full )) then
+        for i,col in ipairs( xD.slot_state[ xD.invs_p.f ]) do
+            for e = 1,full_depth do
+                w, h = index.new_generic_slot( pic_x, pic_y, {
+                    inv_slot = { i, e },
+                    inv_id = xD.invs_p.f, id = col[e],
+                }, xD.is_opened, true, false )
+                pic_y = pic_y + h + step
             end
+            pic_x, pic_y = pic_x + w + step, root_y
         end
-        
-        if( xD.gmod.show_full and ( xD.is_opened or xD.always_show_full )) then
-            for i,col in ipairs( xD.slot_state[ xD.invs_p.f ]) do
-                for e = 1,full_depth do
-                    w, h = index.new_generic_slot( pic_x, pic_y, {
-                        inv_slot = { i, e },
-                        inv_id = xD.invs_p.f, id = col[e],
-                    }, xD.is_opened, true, false )
-                    pic_y = pic_y + h + step
-                end
-                pic_x, pic_y = pic_x + w + step, root_y
-            end
-        end
+    end
 
-        pic_y = pic_y + h
-        xD.xys.inv_root_orig = { root_x, root_y }
-        xD.xys.full_inv_orig = { pic_x, pic_y }
-        if( xD.is_opened ) then
-            root_x, root_y = root_x - 3, root_y - 3
-            pic_x, pic_y = pic_x + 3 - step, pic_y + 3
-        end
+    pic_y = pic_y + h
+    xD.xys.inv_root_orig = { root_x, root_y }
+    xD.xys.full_inv_orig = { pic_x, pic_y }
+    if( xD.is_opened ) then
+        root_x, root_y = root_x - 3, root_y - 3
+        pic_x, pic_y = pic_x + 3 - step, pic_y + 3
+    end
 
-        -- if( InputIsKeyJustDown( 41--[[escape]])) then xD.inv_toggle = xD.is_opened else
-        if( xD.Controls.inv[2]) then xD.inv_toggle = true end
-    end)
+    -- if( InputIsKeyJustDown( 41--[[escape]])) then xD.inv_toggle = xD.is_opened else
+    if( xD.Controls.inv[2]) then xD.inv_toggle = true end
     return { root_x, root_y }, { pic_x, pic_y }
 end
 
