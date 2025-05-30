@@ -264,6 +264,8 @@ if( pen.vld( xD.active_item, true )) then --just fix this with phantom "hand" it
     end
 end
 
+
+
 --item data init
 index.get_items( hooman )
 if( pen.vld( xD.active_item, true )) then
@@ -424,6 +426,7 @@ if( xM.is_dragging or xD.dragger.item_id ~= 0 ) then
                     if( not( xD.dragger.wont_drop ) and pen.vld( inv.drop )) then
                         inv.drop( xD.dragger.item_id )
                     else index.play_sound( "error" ) end
+
                 else GlobalsSetValue( index.GLOBAL_DRAGGER_EXTERNAL, "bool0" ) end
             end
 

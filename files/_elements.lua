@@ -1,5 +1,17 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
+index.INV_CATS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
+index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%23CAA146-%23A8D5DA-%238EC373-%233F8492-%23735D8E-%234A446D
+	[0] = { pen.PALETTE.VNL.ACTION_PROJECTILE, "$inventory_actiontype_projectile" },
+	[1] = { pen.PALETTE.VNL.ACTION_STATIC, "$inventory_actiontype_staticprojectile" },
+	[2] = { pen.PALETTE.VNL.ACTION_MODIFIER, "$inventory_actiontype_modifier" },
+	[3] = { pen.PALETTE.VNL.ACTION_DRAW, "$inventory_actiontype_drawmany" },
+	[4] = { pen.PALETTE.VNL.ACTION_MATERIAL, "$inventory_actiontype_material" },
+	[5] = { pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
+	[6] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
+	[7] = { pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
+}
+
 function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
     local xD = index.D
 	local info = slot_data.idata or {}
@@ -523,14 +535,14 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             return length, height
         end
 
-        local func_path = pen.magic_storage( enemy_id, "index_bar", "value_string" )
-        if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
-
         local custom = xD.boss_bars[ EntityGetFilename( enemy_id )] or {}
         local pics = EntityGetComponent( enemy_id, "SpriteComponent", "health_bar" )
         if( pen.vld( pics ) and pen.vld( custom )) then
             for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy_id, pic, false ) end
         elseif( pen.vld( pics )) then return end
+
+        local func_path = pen.magic_storage( enemy_id, "index_bar", "value_string" )
+        if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
 
         local bar_x, bar_y = pic_x, pic_y
         in_world = ( in_world or custom.in_world )
@@ -860,12 +872,12 @@ function index.new_generic_ending( x, y, screen_w, screen_h, xys, info_func )
         local sampo_x, sampo_y = EntityGetTransform( xD.sampo )
         local spot_x, spot_y = EntityGetTransform( sampo_spot )
         if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
-            info_func( screen_h, screen_w, {
+            info_func( screen_h, screen_w, xys, {
                 id = sampo_spot,
                 desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
                 txt = "[COMPLETE]",
                 color = { pen.PALETTE.VNL.RUNIC, clr },
-            }, xys )
+            })
         end
     end
 end
@@ -944,7 +956,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
 
     local is_button, no_space = true, false
     local cant_buy, got_info = false, false
-    local pickup_data = { id = 0, desc = "" }
+    local pickup_info = { id = 0, desc = "" }
     pen.t.loop( stuff_to_figure, function( i, tbl )
         if( not( pen.vld( tbl ))) then return end
         table.sort( tbl, function( a, b ) return a.d < b.d end)
@@ -969,15 +981,15 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                 local new_info = is_slotless and { inv_slot = 0 } or index.set_to_slot( info.data, true )
                 if( pen.vld( new_info.inv_slot )) then
                     if( i > 1 ) then
-                        pickup_data.desc = info.pick_desc
-                        if( not( pen.vld( pickup_data.desc ))) then
-                            pickup_data.desc = is_shop and "$itempickup_purchase" or "$itempickup_pick" end
-                        pickup_data.desc = GameTextGet( pickup_data.desc, "[USE]", info.data.name..( info.data.fullness or "" ))
+                        pickup_info.desc = info.pick_desc
+                        if( not( pen.vld( pickup_info.desc ))) then
+                            pickup_info.desc = is_shop and "$itempickup_purchase" or "$itempickup_pick" end
+                        pickup_info.desc = GameTextGet( pickup_info.desc, "[USE]", info.data.name..( info.data.fullness or "" ))
                         
-                        pickup_data.id = info.id
-                        pickup_data.txt = is_shop and "[BUY]" or ( EntityHasTag( info.id, "chest" ) and "[OPEN]" or "[GET]" )
-                        pickup_data.do_sound, pickup_data.info = info.may_sfx, info.data
-                        if( info.may_desc ) then pickup_data.desc = { pickup_data.desc, info.data.desc } end
+                        pickup_info.id = info.id
+                        pickup_info.txt = is_shop and "[BUY]" or ( EntityHasTag( info.id, "chest" ) and "[OPEN]" or "[GET]" )
+                        pickup_info.do_sound, pickup_info.info = info.may_sfx, info.data
+                        if( info.may_desc ) then pickup_info.desc = { pickup_info.desc, info.data.desc } end
 
                         is_button = false; break
                     else index.pick_up_item( xD.player_id, info.data, info.may_sfx ) end
@@ -985,8 +997,8 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             elseif( not( got_info )) then cant_buy, info_dump = true, true end
 
             if( info_dump ) then
-                got_info, pickup_data.id = true, info.id
-                pickup_data.name, pickup_data.info = info.data.name, info.data
+                got_info, pickup_info.id = true, info.id
+                pickup_info.name, pickup_info.info = info.data.name, info.data
             end
         end
 
@@ -1020,41 +1032,41 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
     end
     ]]
 
-    if( not( pen.vld( pickup_data.txt )) and ( no_space or cant_buy )) then
+    if( not( pen.vld( pickup_info.txt )) and ( no_space or cant_buy )) then
         if( not( pen.vld( interactables ))) then
-            pickup_data.id = -pickup_data.id
-            pickup_data.desc = { index.full_stopper(
-                GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_data.name )), true }
-        else pickup_data.id = 0 end
+            pickup_info.id = -pickup_info.id
+            pickup_info.desc = { index.full_stopper(
+                GameTextGet( cant_buy and "$itempickup_notenoughgold" or "$itempickup_cannotpick", pickup_info.name )), true }
+        else pickup_info.id = 0 end
     end
-    if( pickup_data.id ~= 0 ) then
+    if( pickup_info.id ~= 0 ) then
         local ignore_default = false
-        local guiing = index.cat_callback( pickup_data.info, "on_gui_world" )
+        local guiing = index.cat_callback( pickup_info.info, "on_gui_world" )
         if( xD.is_opened and xD.gmod.show_full ) then
-            pickup_data.id = -1
-            pickup_data.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_data.info.name ), true }
+            pickup_info.id = -1
+            pickup_info.desc = { GameTextGet( "$itempickup_cannotpick_closeinventory", pickup_info.info.name ), true }
         elseif( pen.vld( guiing )) then
-            local i_x, i_y = EntityGetTransform( math.abs( pickup_data.id ))
+            local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
             local pic_x, pic_y = pen.world2gui( i_x, i_y )
             ignore_default = guiing(
-                pickup_data.info, nil, pic_x, pic_y, no_space, cant_buy, index.cat_callback( pickup_data.info, "on_tooltip" ))
+                pickup_info.info, nil, pic_x, pic_y, no_space, cant_buy, index.cat_callback( pickup_info.info, "on_tooltip" ))
         end
         
-        if( not( ignore_default )) then info_func( screen_h, screen_w, pickup_data, xys ) end
-        if( pen.vld( pickup_data.id, true ) and xD.Controls.act[2]) then
-            local pkp_x, pkp_y = EntityGetTransform( pickup_data.id )
+        if( not( ignore_default )) then info_func( screen_h, screen_w, xys, pickup_info ) end
+        if( pen.vld( pickup_info.id, true ) and xD.Controls.act[2]) then
+            local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
             local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
             table.insert( xM.slot_anim, {
-                id = pickup_data.id,
+                id = pickup_info.id,
                 x = anim_x, y = anim_y,
                 frame = xD.frame_num,
             })
             
-            local orig_name = pickup_data.info.name
-            if( pen.vld( pickup_data.info.fullness )) then
-                pickup_data.info.name = pickup_data.info.name..pickup_data.info.fullness end
-            index.pick_up_item( xD.player_id, pickup_data.info, pickup_data.do_sound )
-            pickup_data.info.name = orig_name
+            local orig_name = pickup_info.info.name
+            if( pen.vld( pickup_info.info.fullness )) then
+                pickup_info.info.name = pickup_info.info.name..pickup_info.info.fullness end
+            index.pick_up_item( xD.player_id, pickup_info.info, pickup_info.do_sound )
+            pickup_info.info.name = orig_name
         end
     end
 
@@ -1070,10 +1082,10 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             local message_func = info_func
             local func_path = pen.magic_storage( info.id, "index_message", "value_string" )
             if( pen.vld( func_path )) then message_func = dofile_once( func_path ) end
-            message_func( screen_h, screen_w, {
+            message_func( screen_h, screen_w, xys, {
                 id = info.id, txt = "[USE]",
                 desc = { pen.capitalizer( info.name ), string.gsub( info.desc, "$0", "[USE]" )},
-            }, xys )
+            })
         end
     end
 

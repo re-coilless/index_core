@@ -27,15 +27,15 @@ local GLOBAL_MODES = {
     },
 }
 
-local GLOBAL_MUTATORS, APPLETS = {}, { --allow appending to README
+local GLOBAL_MUTATORS, APPLETS = {}, {
     l_state = not( pen.c.index_settings.mute_applets ), l_hover = {},
     r_state = not( pen.c.index_settings.mute_applets ), r_hover = {},
     l = {}, r = {
-        {
-            name = "README", desc = "The complete user guide.",
-            pic = "data/ui_gfx/status_indicators/confusion.png",
-            toggle = function( state ) end,
-        },
+        -- {
+        --     name = "README", desc = "The complete user guide.",
+        --     pic = "data/ui_gfx/status_indicators/confusion.png",
+        --     toggle = function( state ) end,
+        -- },
     },
 }
 
@@ -614,8 +614,8 @@ local ITEM_CATS = {
                     math.max( info.matter_info.matter[1], 0 ), info.matter_info.volume, info.matter_info.matter[2]) end
             if( info.matter_info.volume < 0 ) then info.matter_info.volume = info.matter_info.matter[1] end
             
-            info.potion_cutout = pen.magic_storage( info.id, "potion_cutout", "value_int" )
-            info.potion_cutout = info.potion_cutout or ( 3 - pen.b2n( info.matter_info.volume < info.matter_info.matter[1]))
+            info.potion_cutout = pen.magic_storage( info.id, "index_off", "value_float" )
+            info.potion_cutout = math.floor( info.potion_cutout or ( 3 - pen.b2n( info.matter_info.volume < info.matter_info.matter[1])) + 0.5 )
             
             return info
         end,
@@ -663,15 +663,15 @@ local ITEM_CATS = {
             if( not( is_done )) then
                 if( not( xD.shift_action )) then
                     target_off = pic_data.dims[2]/2
-                else pic_data.dims[2] = pen.estimate( "pouring_drift", { 0, pic_data.dims[2]}, "exp5", 0.5 ) end
+                else pic_data.dims[2] = pen.estimate( "index_pdrift", { 0, pic_data.dims[2]}, "exp5", 0.5 ) end
             elseif( not( pen.vld( xD.dragger.item_id, true )) or xD.dragger.item_id == info.id ) then
                 if( EntityGetIsAlive( xM.john_pouring or 0 )) then EntityKill( xM.john_pouring ); xM.john_pouring = nil end
             end
             
             local angle = 0
             if( state_tbl.is_dragged ) then
-                angle = math.rad( pen.estimate( "pouring_angle", target_angle, "exp5", 1 ))
-                pic_y = pic_y + pen.estimate( "sucking_drift", target_off, "exp5", 1 )
+                angle = math.rad( pen.estimate( "index_pangle", target_angle, "exp5", 1 ))
+                pic_y = pic_y + pen.estimate( "index_sdrift", target_off, "exp5", 1 )
             end
             
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
@@ -949,7 +949,7 @@ local GUI_STRUCT = {
     
     extra = index.new_generic_extra,
     custom = {
-        aa_readme = function( screen_w, screen_h, xys )
+        aa_readme = function( screen_w, screen_h, xys ) --allow appending to README
             --? menu where all the controls will be described (+ some quick settings and settings refresh button; put README menu in custom)
             return { 0, 0 }
         end,

@@ -9,7 +9,7 @@ _BINDINGS[ "index_core" ] = {
 	drag_action = {
 		order_id = "ab",
 		allow_special = true,
-		name = "Dropping/Special Action",
+		name = "Dragging Action",
 		desc = "Fancy dragging stuff.",
 		keys = {[ "mouse_right" ] = 1 },
 	},

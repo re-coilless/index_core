@@ -9,7 +9,7 @@ index.M = index.M or {} --interframe memory values
 ------------------------------------------------------
 
 -- all spells wand
--- testing_bag insert in the chest (display contents on hover tooltip and allow dragging from and to it)
+-- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
 
 -- report shift-clicking in inv check
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
@@ -371,7 +371,7 @@ end
 ---@param inv_cat number -1 is quick only (is_quickest changes this), -0.5 is quick and quickest, 0 is everything, 0.5 is full only, 1 is nothing
 ---@param is_quickest boolean
 ---@return table inv_kinds
-function index.get_valid_invs( inv_cat, is_quickest )
+function index.get_valid_invs( inv_cat, is_quickest ) --allow implementing custom checks or just allow making this string
 	local inv_kinds = {}
 	if( math.floor( inv_cat ) == 0 ) then table.insert( inv_kinds, "full" ) end
 	if( math.ceil( inv_cat ) == 0 ) then table.insert( inv_kinds, "quick" ); table.insert( inv_kinds, "quickest" ) end
@@ -567,7 +567,7 @@ function index.slot_swap( item_in, slot_data )
 		local inv_info = xD.invs[ p or 0 ] or {}
 		if( not( pen.vld( inv_info.update ))) then return end
 		if( inv_info.update( pen.t.get( xD.item_list, p, nil, nil, inv_info ), infos[( i + 1 )%2 + 1 ], infos[ i%2 + 1 ])) then
-			table.insert( reset, pen.get_item_owner( p, true ) or 0 )
+			table.insert( reset, pen.get_item_owner( p ))
 		end
 	end)
 	if( parent1 ~= parent2 ) then
@@ -749,6 +749,7 @@ function index.get_items( hooman )
 		for i,inv_info in pairs( xD[ inv_tbl ]) do
 			if( k == 2 ) then xD.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child )
+				if( EntityHasTag( child, "not_an_item" )) then return end
 				local new_info = index.get_item_data( child, inv_info, item_tbl )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
@@ -1112,7 +1113,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
     return length, height, max_hp, hp, red_shift
 end
 
-function index.new_pickup_info( screen_h, screen_w, info, xys )
+function index.new_pickup_info( screen_h, screen_w, xys, info )
 	info.color = info.color or {}
 
 	local xD = index.D
@@ -1663,7 +1664,7 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
 				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
 				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
-			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "runic"..info.id, { 1, 0 }, "exp500" ))
+			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "index_runic"..info.id, { 1, 0 }, "exp500" ))
 		end
 		if( runic_state > 0 ) then
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
@@ -2115,18 +2116,18 @@ index.GLOBAL_FUCK_YOUR_MANA = "INDEX_GLOBAL_FUCK_YOUR_MANA" --trigger mana bar s
 
 index.GLOBAL_FORCED_STATE = "INDEX_GLOBAL_FORCED_STATE" --0 checks CtrlComp for enabled, 1 is always enabled, -1 is always disabled
 index.GLOBAL_GLOBAL_MODE = "INDEX_GLOBAL_GLOBAL_MODE" --GMOD type
-index.GLOBAL_LOCK_SETTINGS = "INDEX_GLOBAL_LOCK_SETTINGS" --prevent settings from being synched or updated
-index.GLOBAL_SYNC_SETTINGS = "INDEX_GLOBAL_SYNC_SETTINGS" --apply settings to globals
+index.GLOBAL_LOCK_SETTINGS = "INDEX_GLOBAL_LOCK_SETTINGS" --prevents settings from being synched
+index.GLOBAL_SYNC_SETTINGS = "INDEX_GLOBAL_SYNC_SETTINGS" --applies settings to globals
 
-index.GLOBAL_DRAGGER_EXTERNAL = "INDEX_GLOBAL_DRAGGER_EXTERNAL" --compatibility brige for dragging to inventories outside Index system
-index.GLOBAL_DRAGGER_SWAP_NOW = "INDEX_GLOBAL_DRAGGER_SWAP_NOW" --si true when the dragger item is being let go
+index.GLOBAL_DRAGGER_EXTERNAL = "INDEX_GLOBAL_DRAGGER_EXTERNAL" --compatibility bridge for dragging to inventories outside Index system
+index.GLOBAL_DRAGGER_SWAP_NOW = "INDEX_GLOBAL_DRAGGER_SWAP_NOW" --is true when the dragged item is being let go
 index.GLOBAL_DRAGGER_ITEM_ID = "INDEX_GLOBAL_DRAGGER_ITEM_ID" --the entity id of the dragged item
 index.GLOBAL_DRAGGER_INV_CAT = "INDEX_GLOBAL_DRAGGER_INV_CAT" --the numerical inventory category of the dragged item
 index.GLOBAL_DRAGGER_IS_QUICKEST = "INDEX_GLOBAL_DRAGGER_IS_QUICKEST" --whether the inventory the item is being dragged from is quickest
 
 index.GLOBAL_PLAYER_OFF_Y = "INDEX_GLOBAL_PLAYER_OFF_Y" --player center offset in y axis
 index.GLOBAL_THROW_POS_RAD = "INDEX_GLOBAL_THROW_POS_RAD" --radius of valid throw position
-index.GLOBAL_THROW_POS_SIZE = "INDEX_GLOBAL_THROW_POS_SIZE" --size of the area to be checked for validity
+index.GLOBAL_THROW_POS_SIZE = "INDEX_GLOBAL_THROW_POS_SIZE" --size of the area to be checked for obstruction
 index.GLOBAL_THROW_FORCE = "INDEX_GLOBAL_THROW_FORCE" --force applied to thrown object
 
 index.GLOBAL_QUICKEST_SIZE = "INDEX_GLOBAL_QUICKEST_SIZE" --the size of the wand inventory
@@ -2140,8 +2141,8 @@ index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN = "INDEX_GLOBAL_LOW_HP_FLASHING_THRES
 index.GLOBAL_LOW_HP_FLASHING_PERIOD = "INDEX_GLOBAL_LOW_HP_FLASHING_PERIOD" --the speed with which the flashing will happen
 index.GLOBAL_LOW_HP_FLASHING_INTENSITY = "INDEX_GLOBAL_LOW_HP_FLASHING_INTENSITY" --the maximum scale of the red borders
 
-index.GLOBAL_INFO_RADIUS = "INDEX_GLOBAL_INFO_RADIUS" --maximal distance to the target for the prompt to appear
-index.GLOBAL_INFO_THRESHOLD = "INDEX_GLOBAL_INFO_THRESHOLD" --minimal speed with which the pointer is being moved for the prompt to appear
+index.GLOBAL_INFO_RADIUS = "INDEX_GLOBAL_INFO_RADIUS" --maximal distance of the pointer to the target for the prompt to appear
+index.GLOBAL_INFO_THRESHOLD = "INDEX_GLOBAL_INFO_THRESHOLD" --maximal speed with which the pointer has to be moved for the prompt to appear
 index.GLOBAL_INFO_FADING = "INDEX_GLOBAL_INFO_FADING" --speed in frames with which the info prompt will fade out
 
 index.GLOBAL_LOOT_MARKER = "INDEX_GLOBAL_LOOT_MARKER"
@@ -2187,15 +2188,3 @@ index.SETTING_SECRET_SHOPPER = "INDEX_SETTING_SECRET_SHOPPER"
 index.SETTING_BOSS_BAR_MODE = "INDEX_SETTING_BOSS_BAR_MODE"
 index.SETTING_BIG_WAND_SPELLS = "INDEX_SETTING_BIG_WAND_SPELLS"
 index.SETTING_SPELL_FRAME = "INDEX_SETTING_SPELL_FRAME"
-
-index.INV_CATS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
-index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%23CAA146-%23A8D5DA-%238EC373-%233F8492-%23735D8E-%234A446D
-	[0] = { pen.PALETTE.VNL.ACTION_PROJECTILE, "$inventory_actiontype_projectile" },
-	[1] = { pen.PALETTE.VNL.ACTION_STATIC, "$inventory_actiontype_staticprojectile" },
-	[2] = { pen.PALETTE.VNL.ACTION_MODIFIER, "$inventory_actiontype_modifier" },
-	[3] = { pen.PALETTE.VNL.ACTION_DRAW, "$inventory_actiontype_drawmany" },
-	[4] = { pen.PALETTE.VNL.ACTION_MATERIAL, "$inventory_actiontype_material" },
-	[5] = { pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
-	[6] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
-	[7] = { pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
-}
