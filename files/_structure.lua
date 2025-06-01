@@ -917,6 +917,7 @@ local GUI_STRUCT = {
     wand = index.new_vanilla_wand,
 
     gmodder = index.new_generic_gmod,
+    logger = index.new_generic_logger,
     full_inv = index.new_generic_inventory,
     applet_strip = index.new_generic_applets,
     

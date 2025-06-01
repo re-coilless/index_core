@@ -1,4 +1,5 @@
 ModMagicNumbersFileAdd( "mods/index_core/files/magic_numbers.xml" )
+ModLuaFileAppend( "data/scripts/gun/gun_actions.lua", "mods/index_core/files/actions.lua" )
 if( ModIsEnabled( "mnee" ) and ModIsEnabled( "penman" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 else return end
@@ -128,6 +129,10 @@ end
 function OnWorldPreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 
+	if( HasFlagPersistent( "never_spawn_this_action" )) then
+		RemoveFlagPersistent( "never_spawn_this_action" )
+	end
+
 	local hooman = pen.get_hooman()
 	if( not( pen.vld( hooman, true ))) then return end
 	local iui_comp = EntityGetFirstComponentIncludingDisabled( hooman, "InventoryGuiComponent" )
@@ -187,7 +192,7 @@ function OnPlayerSpawned( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 
-	CreateItemActionEntity( "LIGHTNING", x, y )
+	-- CreateItemActionEntity( "HERMES_CORE", x, y )
 	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 end
 

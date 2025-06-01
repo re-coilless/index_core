@@ -4,6 +4,9 @@ local xM = index.M
 
 -- local check = GameGetRealWorldTimeSinceStarted()*1000
 
+xM.log = xM.log or {} --normal messages
+xM.log_special = xM.log_special or {} --special messages
+
 xM.gonna_drop = xM.gonna_drop or false --trigger for "drop on failure to swap"
 
 xM.slot_anim = xM.slot_anim or {} --fancy dragging anim
@@ -40,13 +43,15 @@ if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
 end
 
 pen.c.index_settings = pen.c.index_settings or {
+    custom_logging = MagicNumbersGetValue( "GAME_LOG_ENABLED" ) == "0",
+
     player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
     throw_force = gg( index.GLOBAL_THROW_FORCE, 40 ),
     
     inv_quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
-    inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|2|9|" )),
+    inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|3|9|" )),
     effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
     min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
     spell_anim_frames = gg( index.GLOBAL_SPELL_ANIM_FRAMES, 120 ),
@@ -371,6 +376,7 @@ if( not( xD.gmod.nuke_default )) then
 
     if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, xD.xys, inv.pickup_info ) end
     if( pen.vld( inv.gmodder )) then inv.gmodder( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( inv.logger )) then inv.logger( screen_w, screen_h, xD.xys ) end
     if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
 end
 

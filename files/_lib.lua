@@ -6,6 +6,8 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
+-- debug performance
+
 ------------------------------------------------------
 
 -- all spells wand
@@ -13,7 +15,6 @@ index.M = index.M or {} --interframe memory values
 
 -- report shift-clicking in inv check
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
--- if message suppression magic number is active, draw custom log automatically (a setting to save old messages with a scrollbar and clear button)
 -- validate z-levels
 -- two slots can be highlighted at once
 -- make sure the shit inherently supports virtual invs
@@ -785,7 +786,7 @@ function index.pick_up_item( hooman, info, is_audible, is_silent )
 	if( gonna_pause == 0 ) then
 		if( not( is_silent )) then
 			info.name = info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( info.ItemC, "item_name" ))
-			GamePrint( GameTextGet( "$log_pickedup", info.name ))
+			index.print( GameTextGet( "$log_pickedup", info.name ))
 			if( is_audible or is_shopping ) then
 				index.play_sound({
 					"data/audio/Desktop/event_cues.bank",
@@ -896,6 +897,13 @@ end
 
 function index.slot_z( dragged_id, pic_z )
 	return index.D.dragger.item_id == dragged_id and 2*pen.LAYERS.TIPS or pic_z
+end
+
+function index.print( msg, is_special )
+	is_special = is_special or false
+	( is_special and GamePrintImportant or GamePrint )( unpack( pen.get_hybrid_table( msg )))
+	if( not( index.D.custom_logging )) then return end
+	table.insert( index.M[ is_special and "log_special" or "log" ], msg )
 end
 
 ---Extracts offsets from SpriteComponent.

@@ -7,9 +7,9 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 	[2] = { pen.PALETTE.VNL.ACTION_MODIFIER, "$inventory_actiontype_modifier" },
 	[3] = { pen.PALETTE.VNL.ACTION_DRAW, "$inventory_actiontype_drawmany" },
 	[4] = { pen.PALETTE.VNL.ACTION_MATERIAL, "$inventory_actiontype_material" },
-	[5] = { pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
-	[6] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
-	[7] = { pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
+    [5] = { pen.PALETTE.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
+	[6] = { pen.PALETTE.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
+	[7] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
 }
 
 function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
@@ -57,21 +57,19 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
 
     local bg_x, bg_y = pic_x - 3, pic_y - 3
     pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
-    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest - 1 ) do
+    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest ) do
         bg_x = bg_x + 4
         pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
     end
-    bg_x = bg_x + 4
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml" )
-    bg_x = bg_x + 3
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
     bg_x = bg_x + 5
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
-    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick - 1 ) do
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.001, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
+    pen.new_image( bg_x - 1, bg_y, pen.LAYERS.BACKGROUND - 0.001, "mods/index_core/files/pics/vanilla_inv_c.xml" )
+    pen.new_image( bg_x - 2, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+    for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick ) do
         pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
         bg_x = bg_x + 4
     end
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
     if( xD.gmod.show_full and full_depth == 1 and not( xD.gmod.allow_external_inventories )) then
         bg_x = bg_x + 7
         pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
@@ -80,7 +78,7 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
             pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
         end
         bg_x = bg_x + 2
-        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_e.xml" )
+        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_d.xml" )
     end
     
     if( not( xD.gmod.can_see )) then
@@ -1135,6 +1133,26 @@ function index.new_generic_extra( screen_w, screen_h, xys )
         local inv_info = xD.invs[ extra_inv ]
         inv_info.func( pic_x, pic_y, inv_info, xys, xD.slot_func )
     end
+end
+
+function index.new_generic_logger( screen_w, screen_h, xys )
+    local xD, xM = index.D, index.M
+    if( not( pen.vld( xM.log ))) then return end
+    if( not( xD.custom_logging )) then return end
+
+    --a setting to save old messages with a scrollbar and clear button
+    --logger size + pos globals
+    --special messages should be displayed all at once
+    --combine same messages together (special print ignores repeats)
+    --start scrolled to the bottom
+    --automatically scroll to bottom on new message (unless is prevented by setting)
+    --scrollbar to the left
+    
+    local pic_x, pic_y = unpack( xys.logger or { 19, screen_h - 50 })
+    pen.new_scroller( "index_logger", pic_x, pic_y, pen.LAYERS.BACKGROUND + 10, 100, 50, function( scroll_pos )
+        local dims = pen.new_text( 0, scroll_pos, 0, table.concat( xM.log, "\n" ), { fully_featured = true, dims = { 100, -1 }})
+        return dims[2]
+    end)
 end
 
 function index.new_generic_gmod( screen_w, screen_h, xys )

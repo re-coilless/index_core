@@ -133,6 +133,7 @@ At last, a compilation of all VariableStorageComponent names being considered by
     - index_pic_anim (value_string; per-item pic anim name to be played within index.new_slot_pic)
     - index_pic_offset (value_string, pen.t.pack table; per-item slot pic offsets)
     - index_runic_cypher (value_float; internal per-item value that corresponds to runic anim progress – 0 stands for fully encrypted text and 1 means that text is completely readable)
+    - index_action (value_string, path to function( card_id ) end; attach this to HERMES_CORE action to execute custom code)
 
 
 
@@ -389,6 +390,7 @@ index.new_generic_ending
 index.new_generic_pickup
 index.new_generic_drop
 index.new_generic_extra
+index.new_generic_logger
 index.new_generic_gmod
 
 
@@ -426,6 +428,7 @@ index.vanilla_pick_up
 index.pick_up_item
 index.drop_item
 index.slot_z
+index.print
 index.register_item_pic
 index.new_dragger_shell
 index.slot_anim
