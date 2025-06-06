@@ -1867,7 +1867,7 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 
 		if( do_default and not( pen.vld( info.in_hand, true ))) then
 			index.play_sound( slot_sfxes.select )
-			pen.reset_active_item( pen.get_item_owner( info.id ), pen.get_item_num( slot_data.inv_id, info.id ))
+			pen.reset_active_item( pen.get_item_owner( info.id ), pen.get_item_num( slot_data.inv_id, info.id ), true )
 		end
 	end
 	

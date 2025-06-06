@@ -129,7 +129,7 @@ for i,comp in ipairs({ iui_comp, pick_comp }) do
     end
 end
 
-local is_going = gg( index.GLOBAL_FORCED_STATE, 0 )
+local is_going = gg( index.GLOBAL_FORCED_STATE, 1 )
 if( is_going == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" ) else is_going = is_going > 0 end
 if( not( is_going and pen.vld( inv_comp, true ))) then return pen.gui_builder( false ) end
