@@ -13,6 +13,12 @@ index.M = index.M or {} --interframe memory values
 -- all spells wand
 -- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
 
+-- potion bg white line is jumping between thicknesses in full screen game
+-- none of the misc gui elements should open tips if item tip is pinned
+-- image shadows are fucked (too high alpha)
+-- the wand inv separator line should be obtained from active 9piece
+-- toggle to enable static bg sprite
+-- universal content origin field in all tooltips
 -- report shift-clicking in inv check
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- validate z-levels
