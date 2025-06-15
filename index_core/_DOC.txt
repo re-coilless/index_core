@@ -1,0 +1,451 @@
+[GENERAL]
+This system fullfils many roles, yet focuses on the following three:
+    - It is a UX-centered interface replacement, aiming to streamline interactions with the game while enriching the core functionality.
+    - It is also a powerful inventory library, enabling painless manipulations with all and any UI components seen on the screen (except for pause menus and alike).
+    - However, the primary focus of this project has always been complete extendability support – it is a modding-first system, designed for complex and overlapping modpacks, attempting to keep miriad of parallel content sources manageable.
+Due to the elaborate nature of the implementation, some of the more sophisticated parts are removed and published as a separate releases, a decision nessessary to keep the entire assembly manageable from development perspective:
+    - [DEPENDENCY] Penman is the foundation of the entire system, a general purpose modding library featuring integrated GUI solution and beyond.
+    - [DEPENDENCY] M-Nee is another inherent component within greater whole – as a custom inputs framework, it provides feature-rich input customization and integration, occupying the niche of keyboard based interactions while Index handles on-screen gameplay.
+    - [ADDON] Twin-Linked is an acient mod reborn as Index addon, intending to provide seamless dual-wielding capability.
+    - [ADDON] HermeS Marshall is an example of an Index-supporting system (stereo sound control system), working just fine without it, yet integrating neatly if both are running at once.
+Finally, this UI solution handles certain things different from vanilla, changing some things and adding brand new features:
+    - The central part of the user-accessible interface are Global Modes – note the "FULL" button at the top right of your "MISCELLANEOUS" inventory. These allow one to alter general inventory functionality and are an organizational tool to reduce clutter should the addon dencity get too high. At present, the default configuration lists four distinct Global Modes (any addon can also add GMs of their own): FULL (the default state of the system, it provides complete vanilla feature parity except for multiple rows of "MISCELLANEOUS" inventory), MANAGEMENT (this mode is designed to handle screen-spanning storage environments, it hides wands, displays external inventories and allows the full range of "MISCELLANEOUS" inventory rows to be displayed), INTERACTIVE (the point of this mode is to make playable with open inventory, should such feature be desired, it also allows Dragging Action to execute – the right clicking the dragged potion in mid air while holding shift), CUSTOM_MENU (this is meant to be a developer-only mode, not observed in normal gameplay and manually triggered through code to allow for custom menus to be displayed with no obstructions).
+    - Another compatibility feature is Applets system. A pair of dynamically extendible menus, one to the left (only visible with inventory closed) and one to the right (only visible with inventory opened), containing any and all feature-toggling buttons developer wish to introduce without running into placement choice hell.
+    - Rather expectedly, Index comes with a broad set of customization options (Options -> Mod Settings -> HermeS Index EXQ), covering a broad spectrum of potential gamestyle preferences.
+    - As a closing, allow me to list all the custom keyboard-based inputs the mod provides (one can refer to / change this list at any time through CTRL + M menu): SHIFT ACTION (left_shift; modifies the behavior of other actions, namely allows one to mouse_left click to and from wands), DRAGGING ACTION (mouse_right; triggers per-item dragging behavior while within INTERACTIVE Global Mode, the default configuration only features this on potions), TIP ACTION (left_alt; changes the displayed tooltip, the main alteration is providing item descriptions for the wands and showing advanced stats on both wands and spells), HIDE SLOT TIPS (left_ctrl; the new tooltips implementation comes with an ability to hover over them for additional hits which sometimes interferes with inventory management, this action disables the tips in their entirety to combat the clutter issue), MATTER PROBING (grave, also known as [`]; the default state of the material-noting system is to constantly report back the UI, yet this can be changed to hotkeyed mode in options).
+
+
+
+[SETUP]
+HermeS Index operates on following general principles:
+    - The main LUA script runs from inside WorldsStateEntity and searches for "index_ctrl" tag to link to the player.
+    - Everything exists within the same LUA context, enabling every component to access the entirety of available values (as long as order of operations allows), which is achieved through global "index.D" table (often localized as "xD") that is being rebuilt from scratch every frame (meaning that it can be safely used for pass value changes forward in the pipeline). Additionally, there exists "index.M" table (localized as "xM") which functions as means of preserving variables between frames.
+    - UI layout is built around pen.LAYERS table, enabling more or less rigorously segmenting the depth in predefined sections.
+    - Player inventories are hardcoded to be handled as a special case due to thier two-fold nature (player inventory consists of two independent entities). While the system is more than flexible enough to allow reimplementation of vanilla inventory within a singular entity, for the sake of compatibility a decision was made to leave it as is.
+    - External inventories as being initialized by looking for "index_inventory" tag, upon which VariableStorageComponents are being consulted.
+Items are being handled as follows:
+    - Every item has to have a global kind that determines generic behavior (can be customized further through VariableStorageComponents).
+    - Only items that legitimately occupy a slot are being displayed.
+The primary means of altering/exteding functionality of baseline implementation:
+    - Add VariableStorageComponents: a vast array of entity-spesific features can be altered in real time through their addition.
+    - Append via pen.magic_append to _structure.lua – the primary modification route alongside the implement mentioned above:
+        - GLOBAL_MODES (as discussed above, an overarching functionality charge within a single setup)
+        - GLOBAL_MUTATORS (a collection of independent functions run at init which are capable of dynamically altering the contents of index.D, index.M)
+        - APPLETS (as noted previosuly, external content organization system)
+        - BOSS_BARS (an entity path indexed table that contains custom implementations of corresponding bossbars)
+        - WAND_STATS/SPELL_STATS (an ordered table of stats to display in wand/spell tooltips)
+        - MATTER_DESCS (wip, will show descriptions of hovered materials)
+        - ITEM_CATS (the driver behind item functionaly)
+        - GUI_STRUCT (the global definition of every major function used within the system, enabling real time alteration of fundamental behavior)
+    - Set Globals: this mod utilizes several dozen of global values, changing both visual and logical aspects of the system.
+    - Append to _elements.lua: this files hosts baseline high-level implementations of every single GUI elements visible on the screen; such features can be altered in fundamental ways either by full override or through monkey-patching.
+
+
+
+[MACRO]
+Technical changes as compared to vanilla game:
+    - Items within quickest/quick inventories are marked by -1 and -2 for Y slot coord respectively.
+    - GameIsInventoryOpen() does not work, use pen.is_inv_active() instead.
+    - GamePickUpInventoryItem() does not work post init, use index.pick_up_item() or index.vanilla_pick_up() instead.
+    - InventoryGuiComponent and ItemPickUpperComponent are permananetly disabled.
+    - Gamepad is not supported (yet).
+    - The following fonts have replaced their vanilla counterparts:
+        - data/fonts/_font_pixel.xml (adds [°] symbol)
+        - data/fonts/_font_pixel_noshadow.xml (adds [°] symbol)
+        - data/fonts/_font_small_numbers.xml (adds [-], [B], [e] symbols)
+    - Altered vanilla files:
+        - data/scripts/gun/gun.lua (has a global that reports failure to fire to due mana insudfficiency)
+        - data/scripts/magic/fungal_shift.lua (has a global that stores the list of all fungal shifts)
+        - data/shaders/post_final.frag (custom low hp blinking implementation)
+        - data/scripts/items/spell_refresh.lua (now restores charges even on child entities)
+        - init.lua -> slotless_scum (marks all slotless items with a corresponding tag)
+Here are all of the unique entity tags this mod introduces:
+    - index_slotless (makes sure the abysmal way in which vanilla handles events such as gold nugget pickups is accounted for)
+    - index_ctrl (is present in component, marks interaction_nuker.lua that ensures InteractableComponents are properly prosessed, and entity variants, points to the main entity of the inventory – player)
+    - index_inventory (marks external entities to be processed as an Index object)
+    - spray (an annoyingly obligatory component tag to play looped sounds, likely with be get rid of)
+    - not_a_potion (allows any arbitrary item to have MaterialInventoryComponent without it being considered a potion)
+    - index_unlocked (forces item to be fully accessible no matter any other criteria like always cast status or is_frozen check)
+    - index_has_rbm (mainly ensures compatibilty with Twin-Linked by noting when offhand wand is not to be fired as the item in the primary hand might execute an action of its own on rmb)
+    - index_locked (counterpart to index_unloacked, completetly safeguard the item from tampering with)
+    - not_an_item (hides the item entity from index altogether but is very aggressive, so using hidden slot functionality but setting inventory_slot to {-1,-1} is recommended instead)
+    - index_processed (an indicator that item has passed initialization by the system)
+    - index_update (resets all the cached values of the item)
+    - index_txt (forces pickupper to display in-world pickup text)
+Then, a list of every single global this mod utilizes (except for setting interfacing):
+    - INDEX_GLOBAL_FUNGAL_MEMO (stores fungal transformations)
+    - INDEX_GLOBAL_FUCK_YOUR_MANA (trigger mana bar shaking by reporting if firing failed due to mana deficiency)
+    - INDEX_GLOBAL_FORCED_STATE (0 checks CtrlComp for enabled, 1 is always enabled, -1 is always disabled)
+    - INDEX_GLOBAL_GLOBAL_MODE (GMOD type)
+    - INDEX_GLOBAL_LOCK_SETTINGS (prevents settings from being synched if set to "bool1")
+    - INDEX_GLOBAL_SYNC_SETTINGS (applies settings to globals if set to "bool1")
+    - INDEX_GLOBAL_DRAGGER_EXTERNAL (compatibility bridge for dragging to inventories outside Index system, if it goes "bool0" after one set it to "bool1" - this is the moment to swap)
+    - INDEX_GLOBAL_DRAGGER_SWAP_NOW (is "bool1" when the dragged item is being let go)
+    - INDEX_GLOBAL_DRAGGER_ITEM_ID (the entity id of the dragged item)
+    - INDEX_GLOBAL_DRAGGER_INV_CAT (the numerical inventory category of the dragged item)
+    - INDEX_GLOBAL_DRAGGER_IS_QUICKEST (whether the inventory the item is being dragged from is quickest)
+    - INDEX_GLOBAL_PLAYER_OFF_Y (player center offset in y axis)
+    - INDEX_GLOBAL_THROW_POS_RAD (radius of valid throw position)
+    - INDEX_GLOBAL_THROW_POS_SIZE (size of the area to be checked for obstruction)
+    - INDEX_GLOBAL_THROW_FORCE (force applied to thrown object)
+    - INDEX_GLOBAL_QUICKEST_SIZE (the size of the wand inventory)
+    - INDEX_GLOBAL_SLOT_SPACING (distance between individual slots)
+    - INDEX_GLOBAL_EFFECT_SPACING (distance between individual effect icons)
+    - INDEX_GLOBAL_MIN_EFFECT_DURATION (minimal duration required for the efect to appear as an icon)
+    - INDEX_GLOBAL_SPELL_ANIM_FRAMES (the speed of spell swaying anim)
+    - INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD (maximal hp value at which the flashing starts)
+    - INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN (additional threshold correction for extreme max hps)
+    - INDEX_GLOBAL_LOW_HP_FLASHING_PERIOD (the speed with which the flashing will happen)
+    - INDEX_GLOBAL_LOW_HP_FLASHING_INTENSITY (the maximum scale of the red borders)
+    - INDEX_GLOBAL_INFO_RADIUS (maximal distance of the pointer to the target for the prompt to appear)
+    - INDEX_GLOBAL_INFO_THRESHOLD (maximal speed with which the pointer has to be moved for the prompt to appear)
+    - INDEX_GLOBAL_INFO_FADING (speed in frames with which the info prompt will fade out)
+    - INDEX_GLOBAL_LOOT_MARKER (an icon that notes default in-world inventories)
+    - INDEX_GLOBAL_SLOT_PIC_BG (quick inventory slot)
+    - INDEX_GLOBAL_SLOT_PIC_BG_ALT (full inventory slot)
+    - INDEX_GLOBAL_SLOT_PIC_HL (slot highlight on drag)
+    - INDEX_GLOBAL_SLOT_PIC_ACTIVE (quick inventory slot highlight on being in hand)
+    - INDEX_GLOBAL_SLOT_PIC_LOCKED (darkened slot that is protected from editing)
+    - INDEX_GLOBAL_SFX_CLICK
+    - INDEX_GLOBAL_SFX_SELECT
+    - INDEX_GLOBAL_SFX_HOVER
+    - INDEX_GLOBAL_SFX_OPEN
+    - INDEX_GLOBAL_SFX_CLOSE
+    - INDEX_GLOBAL_SFX_ERROR
+    - INDEX_GLOBAL_SFX_RESET
+    - INDEX_GLOBAL_SFX_MOVE_EMPTY
+    - INDEX_GLOBAL_SFX_MOVE_ITEM
+At last, a compilation of all VariableStorageComponent names being considered by the system:
+    - index_off (value_float; spesifies the size of exclusion zone when calculation per-potion cutout max height)
+    - index_bar (value_string, path to function( pic_x, pic_y, pic_z, enemy_id, data ) return length, height end; per-enemy override for bossbar)
+    - index_check (value_string, path to function( info ) return info, will_show, do_action end; per-button condition check)
+    - index_message (value_string, path to function( screen_h, screen_w, xys, data ) end; per-button info display)
+    - index_inv_kind (value_string, pen.t.pack table; per-inv list of all the inv kinds this inventory allows)
+    - index_inv_kind_func (value_string, path to function( info ) return inv_kind end; per-inv dynamic generation of inv kinds)
+    - index_inv_size (value_string, pen.t.pack table; per-inv size)
+    - index_inv_gui (value_string, path to function( pic_x, pic_y, inv_info, xys, slot_func ) end; per-inv gui call)
+    - index_inv_check (value_string, path to function( item_info, inv_info ) return is_allowed end; per-inv per-swap fit check call)
+    - index_inv_update (value_string, path to function( inv_info, info_old, info_new ) return update_active_item end; per-inv per-swap update call)
+    - index_inv_sort (value_string, path to function( a, b ) return will_swap end; per-inv custom order sorting)
+    - index_inv_cat (value_string; per-item selection of inv kinds this entity is allowed to be in)
+    - index_charges (value_int; per-item override of vanilla charges value)
+    - on_data/ctrl_script/on_processed/on_processed_forced/on_inventory/on_slot_check/on_slot/on_swap/on_tooltip/on_equip/on_action/on_pickup/on_drop/on_gui_pause/on_gui_world (value_string, path to corresponding callback function; per-item override of default item category functionality)
+    - index_pic_anim (value_string; per-item pic anim name to be played within index.new_slot_pic)
+    - index_pic_offset (value_string, pen.t.pack table; per-item slot pic offsets)
+    - index_runic_cypher (value_float; internal per-item value that corresponds to runic anim progress – 0 stands for fully encrypted text and 1 means that text is completely readable)
+    - index_action (value_string, path to function( card_id ) end; attach this to HERMES_CORE action to execute custom code)
+
+
+
+[STRUCTURE]
+GLOBAL_MODES = {
+    {
+    name
+    color
+    desc
+
+    is_default
+	allow_wand_editing
+	show_full
+	menu_capable
+	is_hidden
+	show_fullest
+	can_see
+	allow_shooting
+	force_inv_open
+	allow_external_inventories
+        allow_advanced_draggables
+    },
+}
+
+GLOBAL_MUTATORS = {
+    function( xys ) return xys end,
+}
+
+APPLETS = {
+    l = {}, r = {
+        {
+            name
+	        desc
+            pic
+            toggle
+        },
+    },
+}
+
+BOSS_BARS = { --apocalyptic thanks to Priskip
+    ["path_to_entity_xml"] = {
+        pic
+        in_world
+        color
+        color_text
+        color_bg
+        pos
+        func = function( pic_x, pic_y, pic_z, entity_id, data ) return length, height end,
+        func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
+    },
+}
+
+WAND_STATS = {
+    {
+        pic
+        name
+	    desc
+        spacer
+        is_hidden
+        is_advanced
+        bigger_better
+        value = function( info, w ) return numerical_value end,
+        txt = function( value, info, w ) return displayed_value end,
+        func = function( pic_x, pic_y, pic_z, txt, data ) end,
+    },
+}
+
+SPELL_STATS = {
+    {
+        {
+            off_x
+	        off_y
+	        pic
+            name
+            desc
+            spacer
+            is_hidden
+            value = function( info, c, c_proj ) return numerical_value end,
+            txt = function( value, info, c, c_proj ) return displayed_value end,
+            func = function( pic_x, pic_y, pic_z, txt, data ) end,
+       },
+    }, {},
+}
+
+ITEM_CATS = {
+    {
+        name
+        is_wand
+        is_quickest
+        deep_processing
+        is_potion
+        is_spell
+	
+        on_check = function( item_id ) return is_valid end,
+        on_info_name = function( item_id, item_comp, default_name ) return name end,
+        on_data = function( info, wip_item_list ) return info end,
+        on_processed_forced = function( info ) end,
+	
+        ctrl_script
+        on_processed
+        on_slot_check
+        on_swap
+        on_action
+        on_drop
+
+        on_tooltip = function( info, tid, pic_x, pic_y, pic_z, is_simple ) end,
+        on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims ) end,
+        on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims ) return info end,
+
+        on_gui_world = function( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func ) end,
+        on_gui_pause = function( info ) end,
+        on_pickup = function( info, is_post )
+            return ({
+                function( info ) return 0 end,
+                function( info ) end,
+            })[ is_post and 2 or 1 ]( info )
+        end,
+    },
+}
+
+GUI_STRUCT = {
+    slot = index.new_vanilla_slot,
+    icon = index.new_vanilla_icon,
+    tooltip = pen.new_tooltip,
+    box = index.new_vanilla_box,
+    wand = index.new_vanilla_wand,
+
+    gmodder = index.new_generic_gmod,
+    full_inv = index.new_generic_inventory,
+    applet_strip = index.new_generic_applets,
+    
+    bars = {
+        hp = index.new_generic_hp,
+        air = index.new_generic_air,
+        flight = index.new_generic_flight,
+        bossbar = index.new_generic_bossbar,
+        action = {
+            mana = index.new_generic_mana,
+            reload = index.new_generic_reload,
+            delay = index.new_generic_delay,
+        },
+    },
+
+    gold = index.new_generic_gold,
+    orbs = index.new_generic_orbs,
+    info = index.new_generic_info,
+    
+    icons = {
+        ingestions = index.new_generic_ingestions,
+        stains = index.new_generic_stains,
+        effects = index.new_generic_effects,
+        perks = index.new_generic_perks,
+    },
+
+    pickup = index.new_generic_pickup,
+    pickup_info = index.new_pickup_info,
+    drop = index.new_generic_drop,
+    
+    extra = index.new_generic_extra,
+    custom = {
+        unique_name = function( screen_w, screen_h, xys ) return { pic_x, pic_y } end,
+    },
+}
+
+
+
+[DATA]
+index.D = {
+    xys
+    gmod
+    applets
+    gmods
+    perk_data
+    icon_data
+    item_cats
+    boss_bars
+    wand_stats
+    spell_stats
+    box_func
+    slot_func
+    icon_func
+    wand_func
+    tip_func
+    player_id
+    player_xy
+    can_tinker
+    sampo
+    orbs
+    just_fired
+    active_item
+    active_info
+    no_mana
+    Controls
+    Wallet
+    ItemPickUpper
+    DamageModel
+    CharacterData
+    global_mode
+    is_opened
+    frame_num
+    screen_dims
+    pointer_world
+    pointer_ui
+    pointer_delta
+    pointer_delta_world
+    pointer_matter
+    matter_action
+    tip_action
+    drag_action
+    shift_action
+    hide_slot_tips
+    item_list
+    slot_state
+    invs
+    invs_i
+    invs_e
+    invs_p = {
+        q
+        f
+    },
+    inv_quick_size
+    inv_full_size
+    dragger = {
+        item_id
+        inv_cat
+        is_quickest
+        swap_soon
+        swap_now
+    },
+}
+
+
+
+[ELEMENTS]
+index.new_generic_slot
+index.new_generic_background
+index.new_generic_inventory
+index.new_generic_applets
+index.new_generic_hp
+index.new_generic_air
+index.new_generic_flight
+index.new_generic_mana
+index.new_generic_reload
+index.new_generic_delay
+index.new_generic_bossbar
+index.new_generic_gold
+index.new_generic_orbs
+index.new_generic_info
+index.new_generic_ingestions
+index.new_generic_stains
+index.new_generic_effects
+index.new_generic_perks
+index.new_generic_ending
+index.new_generic_pickup
+index.new_generic_drop
+index.new_generic_extra
+index.new_generic_logger
+index.new_generic_gmod
+
+
+
+[LIB]
+index.get_input
+index.play_sound
+index.self_destruct
+index.get_status_data
+index.full_stopper
+index.hud_text_fix
+index.hud_num_fix
+index.get_stain_perc
+index.get_effect_timer
+index.get_effect_duration
+index.get_thresholded_effect
+index.get_vanilla_stat
+index.get_inv_space
+index.cat_callback
+index.get_valid_invs
+index.get_inv_info
+index.inv_check
+index.inv_boy
+index.inv_man
+index.set_to_slot
+index.find_a_slot
+index.swap_check
+index.slot_swap
+index.check_item_name
+index.get_entity_name
+index.get_potion_info
+index.get_item_data
+index.get_items
+index.vanilla_pick_up
+index.pick_up_item
+index.drop_item
+index.slot_z
+index.print
+index.register_item_pic
+index.new_dragger_shell
+index.slot_anim
+index.new_vanilla_box
+index.new_vanilla_bar
+index.new_vanilla_hp
+index.new_pickup_info
+index.tipping
+index.pinning
+index.new_vanilla_worldtip
+index.new_vanilla_wtt
+index.new_vanilla_stt
+index.new_vanilla_ptt
+index.new_vanilla_itt
+index.new_vanilla_ttt
+index.new_spell_frame
+index.new_slot_pic
+index.new_vanilla_icon
+index.new_vanilla_slot
+index.new_vanilla_wand
