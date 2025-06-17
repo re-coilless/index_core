@@ -1,0 +1,43 @@
+name: Updating
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Updating
+        env:
+          SECRET_URL: ${{ secrets.WEBHOOK_URL }}
+          SECRET_COLOR: ${{ secrets.REPO_COLOR }}
+          SECRET_EMOJI: ${{ secrets.REPO_EMOJI }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          REPO: ${{ github.repository }}
+        run: |
+          REPO_NAME="${REPO##*/}"
+          REPO_URL="https://github.com/${REPO}/archive/refs/heads/main.zip"
+
+          JSON_CONTENT=$(jq -n \
+            --arg repo_name "$REPO_NAME" \
+            --arg repo_url "$REPO_URL" \
+            --arg com_url "$COMMIT_URL" \
+            --arg com_msg "$COMMIT_MESSAGE" \
+            --arg color "$SECRET_COLOR" \
+            --arg emoji "$SECRET_EMOJI" \
+          '{
+            embeds: [{
+              title: "\($emoji) New **[\($repo_name)]** Update",
+              description: "⠀⠀⠀*([\($com_msg)](\($com_url)))*",
+              url: $repo_url,
+              color: $color
+            }]
+          }')
+
+          echo "Post: $JSON_CONTENT"
+          curl -X POST -H "Content-Type: application/json" \
+            -d "$JSON_CONTENT" \
+            "$SECRET_URL"

@@ -965,7 +965,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             if( pen.vld( cost_comp, true )) then
                 is_shop = true
                 local cost = ComponentGetValue2( cost_comp, "cost" )
-                if( xD.Wallet.money_always or ( cost <= xD.Wallet.money )) then
+                if( xD.Wallet.money_always or ( cost <= ( xD.Wallet.money or 0 ))) then
                     info.data.cost = cost
                 else cost_check = false end
             end
