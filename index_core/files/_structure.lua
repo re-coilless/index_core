@@ -403,8 +403,8 @@ local MATTER_DESCS = { -- description for materials (if mode is not hotkeyed, ma
 
 local ITEM_CATS = {
     {
+        id = "WAND",
         name = GameTextGet( "$item_wand" ),
-
         is_wand = true, is_quickest = true,
         -- deep_processing = true, is_potion = false, is_spell = false,
 
@@ -563,6 +563,7 @@ local ITEM_CATS = {
         end,
     },
     {
+        id = "POTION",
         name = GameTextGet( "$item_potion" ),
         is_potion = true,
 
@@ -786,6 +787,7 @@ local ITEM_CATS = {
         end,
     },
     {
+        id = "SPELL",
         name = string.sub( string.lower( GameTextGet( "$hud_title_actionstorage" )), 1, -2 ),
         is_spell = true,
 
@@ -859,6 +861,7 @@ local ITEM_CATS = {
         on_gui_world = index.new_vanilla_worldtip,
     },
     {
+        id = "TABLET",
         name = GameTextGet( "$index_cat_tablet" ),
 
         on_check = function( item_id )
@@ -876,6 +879,7 @@ local ITEM_CATS = {
         on_gui_world = index.new_vanilla_worldtip,
     },
     {
+        id = "ITEM",
         name = GameTextGet( "$mat_item_box2d" ),
 
         on_check = function( item_id ) return true end,
