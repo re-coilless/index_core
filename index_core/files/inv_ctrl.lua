@@ -377,10 +377,9 @@ if( not( xD.gmod.nuke_default )) then
     if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
 end
 
--- this is the performance cancer
--- if( not( xD.gmod.nuke_custom )) then
---     for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
--- end
+if( not( xD.gmod.nuke_custom )) then
+    for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
+end
 
 if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     xM.inv_alpha = frame_num + 15
