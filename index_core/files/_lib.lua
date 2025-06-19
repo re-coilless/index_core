@@ -1086,7 +1086,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
 		length = data.length or ( data.length_mult or 1 )*math.max( math.floor( 157.8 - 307.1/( 1 + ( total_hp/0.38 )^( 0.232 )) + 0.5 ), 45 )
         hp = math.min( math.max( hp, 0 ), max_hp )
 
-		if( data.centered ) then pic_x = pic_x + length/2 end
+		if( data.centered or data.is_left ) then pic_x = pic_x + length/( data.is_left and 1 or 2 ) end
 
         local low_hp = math.max( math.min( max_hp/4, data.low_hp or xD.hp_threshold ), data.low_hp_min or xD.hp_threshold_min )
         local pic = data.color_hp or pen.PALETTE.VNL.HP
@@ -1124,7 +1124,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
         index.new_vanilla_bar( pic_x, pic_y, pic_z, { length, height, length*hp/max_hp }, pic, nil, nil, data.only_slider )
 	end)
-    return length, height, max_hp, hp, red_shift
+    return { length = length, height = height, max_hp = max_hp, hp = hp, red_shift = red_shift }
 end
 
 function index.new_pickup_info( screen_h, screen_w, xys, info )
@@ -1206,7 +1206,7 @@ function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy
 		pic_x, pic_y = pic_x + 15, pic_y + 15
 		tid = tid or "worldtip"
 	else
-		pic_x, pic_y = unpack( xD.xys.hp )
+		pic_x, pic_y = unpack( xD.xys.world_tip or xD.xys.hp )
 		pic_x = pic_x - 44
 		tid = tid or "hud"
 	end
@@ -1907,9 +1907,10 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 		
 		if( xD.dragger.item_id == info.id ) then return end
 		if( not( xM.pending_slots[ xD.dragger.item_id ])) then return end
+		local slot_text = slot_data.inv_slot[2] < 0 and ( math.abs( slot_data.inv_slot[2] + 1 )*xD.inv_quickest_size + slot_data.inv_slot[1]) or table.concat( slot_data.inv_slot, "-" )
 		pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.MAIN_FRONT + 0.01, slot_pics.hl )
 		pen.new_text( pic_x, pic_y + w/2, pen.LAYERS.ICONS_FRONT - 5,
-			table.concat( slot_data.inv_slot, "-" ), { has_shadow = true, is_huge = false, is_centered_x = true })
+			slot_text, { has_shadow = true, is_huge = false, is_centered_x = true })
 	end)
 
 	if(( pen.vld( info.id, true ) and is_hovered ) and not( xM.slot_hover_sfx[2])) then

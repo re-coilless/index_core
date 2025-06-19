@@ -2,8 +2,6 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 if( not( ModIsEnabled( "index_core" ))) then return index.self_destruct() end
 local xM = index.M
 
--- local check = GameGetRealWorldTimeSinceStarted()*1000
-
 xM.log = xM.log or {} --normal messages
 xM.log_special = xM.log_special or {} --special messages
 
@@ -21,7 +19,6 @@ xM.mouse_memo_world = xM.mouse_memo_world or {} --for getting pointer delta in-w
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
 if( not( pen.vld( ctrl_bodies ))) then return pen.gui_builder( false ) end
-local performance_check = false --frame_num%600 == 0
 
 local function gg( g, dft )
     xM.settings_init = xM.settings_init or {}
@@ -320,7 +317,7 @@ for i = #get_out,1,-1 do table.remove( xD.item_list, get_out[i]) end
 --gmods and applets init
 xD.gmod = xD.gmods[ xD.global_mode ]
 xD.gmod.name, xD.gmod.desc = pen.magic_translate( xD.gmod.name ), pen.magic_translate( xD.gmod.desc )
-for i,mut in ipairs( global_mutators ) do xD.xys = mut( xD.xys ) end
+for i,mut in ipairs( global_mutators ) do mut() end
 
 if( xD.applets.done == nil ) then
     xD.applets.done = true
@@ -380,9 +377,10 @@ if( not( xD.gmod.nuke_default )) then
     if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
 end
 
-if( not( xD.gmod.nuke_custom )) then
-    for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
-end
+-- this is the performance cancer
+-- if( not( xD.gmod.nuke_custom )) then
+--     for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
+-- end
 
 if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     xM.inv_alpha = frame_num + 15
@@ -450,5 +448,3 @@ end
 
 pen.gui_builder( true )
 index.D = nil
-
--- print( GameGetRealWorldTimeSinceStarted()*1000 - check )

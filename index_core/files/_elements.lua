@@ -273,16 +273,16 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
         if( data.hp_max <= 0 ) then return end
         
-        local length, height, max_hp, hp, red_shift = index.new_vanilla_hp(
+        local bar_data = index.new_vanilla_hp(
             pic_x, pic_y, pen.LAYERS.MAIN_BACK, xD.player_id, { dmg_data = data })
-        pain_flash = red_shift
+        pain_flash = bar_data.red_shift
 
-        local max_hp_text, hp_text = pen.get_short_num( max_hp ), pen.get_short_num( hp )
+        local max_hp_text, hp_text = pen.get_short_num( bar_data.max_hp ), pen.get_short_num( bar_data.hp )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
         pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
-        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..max_hp_text or hp.."/"..max_hp )
-        index.tipping( pic_x - ( length + 2 ), pic_y - 1, nil, length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
+        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..max_hp_text or bar_data.hp.."/"..bar_data.max_hp )
+        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, bar_data.length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
@@ -498,7 +498,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             data.color_hp = data.custom.color
 
             local name = index.get_entity_name( entity_id )
-            local length, height, max_hp, hp = index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
+            local bar_data = index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
             
             if( not( data.in_world ) and pen.vld( data.custom.pic )) then
                 local pic_w, pic_h = pen.get_pic_dims( data.custom.pic )
@@ -507,30 +507,30 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
                 pen.new_image( t_x, t_y, pic_z - 0.01, data.custom.pic )
                 if( pen.vld( data.custom.color_bg )) then
                     t_x, t_y = t_x + ( custom_pos[1] or 0 ), t_y + ( custom_pos[2] or 0 )
-                    pen.new_pixel( t_x, t_y, pic_z + 0.1, data.custom.color_bg, length, height )
+                    pen.new_pixel( t_x, t_y, pic_z + 0.1, data.custom.color_bg, bar_data.length, bar_data.height )
                 end
             end
 
             local rounding = 10
             local off_name, off_perc = 3, -1
-            local off_text = (( height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
-            if( max_hp >= 10^6 ) then rounding = 1000 elseif( max_hp >= 10^5 ) then rounding = 100 end
+            local off_text = (( bar_data.height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
+            if( bar_data.max_hp >= 10^6 ) then rounding = 1000 elseif( bar_data.max_hp >= 10^5 ) then rounding = 100 end
             if( not( data.in_world ) and pen.vld( data.custom.pic )) then off_name, off_perc = 8, -6 end
 
             if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
-            local t_x = pic_x + ( data.in_world and 0 or ( -length/2 + off_name ))
-            local t_y = pic_y + ( data.in_world and ( height + 1 ) or off_text )
+            local t_x = pic_x + ( data.in_world and 0 or ( -bar_data.length/2 + off_name ))
+            local t_y = pic_y + ( data.in_world and ( bar_data.height + 1 ) or off_text )
             pen.new_text( t_x, t_y, pic_z - 0.01, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
             
-            local value = pen.rounder( 100*hp/max_hp, rounding ).."%"
-            t_x, t_y = pic_x + ( data.in_world and 4 or ( length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
+            local value = pen.rounder( 100*bar_data.hp/bar_data.max_hp, rounding ).."%"
+            t_x, t_y = pic_x + ( data.in_world and 4 or ( bar_data.length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
             pen.new_text( t_x, t_y, pic_z - 0.01, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
                 color = data.custom.color_text or pen.PALETTE.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
             pen.new_text( t_x, t_y, pic_z + 0.007, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
             
             if( pen.vld( data.custom.func_extra ) and not( in_world )) then
                 data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data ) end
-            return length, height
+            return bar_data.length, bar_data.height
         end
 
         local custom = xD.boss_bars[ EntityGetFilename( enemy_id )] or {}
