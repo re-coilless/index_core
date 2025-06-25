@@ -305,10 +305,10 @@ for i,info in ipairs( xD.item_list ) do
     xD.item_list[i] = index.set_to_slot( info )
     if( not( pen.vld( info.inv_slot ))) then table.insert( get_out, i ) end
 
+    local skip_man = false
     local ctrl_func = index.cat_callback( info, "ctrl_script" )
-    if( not( pen.vld( ctrl_func ))) then
-        index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing )
-    else ctrl_func( info ) end
+    if( pen.vld( ctrl_func )) then skip_man = ctrl_func( info ) end
+    if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
 end
 for i = #get_out,1,-1 do table.remove( xD.item_list, get_out[i]) end
 
