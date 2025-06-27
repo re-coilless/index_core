@@ -217,6 +217,11 @@ if( pen.vld( ctrl_comp, true )) then
         inv = { mnee.vanilla_input( "Inventory", hooman )},
         lmb = { mnee.vanilla_input( "LeftClick", hooman )},
         rmb = { mnee.vanilla_input( "RightClick", hooman )}}
+    xM.ctrls_memo = xM.ctrls_memo or {}
+    xD.Controls.lmb[3] = xM.ctrls_memo.lmb
+    xM.ctrls_memo.lmb = xD.Controls.lmb[1]
+    xD.Controls.rmb[3] = xM.ctrls_memo.rmb
+    xM.ctrls_memo.rmb = xD.Controls.rmb[1]
 end
 if( pen.vld( dmg_comp, true )) then
     xD.DamageModel = { comp = dmg_comp,
