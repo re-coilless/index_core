@@ -6,13 +6,8 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- debug performance
-
-------------------------------------------------------
-
 -- all spells wand
--- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
-
+-- disable tips while scolling (create a way to pause all on_hover tips for that and a way to override this)
 -- potion bg white line is jumping between thicknesses in full screen game
 -- none of the misc gui elements should open tips if item tip is pinned
 -- image shadows are fucked (too high alpha)
@@ -20,15 +15,16 @@ index.M = index.M or {} --interframe memory values
 -- toggle to enable static bg sprite
 -- universal content origin field in all tooltips
 -- report shift-clicking in inv check
+
+------------------------------------------------------
+
+-- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
+
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- validate z-levels
 -- two slots can be highlighted at once
 -- make sure the shit inherently supports virtual invs
 -- wand pickup + pickup inv
--- conjurer wands are in reversed order
--- allow fake spell injection (add a spell that gets lua input through text2func; the icon is hermes logo; should work per spell entity)
--- make custom monospace highres font
--- figure out performance
 
 ------------------------------------------------------		 [BACKEND]		------------------------------------------------------
 
@@ -2021,8 +2017,6 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	return w - 1, h - 1, clicked, r_clicked, is_hovered
 end
 
--- add three dots at the bottom left corner of wand pic for desc tip
--- wand scrolling (should work with dragger)
 function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 	local xD = index.D
 	if( not( pen.vld( info.pic ))) then return end
@@ -2092,14 +2086,18 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		
 		local slot_count = info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
-			--arrows (small bouncing of slot row post scroll based on the direction scrolled)
-			--use temp cutouts for transition
+			--arrows
+			--small scrollbar indicator at the bottom, becomes more obvious on hover over the tip
 		end
 
 		if( can_tinker == nil ) then
 			can_tinker = not( info.is_frozen )
 			if( can_tinker ) then can_tinker = xD.can_tinker or EntityHasTag( info.id, "index_unlocked" ) end
 		end
+
+		--add three dots at the bottom left corner of wand pic for desc tip
+		--mouse wheel support even while dragging
+		--if hovering over the edge slot, snap with jiggle to the same side
 
 		local counter = 1
 		local slot_x, slot_y = pic_x + 3*d.edging + icon_w + 1, pic_y + size_y - 21

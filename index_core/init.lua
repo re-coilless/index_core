@@ -192,8 +192,21 @@ function OnPlayerSpawned( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 
-	-- CreateItemActionEntity( "HERMES_CORE", x, y )
-	EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
+
+
+	if( true ) then
+		-- CreateItemActionEntity( "HERMES_CORE", x, y )
+		local chest = EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
+
+		-- dofile_once( "data/scripts/gun/gun_actions.lua" )
+		-- local wand_file = "mods/index_core/files/testing/wand.xml"
+		-- local file = pen.magic_read( wand_file )
+		-- file = string.gsub( file, "<SPELLS>", pen.t.loop_concat( actions, function( i, action )
+		-- 	return { action.id, i == #actions and "" or "," }
+		-- end))
+		-- pen.magic_write( wand_file, file )
+		-- EntityAddChild( chest, EntityLoad( wand_file, x - 50, y - 20 ))
+	end
 end
 
 function OnPlayerDied( hooman )
