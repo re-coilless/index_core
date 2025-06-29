@@ -31,7 +31,7 @@ jobs:
           '{
             embeds: [{
               title: "\($emoji) New **[\($repo_name)]** Update",
-              description: "⠀⠀⠀*([\($com_msg)](\($com_url)))*",
+              description: "⠀⠀⠀*-- [\($com_msg)](\($com_url)) --*",
               url: $repo_url,
               color: $color
             }]

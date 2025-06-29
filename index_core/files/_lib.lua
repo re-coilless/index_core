@@ -6,7 +6,6 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- all spells wand
 -- disable tips while scolling (create a way to pause all on_hover tips for that and a way to override this)
 -- potion bg white line is jumping between thicknesses in full screen game
 -- none of the misc gui elements should open tips if item tip is pinned
