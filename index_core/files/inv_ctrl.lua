@@ -108,6 +108,7 @@ pen.c.index_settings = pen.c.index_settings or {
     boss_bar_mode = gg( index.SETTING_BOSS_BAR_MODE, 1 ),
     big_wand_spells = gg( index.SETTING_BIG_WAND_SPELLS, true ),
     spell_frame = gg( index.SETTING_SPELL_FRAME, 1 ),
+    static_background = gg( index.SETTING_STATIC_BACKGROUND, false ),
 }
 
 pen.c.index_struct = pen.c.index_struct or dofile( "mods/index_core/files/_structure.lua" )

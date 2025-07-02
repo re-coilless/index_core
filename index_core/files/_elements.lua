@@ -53,7 +53,19 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
     local full_depth = 1
     if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
         full_depth = #xD.slot_state[ xD.invs_p.f ][1] end
-    if( not( xD.is_opened )) then return end
+    if( not( xD.is_opened )) then return full_depth end
+    
+    if( not( xD.gmod.can_see )) then
+        local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
+        local alpha = 0.5*math.cos( math.pi*delta/30 )
+        pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
+            "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
+    end
+
+    if( xD.static_background ) then
+        pen.new_image( pic_x - 19, pic_y - 20, pen.LAYERS.BACKGROUND, "data/ui_gfx/inventory/background.png" )
+        return full_depth
+    end
 
     local bg_x, bg_y = pic_x - 3, pic_y - 3
     pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
@@ -79,13 +91,6 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
         end
         bg_x = bg_x + 2
         pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_d.xml" )
-    end
-    
-    if( not( xD.gmod.can_see )) then
-        local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
-        local alpha = 0.5*math.cos( math.pi*delta/30 )
-        pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
-            "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
     end
 
     return full_depth
@@ -113,7 +118,7 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
         }, xD.is_opened, false, true )
         pic_x = pic_x + w + step
     end
-    pic_x = pic_x + xD.inv_spacings[1]
+    pic_x = pic_x + xD.inv_spacings[1] - ( xD.static_background and 1 or 0 )
 
     local cat_items = pic_x
     for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quick ) do

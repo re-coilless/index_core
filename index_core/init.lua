@@ -194,10 +194,10 @@ function OnPlayerSpawned( hooman )
 
 
 
-	if( true ) then
+	if( false ) then
 		-- CreateItemActionEntity( "HERMES_CORE", x, y )
 		local chest = EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
-
+		
 		dofile_once( "data/scripts/gun/gun_actions.lua" )
 		local wand_file = "mods/index_core/files/testing/wand.xml"
 		local file = pen.magic_read( wand_file )

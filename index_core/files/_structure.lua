@@ -639,9 +639,9 @@ local ITEM_CATS = {
                     pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
                 if( delta >= h ) then break end
             end
-
+            
             if(( h - delta ) > 0.5 and math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 ) > 0 ) then
-                pen.new_pixel( pic_x, pic_y - ( delta + 0.5 ), pen.LAYERS.MAIN + 0.001, pen.PALETTE.W, w, 0.5 )
+                pen.new_pixel( pic_x, pic_y - ( delta + 0.3 ), pen.LAYERS.MAIN + 0.002, pen.PALETTE.W, w, 1 )
             end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
@@ -677,7 +677,8 @@ local ITEM_CATS = {
             
             local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
-            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, 0.8 - 0.5*ratio, angle )
+            pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, pic_z,
+                info.pic, false, hov_scale, nil, 0.8 - 0.5*ratio, angle )
             pen.new_image( pic_x, pic_y, pic_z - 0.01, info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             return info, info.matter_info.matter[1] ~= 0, true

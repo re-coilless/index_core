@@ -7,18 +7,15 @@ index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
 -- disable tips while scolling (create a way to pause all on_hover tips for that and a way to override this)
--- potion bg white line is jumping between thicknesses in full screen game
 -- none of the misc gui elements should open tips if item tip is pinned
--- image shadows are fucked (too high alpha)
--- the wand inv separator line should be obtained from active 9piece
--- toggle to enable static bg sprite
--- universal content origin field in all tooltips
 -- report shift-clicking in inv check
+-- make sure adding n40 equipment style content is straightforward
 
 ------------------------------------------------------
 
 -- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
 
+-- universal content origin field in all tooltips
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- validate z-levels
 -- two slots can be highlighted at once
@@ -1284,7 +1281,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 				dims = { desc_w, size_y }, fully_featured = true, has_shadow = true, alpha = inter_alpha, line_offset = -2 })
 		end
 		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
+			"mods/index_core/files/pics/vanilla_tooltip_A.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
 		
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
 		local pos_x, pos_y = pic_x + 0.5*inter_size, pic_y + 0.5*inter_size
@@ -1369,7 +1366,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		if( got_spells ) then
 			t_x, t_y = t_x - 2, t_y + 7 + mid_off_y
 			pen.new_image( t_x - 1, t_y - 4, pic_z,
-				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
+				"mods/index_core/files/pics/vanilla_tooltip_A.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
 			
 			pen.t.loop({ spells.p, spells.n }, function( i, tbl )
 				local cnt = 0
@@ -1481,16 +1478,19 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
 		GuiZSetForNextWidget( gui, pic_z + 0.01 )
 		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ))
-
+		
 		if( got_advanced and not( xD.tip_action )) then
 			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
 				"hold "..mnee.get_binding_keys( "index_core", "tip_action" ).."...", { alpha = 0.5*inter_alpha })
+		elseif( pen.vld( info.spell_info.mod )) then
+			pen.new_shadowed_text( pic_x, pic_y + size_y + 2, pic_z,
+				info.spell_info.mod, { color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha })
 		end
 
 		pen.new_image( pic_x + 1, pic_y + d.edging + title_h + desc_h, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
+			"mods/index_core/files/pics/vanilla_tooltip_A.xml", { s_x = size_x - 2, s_y = 1, alpha = inter_alpha })
 		pen.new_image( pic_x + size_x/2 - 0.5, pic_y + d.edging + title_h + desc_h + 3, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = stats_h + 6, alpha = inter_alpha })
+			"mods/index_core/files/pics/vanilla_tooltip_A.xml", { s_x = 1, s_y = stats_h + 6, alpha = inter_alpha })
 
 		local t_x = pic_x + d.edging + 2
 		local t_y = pic_y + d.edging + title_h + desc_h + 5
@@ -1728,7 +1728,7 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 		local scale_x, scale_y = 1/w + 1, 1/h + 1
 		off_x, off_y = pen.rotate_offset( sign*0.5, sign*0.5, angle )
 		pen.new_image( pic_x + hov_scale*off_x, pic_y + hov_scale*off_y, pic_z,
-			pic, { color = pen.PALETTE.SHADOW, s_x = hov_scale*scale_x, s_y = hov_scale*scale_y, alpha = 0.25, angle = angle })
+			pic, { color = pen.PALETTE.SHADOW, s_x = hov_scale*scale_x, s_y = hov_scale*scale_y, alpha = 0.2, angle = angle })
 	end
 	
 	return pic_x, pic_y
@@ -2041,6 +2041,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
 		index.new_slot_pic(
 			pic_x + d.edging + icon_w/2, pic_y + size_y/2, pic_z, info.pic, false, pic_scale, true, inter_alpha )
+		local separator_pic = "mods/index_core/files/pics/vanilla_tooltip_"..( in_hand and "B" or "A" )..".xml"
 
 		local pause_tips = pen.vld( index.M.pinned_tips[ "slot" ])
 		if( info.wand_info.shuffle_deck_when_empty ) then
@@ -2066,8 +2067,8 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x + icon_w, pic_y + 3, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha, can_click = true })
-			pen.new_image( pic_x + 2*d.edging + icon_w, pic_y + 2, pic_z - 0.011,
-				"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_y = 3, alpha = inter_alpha })
+			pen.new_image( pic_x + 2*d.edging + icon_w,
+				pic_y + 2, pic_z - 0.011, separator_pic, { s_y = 3, alpha = inter_alpha })
 		end
 
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
@@ -2081,7 +2082,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ), tip_bg )
 
 		pen.new_image( pic_x + 2*d.edging + icon_w, pic_y + 1, pic_z,
-			"mods/index_core/files/pics/vanilla_tooltip_1.xml", { s_x = 1, s_y = size_y - 2, alpha = inter_alpha })
+			separator_pic, { s_x = 1, s_y = size_y - 2, alpha = inter_alpha })
 		
 		local slot_count = info.wand_info.deck_capacity
 		if( slot_count > 26 ) then
@@ -2200,3 +2201,4 @@ index.SETTING_SECRET_SHOPPER = "INDEX_SETTING_SECRET_SHOPPER"
 index.SETTING_BOSS_BAR_MODE = "INDEX_SETTING_BOSS_BAR_MODE"
 index.SETTING_BIG_WAND_SPELLS = "INDEX_SETTING_BIG_WAND_SPELLS"
 index.SETTING_SPELL_FRAME = "INDEX_SETTING_SPELL_FRAME"
+index.SETTING_STATIC_BACKGROUND = "INDEX_SETTING_STATIC_BACKGROUND"

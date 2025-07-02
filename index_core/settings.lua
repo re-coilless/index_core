@@ -303,6 +303,15 @@ mod_settings =
 				ui_fn = mod_setting_custom_enum,
 				change_fn = sync_settings,
 			},
+			{
+				id = "STATIC_BACKGROUND",
+				ui_name = "Force Static Background",
+				ui_description = "Overrides the dynamically scalable inventory background with a static true to vanilla one.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
 		},
 	},
 }
