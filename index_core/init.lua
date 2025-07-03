@@ -1,13 +1,9 @@
-ModMagicNumbersFileAdd( "mods/index_core/files/magic_numbers.xml" )
-ModLuaFileAppend( "data/scripts/gun/gun_actions.lua", "mods/index_core/files/actions.lua" )
 if( ModIsEnabled( "mnee" ) and ModIsEnabled( "penman" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 else return end
--- is_manual_pause = is_manual_pause or false
--- magic_pause = magic_pause or function() return end
 
---DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to tRAINEDbYdOG and spoopy for testing
---what about making a custom pause menu through noitapatcher
+ModMagicNumbersFileAdd( "mods/index_core/files/magic_numbers.xml" )
+ModLuaFileAppend( "data/scripts/gun/gun_actions.lua", "mods/index_core/files/actions.lua" )
 
 penman_d = penman_d or ModImageMakeEditable
 penman_r = penman_r or ModTextFileGetContent
@@ -15,19 +11,6 @@ penman_w = penman_w or ModTextFileSetContent
 function OnModInit()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 	pen.add_translations( "mods/index_core/files/translations.csv" )
-
-	-- magic_pause = function( is_paused )
-	-- 	local ffi = require( "ffi" )
-	-- 	local gg = ffi.cast( "char**", 0x01020024 )[0]
-	-- 	local ppause = ffi.cast( "char**", gg + 0x48 )[0]
-	-- 	if( is_manual_pause ) then
-	-- 		ppause[0] = 0
-	-- 		is_manual_pause = false
-	-- 	elseif( is_paused ) then
-	-- 		ppause[0] = 1
-	-- 		is_manual_pause = true
-	-- 	end
-	-- end
 
 	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
 	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
@@ -99,7 +82,26 @@ function OnModInit()
 		xml.attr.tags = xml.attr.tags..",index_slotless"
 		pen.magic_write( item..".xml", tostring( xml ))
 	end
+
+	-- magic_pause = function( is_paused )
+	-- 	local ffi = require( "ffi" )
+	-- 	local gg = ffi.cast( "char**", 0x01020024 )[0]
+	-- 	local ppause = ffi.cast( "char**", gg + 0x48 )[0]
+	-- 	if( is_manual_pause ) then
+	-- 		ppause[0] = 0
+	-- 		is_manual_pause = false
+	-- 	elseif( is_paused ) then
+	-- 		ppause[0] = 1
+	-- 		is_manual_pause = true
+	-- 	end
+	-- end
 end
+
+-- is_manual_pause = is_manual_pause or false
+-- magic_pause = magic_pause or function() return end
+
+--DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to copi, spoopy and tRAINEDbYdOG for testing
+--what about making a custom pause menu through noitapatcher
 
 function OnPausePreUpdate()
 	dofile_once( "mods/index_core/files/_lib.lua" )
@@ -197,7 +199,7 @@ function OnPlayerSpawned( hooman )
 	if( false ) then
 		-- CreateItemActionEntity( "HERMES_CORE", x, y )
 		local chest = EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
-		
+
 		dofile_once( "data/scripts/gun/gun_actions.lua" )
 		local wand_file = "mods/index_core/files/testing/wand.xml"
 		local file = pen.magic_read( wand_file )

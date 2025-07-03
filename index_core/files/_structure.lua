@@ -448,8 +448,8 @@ local ITEM_CATS = {
                 damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
             }
             
-            local check_func = function( item_info, inv_info ) return item_info.is_spell or false end
-            local update_func = function( inv_info, info_old, info_new ) return pen.vld( inv_info.in_hand, true ) end
+            local check_func = function( inv_info, item_info ) return item_info.is_spell or false end
+            local update_func = function( inv_info, item_info_old, item_info_new ) return pen.vld( inv_info.in_hand, true ) end
             local sort_func = function( a, b )
                 local inv_slot = { 0, 0 }
                 local is_perma = { false, false }
@@ -580,7 +580,7 @@ local ITEM_CATS = {
             local name, cap = index.get_entity_name( item_id, item_comp ), ""
             if( pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "PotionComponent" ), true )) then
                 local v, m = pen.get_matter( ComponentGetValue2( matter_comp, "count_per_material_type" ))
-                name, cap = index.get_potion_info( item_id, name, v, barrel_size, m )
+                name, cap = index.get_potion_name( item_id, name, v, barrel_size, m )
             end
             return name..( cap or "" )
         end,
@@ -611,7 +611,7 @@ local ITEM_CATS = {
             else info.SprayC = nil end
 
             if( info.is_true_potion ) then
-                info.name, info.fullness = index.get_potion_info( info.id, info.raw_name,
+                info.name, info.fullness = index.get_potion_name( info.id, info.raw_name,
                     math.max( info.matter_info.matter[1], 0 ), info.matter_info.volume, info.matter_info.matter[2]) end
             if( info.matter_info.volume < 0 ) then info.matter_info.volume = info.matter_info.matter[1] end
             

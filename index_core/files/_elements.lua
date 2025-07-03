@@ -282,11 +282,11 @@ function index.new_generic_hp( screen_w, screen_h, xys )
             pic_x, pic_y, pen.LAYERS.MAIN_BACK, xD.player_id, { dmg_data = data })
         pain_flash = bar_data.red_shift
 
-        local max_hp_text, hp_text = pen.get_short_num( bar_data.max_hp ), pen.get_short_num( bar_data.hp )
+        local hp_max_text, hp_text = pen.get_short_num( bar_data.hp_max ), pen.get_short_num( bar_data.hp )
         pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
         pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
-        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..max_hp_text or bar_data.hp.."/"..bar_data.max_hp )
+        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
         index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, bar_data.length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
@@ -310,7 +310,7 @@ function index.new_generic_air( screen_w, screen_h, xys )
             pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.PALETTE.VNL.MANA, nil, 0.75 )
 
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_fix( data.air, data.air_max, 2 )
+        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
     end)
@@ -338,7 +338,7 @@ function index.new_generic_flight( screen_w, screen_h, xys )
             pen.PALETTE.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_fix( data.flight, data.flight_max, 2 )
+        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_perc( data.flight, data.flight_max, 2 )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then xM.flight_shake = nil end
         pic_y = pic_y + 8
@@ -390,7 +390,7 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         local tip = ""
         if( pen.vld( potion_info )) then
             tip = data.name..( pen.vld( data.fullness ) and "\n"..data.fullness or "" )
-        else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_fix( value[1], value[2]) end
+        else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_perc( value[1], value[2]) end
 
         local tip_x, tip_y = unpack( xys.hp )
         index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
@@ -519,7 +519,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             local rounding = 10
             local off_name, off_perc = 3, -1
             local off_text = (( bar_data.height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
-            if( bar_data.max_hp >= 10^6 ) then rounding = 1000 elseif( bar_data.max_hp >= 10^5 ) then rounding = 100 end
+            if( bar_data.hp_max >= 10^6 ) then rounding = 1000 elseif( bar_data.hp_max >= 10^5 ) then rounding = 100 end
             if( not( data.in_world ) and pen.vld( data.custom.pic )) then off_name, off_perc = 8, -6 end
 
             if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
@@ -527,7 +527,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             local t_y = pic_y + ( data.in_world and ( bar_data.height + 1 ) or off_text )
             pen.new_text( t_x, t_y, pic_z - 0.01, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
             
-            local value = pen.rounder( 100*bar_data.hp/bar_data.max_hp, rounding ).."%"
+            local value = pen.rounder( 100*bar_data.hp/bar_data.hp_max, rounding ).."%"
             t_x, t_y = pic_x + ( data.in_world and 4 or ( bar_data.length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
             pen.new_text( t_x, t_y, pic_z - 0.01, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
                 color = data.custom.color_text or pen.PALETTE.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
@@ -948,10 +948,10 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             if( not( info.may_pick )) then return end
 
             local mode = 0
-            local data = index.get_item_data( id )
-            if( data.id ~= nil ) then
-                info.data = data
-                mode = info.pick_auto and 1 or ( data.cat + 1 )
+            local item_info = index.get_item_info( id )
+            if( pen.vld( item_info.id, true )) then
+                info.item_info = item_info
+                mode = info.pick_auto and 1 or ( item_info.cat + 1 )
             else return end
             table.insert( stuff_to_figure[ mode ], info )
         end
@@ -971,7 +971,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                 is_shop = true
                 local cost = ComponentGetValue2( cost_comp, "cost" )
                 if( xD.Wallet.money_always or ( cost <= ( xD.Wallet.money or 0 ))) then
-                    info.data.cost = cost
+                    info.item_info.cost = cost
                 else cost_check = false end
             end
             
@@ -979,29 +979,29 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             if( cost_check ) then
                 ComponentSetValue2( info.comp, "inventory_slot", -5, -5 )
 
-                local will_pause = pen.vld( index.cat_callback( info.data, "on_gui_pause" ))
+                local will_pause = pen.vld( index.cat_callback( info.item_info, "on_gui_pause" ))
                 local is_slotless = will_pause or i == 1 or EntityHasTag( info.id, "index_slotless" )
-                local new_info = is_slotless and { inv_slot = 0 } or index.set_to_slot( info.data, true )
+                local new_info = is_slotless and { inv_slot = 0 } or index.set_to_slot( info.item_info, true )
                 if( pen.vld( new_info.inv_slot )) then
                     if( i > 1 ) then
                         pickup_info.desc = info.pick_desc
                         if( not( pen.vld( pickup_info.desc ))) then
                             pickup_info.desc = is_shop and "$itempickup_purchase" or "$itempickup_pick" end
-                        pickup_info.desc = GameTextGet( pickup_info.desc, "[USE]", info.data.name..( info.data.fullness or "" ))
+                        pickup_info.desc = GameTextGet( pickup_info.desc, "[USE]", info.item_info.name..( info.item_info.fullness or "" ))
                         
                         pickup_info.id = info.id
                         pickup_info.txt = is_shop and "[BUY]" or ( EntityHasTag( info.id, "chest" ) and "[OPEN]" or "[GET]" )
-                        pickup_info.do_sound, pickup_info.info = info.may_sfx, info.data
-                        if( info.may_desc ) then pickup_info.desc = { pickup_info.desc, info.data.desc } end
+                        pickup_info.do_sound, pickup_info.info = info.may_sfx, info.item_info
+                        if( info.may_desc ) then pickup_info.desc = { pickup_info.desc, info.item_info.desc } end
 
                         is_button = false; break
-                    else index.pick_up_item( xD.player_id, info.data, info.may_sfx ) end
+                    else index.pick_up_item( xD.player_id, info.item_info, info.may_sfx ) end
                 elseif( not( got_info )) then no_space, info_dump = true, true end
             elseif( not( got_info )) then cant_buy, info_dump = true, true end
 
             if( info_dump ) then
                 got_info, pickup_info.id = true, info.id
-                pickup_info.name, pickup_info.info = info.data.name, info.data
+                pickup_info.name, pickup_info.info = info.item_info.name, info.item_info
             end
         end
 
@@ -1016,10 +1016,10 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
                     return a[1][1] > b[1][1]
                 end)
 
-                for k,item_data in ipairs( tbl ) do
-                    local cost_comp = EntityGetFirstComponentIncludingDisabled( item_data[1][1], "ItemCostComponent" )
+                for k,item_info in ipairs( tbl ) do
+                    local cost_comp = EntityGetFirstComponentIncludingDisabled( item_info[1][1], "ItemCostComponent" )
                     if( cost_comp == nil ) then
-                        local this_info = item_data[10]
+                        local this_info = item_info[10]
                         w, h = index.new_generic_slot( screen_w/2, screen_h - 50, {
                             inv_id = 0,
                             id = this_info.id,
@@ -1052,7 +1052,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
             local i_x, i_y = EntityGetTransform( math.abs( pickup_info.id ))
             local pic_x, pic_y = pen.world2gui( i_x, i_y )
             ignore_default = guiing(
-                pickup_info.info, nil, pic_x, pic_y, no_space, cant_buy, index.cat_callback( pickup_info.info, "on_tooltip" ))
+                pickup_info.info, nil, pic_x, pic_y, index.cat_callback( pickup_info.info, "on_tooltip" ), no_space, cant_buy )
         end
         
         if( not( ignore_default )) then info_func( screen_h, screen_w, xys, pickup_info ) end
@@ -1125,7 +1125,7 @@ function index.new_generic_drop( item_id )
         if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
     end
 
-    if( do_default ) then index.drop_item( xD.player_xy[1], xD.player_xy[2], info, xD.throw_force, not( xD.no_action_on_drop )) end
+    if( do_default ) then index.drop_item( info, xD.player_xy[1], xD.player_xy[2], xD.throw_force, not( xD.no_action_on_drop )) end
     if( pen.vld( callback )) then callback( info, true ) end
 end
 

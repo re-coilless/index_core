@@ -1,11 +1,12 @@
 dofile_once( "mods/mnee/lib.lua" )
-dofile_once( "mods/penman/_libman.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
 index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
+-- cleanup + documentation
+-- s_x/s_y and dims are inconsistent, just make it all dims
 -- disable tips while scolling (create a way to pause all on_hover tips for that and a way to override this)
 -- none of the misc gui elements should open tips if item tip is pinned
 -- report shift-clicking in inv check
@@ -26,8 +27,8 @@ index.M = index.M or {} --interframe memory values
 
 ---A wrapper for M-Nee bind.
 ---@param mnee_id string
----@param is_continuous boolean
----@param is_clean boolean
+---@param is_continuous? boolean [DFT: true ]
+---@param is_clean? boolean [DFT: true ]
 ---@return boolean
 function index.get_input( mnee_id, is_continuous, is_clean )
 	return mnee.mnin( "bind", { "index_core", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
@@ -35,8 +36,8 @@ end
 
 --A wrapper for Penman sound player.
 ---@param sfx table|string
----@param x? number
----@param y? number
+---@param x? number [DFT: index.D.player_xy[1] ]
+---@param y? number [DFT: index.D.player_xy[2] ]
 function index.play_sound( sfx, x, y )
 	if( x == nil ) then x, y = unpack( index.D.player_xy ) end
 	pen.play_sound( type( sfx ) == "table" and sfx or index.D.sfxes[ sfx ], x, y )
@@ -63,7 +64,7 @@ function index.self_destruct()
 	EntityRemoveComponent( GetUpdatedEntityID(), GetUpdatedComponentID())
 end
 
----Returns a table of all detected status effects, stains, ingestions and perks.
+---Returns a table of perks and all detected status, stain and ingestion effects.
 ---@param hooman entity_id
 ---@return table effects, table perks
 function index.get_status_data( hooman )
@@ -108,7 +109,7 @@ function index.get_status_data( hooman )
 		
 		local effect_info = index.get_thresholded_effect(
 			pen.t.get( status_effects, { effect_id }, "real_id", nil, nil, {}), duration )
-		local time = index.get_effect_duration( duration, effect_info )
+		local time = index.get_effect_duration( duration, ( effect_info or {}).ui_timer_offset_normalized )
 		if( effect_info.id == nil or time == 0 ) then return end
 		
 		local is_many = ing_many[ effect_id ] == 1
@@ -244,7 +245,8 @@ function index.get_status_data( hooman )
 				end
 			end
 			if( icon_info.amount ~= -2 ) then
-				icon_info.amount = index.get_effect_duration( icon_info.amount, icon_info.main_info )
+				icon_info.amount = index.get_effect_duration(
+					icon_info.amount, ( icon_info.main_info or {}).ui_timer_offset_normalized )
 			end
 
 			if( pen.vld( true_id )) then
@@ -277,18 +279,31 @@ function index.get_status_data( hooman )
 	return effect_tbl, perk_tbl
 end
 
+---Adds full stop at the end of the passed string if it was left with no punctuation.
+---@param text string
+---@return string
 function index.full_stopper( text )
 	if( not( pen.vld( text ))) then return "" end
 	if( string.find( text, "%p$" ) == nil ) then text = text.."." end
 	return text
 end
+
+---A very spesific fix for ugly vanilla tooltip text.
+---@param key string
+---@return string
 function index.hud_text_fix( key )
 	local txt = GameTextGetTranslatedOrNot( key or "" )
 	local _,pos = string.find( txt, ":", 1, true )
 	if( pos ~= nil ) then txt = string.sub( txt, 1, pos-1 ) end
 	return txt..":\n"
 end
-function index.hud_num_fix( a, b, zeros )
+
+---Just a neat way of displaying "value/total" style numbers.
+---@param a number
+---@param b number
+---@param zeros? number The number of rounding digits to show. [DFT: 0 ]
+---@return string
+function index.hud_num_perc( a, b, zeros )
 	zeros = zeros or 0
 	return table.concat({
 		string.format( "%."..zeros.."f", a ),
@@ -297,10 +312,29 @@ function index.hud_num_fix( a, b, zeros )
 	})
 end
 
+---Cleaner function that turns internal stain values into actually usable values.
+---@param perc number
+---@return number
 function index.get_stain_perc( perc )
 	local some_cancer = 14/99 --idk fucking why
 	return math.max( math.floor( 100*( perc - some_cancer )/( 1 - some_cancer ) + 0.5 ), 0 )
 end
+
+---Obtains real-world effect duration from raw frame value.
+---@param frames number
+---@param offset? number Displayed value offset. [DFT: 0 ]
+---@param eps? number Minimal effect duration [DFT: pen.c.index_settings.min_effect_duration ]
+---@return number
+function index.get_effect_duration( frames, offset, eps )
+	frames = frames - 60*( offset or 0 )
+	if( math.abs( frames*60 ) <= ( eps or pen.c.index_settings.min_effect_duration )) then frames = 0 end
+	return frames < 0 and -1 or frames
+end
+
+---Just a neat way of constructing effect duration strings.
+---@param secs number
+---@param no_units? boolean Prevents unit indicator from being appended to the end of the value. [DFT: false ]
+---@return string
 function index.get_effect_timer( secs, no_units )
 	if(( secs or -1 ) < 0 ) then return "" end
 
@@ -309,11 +343,11 @@ function index.get_effect_timer( secs, no_units )
 	if( not( no_units )) then secs = string.gsub( GameTextGet( "$inventory_seconds", secs ), " ", "" ) end
 	return is_tiny and string.sub( secs, 2 ) or secs
 end
-function index.get_effect_duration( frames, info, eps )
-	frames = frames - 60*(( info or {}).ui_timer_offset_normalized or 0 )
-	if( math.abs( frames*60 ) <= ( eps or pen.c.index_settings.min_effect_duration )) then frames = 0 end
-	return frames < 0 and -1 or frames
-end
+
+---Assembles an effect table with correction for duration thresholds.
+---@param effects table A table of all the thresholded state infos.
+---@param frames number
+---@return EffectInfo
 function index.get_thresholded_effect( effects, frames )
 	local final_id = #effects
 	if( final_id < 2 ) then return effects[1] or {} end
@@ -328,6 +362,13 @@ function index.get_thresholded_effect( effects, frames )
 	end
 	return effects[ final_id ]
 end
+
+---Just a neat way of constructing numerical stat value display string.
+---@param main_value? number Core value of this stat. [DFT: default ]
+---@param added_value? number Offset for the main_value. [DFT: 0 ]
+---@param default number
+---@param allow_inf? boolean Treats negative values as infinities. [DFT: false ]
+---@return string stat, boolean is_default
 function index.get_vanilla_stat( main_value, added_value, default, allow_inf )
 	main_value, added_value = main_value or default, added_value or 0
 	local is_dft = main_value == default
@@ -338,6 +379,9 @@ end
 
 ------------------------------------------------------		[INVENTORY]		------------------------------------------------------
 
+---Gets the number of empty slots in the inventory.
+---@param inv_id entity_id
+---@return number count, boolean is_empty
 function index.get_inv_space( inv_id )
 	local total, count = 0, 0
 	pen.t.loop( index.D.slot_state[ inv_id ], function( i,col )
@@ -348,6 +392,13 @@ function index.get_inv_space( inv_id )
 	return count, total == count
 end
 
+---Executes the spesified callback function family.
+---@param info ItemInfo
+---@param callback string
+---@param input? table Leaving this as nil returns the function itself, the provided table will be unpacked to populate callback arguements.
+---@param fallback? value Default output if no callback was executed.
+---@param do_default? boolean Leaving empty will execute category callback if no item one was detected, setting as false/true will prevent/force this behavior no matter the item status.
+---@return values|function
 function index.cat_callback( info, callback, input, fallback, do_default )
 	local xD = index.D
 	local func_local = info[ callback ]
@@ -368,7 +419,7 @@ end
 
 ---Transforms numerical inv_cat value to a table of all allowed inventories.
 ---@param inv_cat number -1 is quick only (is_quickest changes this), -0.5 is quick and quickest, 0 is everything, 0.5 is full only, 1 is nothing
----@param is_quickest boolean
+---@param is_quickest? boolean [DFT: false ]
 ---@return table inv_kinds
 function index.get_valid_invs( inv_cat, is_quickest ) --allow implementing custom checks or just allow making this string
 	local inv_kinds = {}
@@ -378,19 +429,29 @@ function index.get_valid_invs( inv_cat, is_quickest ) --allow implementing custo
 	return inv_kinds
 end
 
+---Constructs an inventory info table.
+---@param inv_id entity_id
+---@param size? table A vector of inventory dimensions.
+---@param kind? table A table fo inventory kinds.
+---@param kind_func? fun( inv_info:InventoryInfo ): inv_kinds:table Dynamically returns inv kinds. 
+---@param check_func? fun( inv_info:InventoryInfo, item_info:ItemInfo ): is_fit:boolean Dynamically checks insert viability.
+---@param update_func? fun( inv_info:InventoryInfo, item_info_old:ItemInfo, item_info_new:ItemInfo ): will_reset:boolean Runs on any item modification event.
+---@param gui_func? fun( pic_x:number, pic_y:number, inv_info:InventoryInfo, xys:XYS, slot_func:function ) Custom GUI render call, only works for external inventories.
+---@param sort_func? fun( a:value, b:value ): will_swap:boolean The means of establishing custom ordering.
+---@return InventoryInfo
 function index.get_inv_info( inv_id, size, kind, kind_func, check_func, update_func, gui_func, sort_func )
+	local size_data = pen.magic_storage( inv_id, "index_inv_size", "value_string" )
+	if( pen.vld( size_data )) then size = pen.t.pack( size_data, true ) end
 	local kind_data = pen.magic_storage( inv_id, "index_inv_kind", "value_string" )
 	if( pen.vld( kind_data )) then kind = pen.t.pack( kind_data ) end
 	local kind_path = pen.magic_storage( inv_id, "index_inv_kind_func", "value_string" )
 	if( pen.vld( kind_path )) then kind_func = dofile( kind_path ) end
-	local size_data = pen.magic_storage( inv_id, "index_inv_size", "value_string" )
-	if( pen.vld( size_data )) then size = pen.t.pack( size_data, true ) end
-	local gui_path = pen.magic_storage( inv_id, "index_inv_gui", "value_string" )
-	if( pen.vld( gui_path )) then gui_func = dofile_once( gui_path ) end
 	local check_path = pen.magic_storage( inv_id, "index_inv_check", "value_string" )
 	if( pen.vld( check_path )) then check_func = dofile_once( check_path ) end
 	local update_path = pen.magic_storage( inv_id, "index_inv_update", "value_string" )
 	if( pen.vld( update_path )) then update_func = dofile_once( update_path ) end
+	local gui_path = pen.magic_storage( inv_id, "index_inv_gui", "value_string" )
+	if( pen.vld( gui_path )) then gui_func = dofile_once( gui_path ) end
 	local sort_path = pen.magic_storage( inv_id, "index_inv_sort", "value_string" )
 	if( pen.vld( sort_path )) then sort_func = dofile_once( sort_path ) end
 	
@@ -410,23 +471,30 @@ function index.get_inv_info( inv_id, size, kind, kind_func, check_func, update_f
 	}
 end
 
-function index.inv_check( item_info, info )
+---Checks whether item is allowed in the provided inventory or not.
+---@param item_info ItemInfo
+---@param data InventoryCheckData
+---@return boolean is_fit
+function index.inv_check( item_info, data )
 	if(( item_info.id or 0 ) < 0 ) then return true end
-	if( item_info.id == info.inv_id ) then return false end
+	if( item_info.id == data.inv_id ) then return false end
 	
-	local kind_memo = info.kind
-	local inv_info = index.D.invs[ info.inv_id ]
-	info.kind = pen.vld( inv_info.kind_func ) and inv_info.kind_func( info ) or inv_info.kind
+	local kind_memo = data.kind
+	local inv_info = index.D.invs[ data.inv_id ]
+	data.kind = pen.vld( inv_info.kind_func ) and inv_info.kind_func( data ) or inv_info.kind
 	
-	local is_universal = pen.t.get( info.kind, "universal" ) ~= 0
-	local is_valid = pen.vld( pen.t.get( index.get_valid_invs( item_info.inv_cat, item_info.is_quickest ), info.kind, nil, nil, {}))
-	local is_fit = ( is_universal or is_valid ) and ( inv_info.check == nil or inv_info.check( item_info, info ))
-	if( is_fit ) then is_fit = index.cat_callback( item_info, "on_slot_check", { info }, { is_fit }) end
+	local is_universal = pen.t.get( data.kind, "universal" ) ~= 0
+	local is_valid = pen.vld( pen.t.get( index.get_valid_invs( item_info.inv_cat, item_info.is_quickest ), data.kind, nil, nil, {}))
+	local is_fit = ( is_universal or is_valid ) and ( inv_info.check == nil or inv_info.check( data, item_info ))
+	if( is_fit ) then is_fit = index.cat_callback( item_info, "on_slot_check", { data }, { is_fit }) end
 	
-	info.kind = kind_memo
+	data.kind = kind_memo
 	return is_fit
 end
 
+---Handles all the background ECS processes that stored items require.
+---@param info ItemInfo
+---@param in_hand? boolean Leave empty to be automatically determined.
 function index.inv_boy( info, in_hand )
 	local item_id = info.id
 	local in_wand = pen.vld( info.in_wand, true )
@@ -448,13 +516,17 @@ function index.inv_boy( info, in_hand )
 	end)
 
 	if( is_free ) then return end
-	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end
+	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end --the hell is this
 	if( in_hand ) then hooman = EntityGetParent( item_id ) end
 	local x, y = EntityGetTransform( hooman )
 	EntitySetTransform( item_id, x, y )
 	EntityApplyTransform( item_id, x, y )
 end
 
+---A child-enabled wrapper for index.inv_boy.
+---@param info ItemInfo
+---@param in_hand? boolean
+---@param force_full? boolean Use this to automatically process children of inventory entities (like wands). [DFT: false ]
 function index.inv_man( info, in_hand, force_full )
 	local item_id = info.id
 	pen.child_play_full( item_id, function( child, params )
@@ -465,6 +537,10 @@ function index.inv_man( info, in_hand, force_full )
 	info.id = item_id
 end
 
+---A powerful automatic slot assignment apparatus.
+---@param info ItemInfo
+---@param is_player? boolean Leave empty to be automatically determined.
+---@return ItemInfo
 function index.set_to_slot( info, is_player )
 	local xD = index.D
 	if( is_player == nil ) then
@@ -533,6 +609,10 @@ function index.set_to_slot( info, is_player )
 	return info
 end
 
+---A wrapper for index.set_to_slot that enables it to evaluate arbitrary inventories for potential swap.
+---@param info ItemInfo
+---@param inv_id? entity_id [DFT: info.inv_id ]
+---@return boolean has_found
 function index.find_a_slot( info, inv_id )
 	local found_slot = false
 	local old_inv = info.inv_id
@@ -547,20 +627,28 @@ function index.find_a_slot( info, inv_id )
 	return false
 end
 
-function index.swap_check( item_in, item_out, slot_data )
-	local inv_memo, slot_memo = item_out.inv_id, item_out.inv_slot
-	item_out.inv_id, item_out.inv_slot = item_out.inv_id or slot_data.inv_id, item_out.inv_slot or slot_data.inv_slot
-	local is_fit = index.inv_check( item_in, item_out ) and index.inv_check( item_out, item_in )
-	item_out.inv_id, item_out.inv_slot = inv_memo, slot_memo
+---A wrapper for index.inv_check that is used for evaluating both directions of inter-invenrory swap at once.
+---@param info_in ItemInfo
+---@param info_out ItemInfo
+---@param slot_data SlotData
+---@return boolean is_fit
+function index.swap_check( info_in, info_out, slot_data )
+	local inv_memo, slot_memo = info_out.inv_id, info_out.inv_slot
+	info_out.inv_id, info_out.inv_slot = info_out.inv_id or slot_data.inv_id, info_out.inv_slot or slot_data.inv_slot
+	local is_fit = index.inv_check( info_in, info_out ) and index.inv_check( info_out, info_in )
+	info_out.inv_id, info_out.inv_slot = inv_memo, slot_memo
 	return is_fit
 end
 
-function index.slot_swap( item_in, slot_data )
+---Handles inserting item in a slot.
+---@param item_id entity_id
+---@param slot_data SlotData
+function index.slot_swap( item_id, slot_data )
 	local xD = index.D
 	local reset, infos = { 0, 0 }, {}
-	infos[1] = pen.t.get( xD.item_list, item_in, nil, nil, {})
+	infos[1] = pen.t.get( xD.item_list, item_id, nil, nil, {})
 	infos[2] = pen.t.get( xD.item_list, slot_data.id, nil, nil, {})
-	local parent1, parent2 = EntityGetParent( item_in ), slot_data.inv_id
+	local parent1, parent2 = EntityGetParent( item_id ), slot_data.inv_id
 	
 	pen.t.loop({ parent1, parent2 }, function( i, p )
 		local inv_info = xD.invs[ p or 0 ] or {}
@@ -570,9 +658,9 @@ function index.slot_swap( item_in, slot_data )
 		end
 	end)
 	if( parent1 ~= parent2 ) then
-		reset[1] = pen.get_item_owner( item_in, true )
-		EntityRemoveFromParent( item_in )
-		EntityAddChild( parent2, item_in )
+		reset[1] = pen.get_item_owner( item_id, true )
+		EntityRemoveFromParent( item_id )
+		EntityAddChild( parent2, item_id )
 		if( pen.vld( slot_data.id, true )) then
 			reset[2] = pen.get_item_owner( slot_data.id, true )
 			EntityRemoveFromParent( slot_data.id )
@@ -580,7 +668,7 @@ function index.slot_swap( item_in, slot_data )
 		end
 	end
 	
-	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_in, "ItemComponent" )
+	local item_comp1 = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	local slot1 = { ComponentGetValue2( item_comp1, "inventory_slot" )}
 	local slot2 = slot_data.inv_slot
 	ComponentSetValue2( item_comp1, "inventory_slot", slot2[1] - 1, slot2[2] < 0 and slot2[2] or slot2[2] - 1 )
@@ -598,10 +686,18 @@ function index.slot_swap( item_in, slot_data )
 	end
 end
 
+---Checks whether passed item is valid to be displayed.
+---@param name string
+---@return boolean
 function index.check_item_name( name )
 	return pen.vld( name ) and ( string.find( name, "%$" ) ~= nil or string.find( name, "%w_%w" ) == nil )
 end
 
+---Checks a variety of components to obtain a true display-ready name.
+---@param entity_id entity_id
+---@param item_comp? component_id
+---@param abil_comp? component_id
+---@return string name, string raw_name
 function index.get_entity_name( entity_id, item_comp, abil_comp )
 	local name = pen.vld( item_comp, true ) and ComponentGetValue2( item_comp, "item_name" ) or ""
 
@@ -621,16 +717,23 @@ function index.get_entity_name( entity_id, item_comp, abil_comp )
 	return index.check_item_name( name ) and string.gsub( GameTextGetTranslatedOrNot( name ), "(%s*)%$0(%s*)", "" ) or "", name
 end
 
-function index.get_potion_info( entity_id, name, volume, max_volume, matters )
+---Constructs a potion name with contents in mind.
+---@param entity_id entity_id
+---@param name string
+---@param volume? number
+---@param max_volume? number
+---@param matters? table MaterialInventoryComponent.count_per_material_type
+---@return string name, string fullness
+function index.get_potion_name( entity_id, name, volume, max_volume, matters )
 	local cnt, memo_tbl = 1, {}
 	local info = pen.t.loop_concat( matters, function( i, mtr )
 		if( cnt > 3 ) then return end
 		if( i ~= 1 and mtr[2] <= 5 ) then return end
-		local name = pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
-		if( memo_tbl[ name ] ~= nil ) then return end
-		memo_tbl[ name ], cnt = 1, cnt + 1
+		local mn = pen.capitalizer( GameTextGetTranslatedOrNot( CellFactory_GetUIName( mtr[1])))
+		if( memo_tbl[ mn ] ~= nil ) then return end
+		memo_tbl[ mn ], cnt = 1, cnt + 1
 
-		return { i == 1 and "" or " + ", name, nil }
+		return { i == 1 and "" or " + ", mn, nil }
 	end) or ""
 	
 	local v = nil
@@ -642,7 +745,12 @@ function index.get_potion_info( entity_id, name, volume, max_volume, matters )
 	return table.concat({ info, ( info == "" and info or " " ), name }), v
 end
 
-function index.get_item_data( item_id, inv_info, item_list )
+---Assembles an exhaustive list of item properties.
+---@param item_id entity_id
+---@param inv_info InventoryInfo
+---@param item_list? table WIP table of all the items within the system.
+---@return ItemInfo
+function index.get_item_info( item_id, inv_info, item_list )
 	local xD = index.D
 	local info = { id = item_id }
 	if( pen.vld( inv_info )) then info.inv_id, info.inv_kind = inv_info.id, inv_info.kind end
@@ -741,7 +849,8 @@ function index.get_item_data( item_id, inv_info, item_list )
 	return info
 end
 
-function index.get_items( hooman )
+---An index.get_item_info wrapper that processes every single item in player's posession.
+function index.get_items()
 	local xD = index.D
 	local item_tbl = {}
 	pen.t.loop({ "invs", "invs_i" }, function( k, inv_tbl )
@@ -749,7 +858,7 @@ function index.get_items( hooman )
 			if( k == 2 ) then xD.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child )
 				if( EntityHasTag( child, "not_an_item" )) then return end
-				local new_info = index.get_item_data( child, inv_info, item_tbl )
+				local new_info = index.get_item_info( child, inv_info, item_tbl )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
 				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
@@ -767,6 +876,9 @@ function index.get_items( hooman )
 	xD.item_list = item_tbl
 end
 
+---Briefly reenables ItemPickUpperComponent to allow for vanilla-compatible pickups.
+---@param hooman entity_id
+---@param item_id entity_id
 function index.vanilla_pick_up( hooman, item_id )
 	local pick_comp = EntityGetFirstComponentIncludingDisabled( hooman, "ItemPickUpperComponent" )
 	if( not( pen.vld( pick_comp, true ))) then return end
@@ -775,6 +887,11 @@ function index.vanilla_pick_up( hooman, item_id )
 	EntitySetComponentIsEnabled( hooman, pick_comp, true )
 end
 
+---Executes item pickup from within Index system.
+---@param hooman entity_id
+---@param info ItemInfo
+---@param is_audible? boolean Will the sfx play? [DFT: false ]
+---@param is_silent? boolean Will any pickup feedbacks be executed? [DFT: false ]
 function index.pick_up_item( hooman, info, is_audible, is_silent )
 	local xD = index.D
 	local callback = index.cat_callback( info, "on_pickup" )
@@ -820,7 +937,13 @@ function index.pick_up_item( hooman, info, is_audible, is_silent )
 	end
 end
 
-function index.drop_item( h_x, h_y, info, throw_force, do_action )
+---Executes item drop from within Index system.
+---@param info ItemInfo
+---@param x number
+---@param y number
+---@param throw_force number
+---@param do_action? boolean Will the item execute LuaComponent.script_throw_item? [DFT: false ]
+function index.drop_item( info, x, y, throw_force, do_action )
 	local xD = index.D
 	local item_id, do_reset = info.id, true
 	local has_no_cancer = not( info.is_kicking )
@@ -834,7 +957,7 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 		else has_no_cancer = true end
 	end
 
-	local p_d_x, p_d_y = xD.pointer_world[1] - h_x, xD.pointer_world[2] - h_y
+	local p_d_x, p_d_y = xD.pointer_world[1] - x, xD.pointer_world[2] - y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
 
@@ -844,11 +967,11 @@ function index.drop_item( h_x, h_y, info, throw_force, do_action )
 		if( do_reset ) then pen.reset_active_item( info.in_hand ) end
 	else
 		xD.throw_pos_rad = xD.throw_pos_rad + xD.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*xD.throw_pos_rad, h_y + math.sin( angle )*xD.throw_pos_rad
-		local is_hit, hit_x, hit_y = RaytraceSurfaces( h_x, h_y, from_x, from_y )
-		if( is_hit ) then xD.throw_pos_rad = math.sqrt(( h_x - hit_x )^2 + ( h_y - hit_y )^2 ) end
+		from_x, from_y = x + math.cos( angle )*xD.throw_pos_rad, y + math.sin( angle )*xD.throw_pos_rad
+		local is_hit, hit_x, hit_y = RaytraceSurfaces( x, y, from_x, from_y )
+		if( is_hit ) then xD.throw_pos_rad = math.sqrt(( x - hit_x )^2 + ( y - hit_y )^2 ) end
 		xD.throw_pos_rad = xD.throw_pos_rad - xD.throw_pos_size
-		from_x, from_y = h_x + math.cos( angle )*xD.throw_pos_rad, h_y + math.sin( angle )*xD.throw_pos_rad
+		from_x, from_y = x + math.cos( angle )*xD.throw_pos_rad, y + math.sin( angle )*xD.throw_pos_rad
 	end
 
 	local extra_v_force = 0
@@ -893,10 +1016,17 @@ end
 
 ------------------------------------------------------		[GUI]		------------------------------------------------------
 
+---Adjusts slots image z-level on being dragged.
+---@param dragged_id entity_id
+---@param pic_z number
+---@return number pic_z
 function index.slot_z( dragged_id, pic_z )
 	return index.D.dragger.item_id == dragged_id and 2*pen.LAYERS.TIPS or pic_z
 end
 
+---Outputs the message both through vanilla and Index channels.
+---@param msg string|table
+---@param is_special? boolean [DFT: false ]
 function index.print( msg, is_special )
 	is_special = is_special or false
 	( is_special and GamePrintImportant or GamePrint )( unpack( pen.get_hybrid_table( msg )))
@@ -904,7 +1034,9 @@ function index.print( msg, is_special )
 	table.insert( index.M[ is_special and "log_special" or "log" ], msg )
 end
 
----Extracts offsets from SpriteComponent.
+---Assembles sprite data.
+---@param info ItemInfo
+---@return PicInfo
 function index.register_item_pic( info )
 	if( not( pen.vld( info.pic ))) then return end
 	local force_update = EntityHasTag( info.id, "index_update" )
@@ -930,25 +1062,33 @@ function index.register_item_pic( info )
 	end, { reset_count = 0, force_update = force_update })
 end
 
-function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
+---A wrapper for pen.new_dragger.
+---@param did entity_id
+---@param info ItemInfo
+---@param pic_x number
+---@param pic_y number
+---@param pic_w number
+---@param pic_h number
+---@return number pic_x, number pic_y, number drag_state, boolean clicked, boolean r_clicked, boolean is_hovered
+function index.new_dragger_shell( did, info, pic_x, pic_y, pic_w, pic_h )
 	local xD, xM = index.D, index.M
 	if( xM.is_dragging ) then return pic_x, pic_y end
 	xM.dragger_buffer = xM.dragger_buffer or { 0, 0 }
 	if( xD.frame_num - xM.dragger_buffer[2] > 2 ) then xM.dragger_buffer = { 0, 0 } end
 	
 	local d_x, d_y = xM.dragger_x or pic_x, xM.dragger_y or pic_y
-	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered = pen.new_dragger( id,
+	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered = pen.new_dragger( did,
 		pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h, pen.LAYERS.TIPS, { no_offs = true, no_dragging = xD.shift_action })
 	if( not( is_hovered ) and ( drag_state == 0 or drag_state == 1 )) then return pic_x, pic_y, drag_state end
-	if( pen.vld( xM.dragger_buffer[1], true ) and xM.dragger_buffer[1] ~= id ) then return pic_x, pic_y, drag_state end
-	if( not( pen.vld( xM.dragger_buffer[1], true ))) then xM.dragger_buffer = { id, xD.frame_num } end
-	if( not( pen.vld( xD.dragger.item_id, true ))) then xD.dragger.item_id = id end
+	if( pen.vld( xM.dragger_buffer[1], true ) and xM.dragger_buffer[1] ~= did ) then return pic_x, pic_y, drag_state end
+	if( not( pen.vld( xM.dragger_buffer[1], true ))) then xM.dragger_buffer = { did, xD.frame_num } end
+	if( not( pen.vld( xD.dragger.item_id, true ))) then xD.dragger.item_id = did end
 	
-	if( xD.dragger.item_id == id ) then
-		if( xM.pending_slots[ id ] and drag_state < 0 ) then
+	if( xD.dragger.item_id == did ) then
+		if( xM.pending_slots[ did ] and drag_state < 0 ) then
 			xD.dragger.swap_soon = true
 			table.insert( xM.slot_anim, {
-				id = id,
+				id = did,
 				x = xM.dragger_x,
 				y = xM.dragger_y,
 				frame = xD.frame_num,
@@ -962,13 +1102,18 @@ function index.new_dragger_shell( id, info, pic_x, pic_y, pic_w, pic_h )
 		xM.dragger_x, xM.dragger_y = new_x, new_y
 		pic_x, pic_y = new_x, new_y
 		
-		xM.pending_slots[ id ] = drag_state > 0
-		if( xM.pending_slots[ id ]) then xM.dragger_buffer[2] = xD.frame_num end
+		xM.pending_slots[ did ] = drag_state > 0
+		if( xM.pending_slots[ did ]) then xM.dragger_buffer[2] = xD.frame_num end
 		xM.is_dragging = true
 	end
 	return pic_x, pic_y, drag_state, clicked, r_clicked, is_hovered
 end
 
+---Interpolates memorized slot position to spesified end coordinate.
+---@param item_id entity_id
+---@param end_x number
+---@param end_y number
+---@return number pic_x, number pic_y, boolean is_going
 function index.slot_anim( item_id, end_x, end_y )
 	local xD, xM = index.D, index.M
 	local anim_info, anim_id = pen.t.get( xM.slot_anim, item_id, nil, nil, {})
@@ -991,6 +1136,12 @@ function index.slot_anim( item_id, end_x, end_y )
 	return end_x, end_y, true
 end
 
+---Dynamically assembles a background box in vanilla style.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param dims table
+---@param alpha? number
 function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 	pen.new_image( pic_x, pic_y, pic_z,
 		"mods/index_core/files/pics/vanilla_box.xml", { s_x = dims[1], s_y = dims[2], alpha = alpha })
@@ -1033,6 +1184,15 @@ function index.new_vanilla_box( pic_x, pic_y, pic_z, dims, alpha )
 	end
 end
 
+---Dynamically assembles baseline bar in vanilla style.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param dims table { length, height, percentage }
+---@param color? table [DFT: { 255, 255, 255 } ]
+---@param shake_frame? number From 0 to 20.
+---@param alpha? number [DFT: 1 ]
+---@param only_slider? boolean Will skip the background. [DFT: false ]
 function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, alpha, only_slider )
 	local eid = table.concat({ pic_x, ";", pic_y, ";", pic_z })
 
@@ -1055,6 +1215,13 @@ function index.new_vanilla_bar( pic_x, pic_y, pic_z, dims, color, shake_frame, a
 		"mods/index_core/files/pics/vanilla_bar_bg.xml", { s_x = dims[1], s_y = dims[2]})
 end
 
+---A wrapper for index.new_vanilla_bar that styles it after vanilla HP one.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param entity_id entity_id
+---@param data? HpBarData
+---@return HpBarDataOut
 function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
 	local xD, xM = index.D, index.M
     local dmg_comp = EntityGetFirstComponentIncludingDisabled( entity_id, "DamageModelComponent" )
@@ -1119,6 +1286,11 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
     return { length = length, height = height, max_hp = max_hp, hp = hp, red_shift = red_shift }
 end
 
+---Draws various pickup-related widgets.
+---@param screen_h number
+---@param screen_w number
+---@param xys XYS
+---@param info ItemInfo
 function index.new_pickup_info( screen_h, screen_w, xys, info )
 	info.color = info.color or {}
 
@@ -1134,7 +1306,7 @@ function index.new_pickup_info( screen_h, screen_w, xys, info )
 				is_centered_x = true, has_shadow = true, color = info.color[1] or pen.PALETTE.VNL[ clr ]})
 			if( is_elaborate ) then
 				pen.new_text( pic_x, pic_y + 12, pen.LAYERS.WORLD_UI, info.desc[2], {
-					is_centered_x = true, has_shadow = true, color = info.color[2] or pen.PALETTE.VNL.LGREY})
+					is_centered_x = true, has_shadow = true, color = info.color[2] or pen.PALETTE.VNL.LGREY })
 			end
 		end
 	end
@@ -1150,6 +1322,16 @@ function index.new_pickup_info( screen_h, screen_w, xys, info )
 	end
 end
 
+---A wrapper for tooltip function that allows one to create a hoverable area.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param s_x number
+---@param s_y number
+---@param text string
+---@param data? IndexTippingData
+---@param func? fun( text?:string, d?:PenmanTooltipData )
+---@return boolean is_active, boolean clicked, boolean r_clicked
 function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	data = data or {}
 	local xD = index.D
@@ -1165,10 +1347,15 @@ function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
 	local tip_x, tip_y = unpack( data.pos or { 0, 0 })
 	local ref_pos = xD.xys.hp or { xD.screen_dims[1] - 41, 30 }
 	if( tip_x == ( ref_pos[1] - 44 ) and tip_y == ref_pos[2]) then data.tid = data.tid or "hud" end
-	( func or xD.tip_func )( text, data, func )
+	( func or xD.tip_func )( text, data )
 	return data.is_active, clicked, r_clicked
 end
 
+---A wrapper for tooltip function that handles pinning it on hover.
+---@param uid table { tip_id, pin_id }
+---@param is_active boolean
+---@param tip_func function
+---@param input? value
 function index.pinning( uid, is_active, tip_func, input )
 	local tid, pid = unpack( uid )
 	local xD, xM = index.D, index.M
@@ -1188,7 +1375,15 @@ function index.pinning( uid, is_active, tip_func, input )
 	end
 end
 
-function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func )
+---A wrapper for tooltip function that handles in-world objects.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param tip_func fun( info:ItemInfo, tid:string, pic_x:number, pic_y:number, pic_z:number )
+---@param no_space? boolean [DFT: false ]
+---@param cant_buy? boolean [DFT: false ]
+function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, tip_func, no_space, cant_buy )
 	local xD = index.D
 	if( cant_buy and xD.secret_shopper ) then return end
 	
@@ -1207,8 +1402,17 @@ function index.new_vanilla_worldtip( info, tid, pic_x, pic_y, no_space, cant_buy
 	tip_func( info, tid, pic_x, pic_y, pen.LAYERS.WORLD_FRONT - 10 )
 end
 
---advanced mode hides the wand pic and arranges the stats in two columns
+---A wand-centric wrapper for tooltip function.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param is_simple? boolean [DFT: false ]
+---@return boolean is_active, table dims, boolean is_pinned
 function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
+	--advanced mode hides the wand pic and arranges the stats in two columns
+
 	local xD, xM = index.D, index.M
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
@@ -1217,7 +1421,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	local spells = { p = {}, n = {}}
 	pen.t.loop( EntityGetAllChildren( info.id ), function( i, spell )
 		local kid_info = pen.t.get( xD.item_list, spell, nil, nil, {})
-		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_data( spell, info, xD.item_list ) end
+		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_info( spell, info, xD.item_list ) end
 		if( pen.vld( kid_info.id, true )) then table.insert( spells[ kid_info.is_permanent and "p" or "n" ], kid_info ) end
 	end)
 	for field,tbl in pairs( spells ) do
@@ -1408,9 +1612,18 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	end)
 end
 
---add new marker for spells that are new (for wand tip too)
---add a way to inject custom stats through gun_actions.lua
+---A spell-centric wrapper for tooltip function.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param is_simple? boolean [DFT: false ]
+---@return boolean is_active, table dims, boolean is_pinned
 function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
+	--add new marker for spells that are new (for wand tip too)
+	--add a way to inject custom stats through gun_actions.lua
+
 	local xD = index.D
 	if( not( pen.vld( info.name ))) then return end
 	if( not( pen.vld( info.desc ))) then return end
@@ -1536,6 +1749,14 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	end)
 end
 
+---A potion-centric wrapper for tooltip function.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param is_simple? boolean [DFT: false ]
+---@return boolean is_active, table dims, boolean is_pinned
 function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	local xD = index.D
 	if( not( pen.vld( info.pic ))) then return end
@@ -1638,7 +1859,16 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	end)
 end
 
-function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_magic )
+---A wrapper for tooltip function redesigned for use with generic items.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param is_simple? boolean [DFT: false ]
+---@param do_runes? boolean [DFT: false ]
+---@return boolean is_active, table dims, boolean is_pinned
+function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_runes )
 	local xD = index.D
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
@@ -1666,9 +1896,9 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 		local inter_alpha = pen.animate( 1, d.t, { ease_out = "exp", frames = d.frames })
 		pen.new_shadowed_text( pic_x + d.edging, pic_y + d.edging - 2, pic_z, info.name, {
 			dims = { size_x - icon_w - 3, size_y }, fully_featured = true, alpha = inter_alpha,
-			color = pen.PALETTE.VNL[( do_magic or is_sampo ) and "RUNIC" or "YELLOW" ]})
+			color = pen.PALETTE.VNL[( do_runes or is_sampo ) and "RUNIC" or "YELLOW" ]})
 		
-		local runic_state = do_magic and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
+		local runic_state = do_runes and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
 		if( runic_state ~= 1 ) then
 			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
 				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
@@ -1695,18 +1925,44 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ma
 	end)
 end
 
+---A table-centric wrapper for tooltip function.
+---@param info ItemInfo
+---@param tid string
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param is_simple? boolean [DFT: false ]
+---@return boolean is_active, table dims, boolean is_pinned
 function index.new_vanilla_ttt( info, tid, pic_x, pic_y, pic_z, is_simple )
 	return index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, true )
 end
 
+---A straightforward way to draw spell frames.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param spell_type spell_type
+---@param alpha? number [DFT: 1 ]
 function index.new_spell_frame( pic_x, pic_y, pic_z, spell_type, alpha )
 	local xD = index.D
 	pen.new_image( pic_x - 10, pic_y - 10, pic_z + ( xD.spell_frame > 3 and 0.005 or 0 ),
 		"mods/index_core/files/pics/spell_frame_"..xD.spell_frame..".png", { alpha = alpha, color = index.FRAMER[ spell_type ][1]})
 end
 
---pass item_pic_data[ pic ].anim as anim
+---A wrapper for pen.new_image that adds shadows and other visual features.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param pic path
+---@param is_wand? boolean [DFT: false ]
+---@param hov_scale? number [DFT: 1 ]
+---@param fancy_shadow? boolean Leave empty for no shadow, set false/true to have shadow be centered/dropped.
+---@param alpha? number [DFT: 1 ]
+---@param angle? number [DFT: 0 ]
+---@return number pic_x, number pic_y
 function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy_shadow, alpha, angle )
+	--pass item_pic_data[ pic ].anim as anim
+	
 	is_wand = is_wand or false
 	hov_scale = hov_scale or 1
 	angle = angle or ( is_wand and -math.rad( 45 ) or 0 )
@@ -1734,8 +1990,16 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 	return pic_x, pic_y
 end
 
--- generic game effects should only be displayed if uiicons was detected
+---Draws effect/perk icons with additional widgets in vanilla style.
+---@param pic_x number
+---@param pic_y number
+---@param pic_z number
+---@param info EffectInfo
+---@param kind effect_kinds
+---@return number step_x, number step_y
 function index.new_vanilla_icon( pic_x, pic_y, pic_z, info, kind )
+	--generic game effects should only be displayed if uiicons was detected
+	
 	local xD = index.D
 	if( not( pen.vld( info ))) then return 0, 0 end
 	if( not( pen.vld( info.pic ))) then return 0, 0 end
@@ -1824,9 +2088,20 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, info, kind )
 				"mods/index_core/files/pics/vanilla_stomach_bg.xml", { s_x = 10, s_y = math.ceil( 20*d_frame )/2, alpha = 0.3 })
 		end
 	elseif( kind == 4 ) then pic_y = pic_y - 3 end
+
 	return w, h + ( kind == 2 and 1 or 0 )
 end
 
+---Draws inventory slot with item inside in vanilla style.
+---@param pic_x number
+---@param pic_y number
+---@param slot_data SlotData
+---@param info ItemInfo
+---@param is_active? boolean [DFT: false ]
+---@param can_drag? boolean [DFT: false ]
+---@param is_full? boolean [DFT: false ]
+---@param is_quick? boolean [DFT: false ]
+---@return number step_x, number step_y, boolean clicked, boolean r_clicked, boolean is_hovered
 function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_drag, is_full, is_quick )
 	local xD, xM = index.D, index.M
 	local slot_pics = {
@@ -2016,6 +2291,13 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	return w - 1, h - 1, clicked, r_clicked, is_hovered
 end
 
+---Draws wand inventory menu in vanilla style.
+---@param pic_x number
+---@param pic_y number
+---@param info ItemInfo
+---@param in_hand? boolean [DFT: false ]
+---@param can_tinker? boolean [DFT: false ]
+---@return number step_x, number step_y
 function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 	local xD = index.D
 	if( not( pen.vld( info.pic ))) then return end
@@ -2045,14 +2327,14 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 
 		local pause_tips = pen.vld( index.M.pinned_tips[ "slot" ])
 		if( info.wand_info.shuffle_deck_when_empty ) then
-			local tip = { GameTextGet( "$inventory_shuffle"), GameTextGet( "$inventory_shuffle_tooltip")}
+			local tip = { GameTextGet( "$inventory_shuffle" ), GameTextGet( "$inventory_shuffle_tooltip" )}
 			local is_hovered = index.tipping( pic_x, pic_y,
 				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x, pic_y, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha })
 		end
 		if( info.wand_info.actions_per_round > 1 ) then
-			local tip = { GameTextGet( "$inventory_actionspercast"), GameTextGet( "$inventory_actionspercast_tooltip")}
+			local tip = { GameTextGet( "$inventory_actionspercast" ), GameTextGet( "$inventory_actionspercast_tooltip" )}
 			local extra_x = 7*( math.floor( info.wand_info.actions_per_round/10 ) + 2 )
 			local is_hovered = index.tipping( pic_x, pic_y + size_y - 7,
 				pic_z, extra_x, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
@@ -2062,13 +2344,20 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 				info.wand_info.actions_per_round, { has_shadow = true, color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
 		end
 		if( info.is_frozen ) then
-			local tip = { GameTextGet( "$inventory_info_frozen"), GameTextGet( "$inventory_info_frozen_description")}
+			local tip = { GameTextGet( "$inventory_info_frozen" ), GameTextGet( "$inventory_info_frozen_description" )}
 			local is_hovered = index.tipping( pic_x + icon_w, pic_y + 3,
 				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x + icon_w, pic_y + 3, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png",
-				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha, can_click = true })
+				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha })
 			pen.new_image( pic_x + 2*d.edging + icon_w,
 				pic_y + 2, pic_z - 0.011, separator_pic, { s_y = 3, alpha = inter_alpha })
+		end
+		if( pen.vld( info.desc )) then
+			local tip = { info.name, info.desc }
+			local is_hovered = index.tipping( pic_x + d.edging + icon_w - 7, pic_y + size_y - 7,
+				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
+			pen.new_image( pic_x + d.edging + icon_w - 7, pic_y + size_y - 5, pic_z - 0.01,
+				"data/ui_gfx/inventory/icon_fire_rate_wait.png", { color = is_hovered and pen.PALETTE.VNL.YELLOW or nil, alpha = inter_alpha })
 		end
 
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
@@ -2095,7 +2384,6 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 			if( can_tinker ) then can_tinker = xD.can_tinker or EntityHasTag( info.id, "index_unlocked" ) end
 		end
 
-		--add three dots at the bottom left corner of wand pic for desc tip
 		--mouse wheel support even while dragging
 		--if hovering over the edge slot, snap with jiggle to the same side
 
@@ -2202,3 +2490,37 @@ index.SETTING_BOSS_BAR_MODE = "INDEX_SETTING_BOSS_BAR_MODE"
 index.SETTING_BIG_WAND_SPELLS = "INDEX_SETTING_BIG_WAND_SPELLS"
 index.SETTING_SPELL_FRAME = "INDEX_SETTING_SPELL_FRAME"
 index.SETTING_STATIC_BACKGROUND = "INDEX_SETTING_STATIC_BACKGROUND"
+
+---@alias spell_type
+
+---@alias effect_kinds
+
+---@class XYS
+---@field sure
+
+---@class PicInfo
+---@field sure
+
+---@class EffectInfo
+---@field sure
+
+---@class ItemInfo
+---@field sure
+
+---@class InventoryInfo
+---@field sure
+
+---@class InventoryCheckData
+---@field sure
+
+---@class SlotData
+---@field sure
+
+---@class HpBarData
+---@field sure
+
+---@class HpBarDataOut
+---@field sure
+
+---@class IndexTippingData
+---@field sure

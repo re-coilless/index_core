@@ -243,7 +243,7 @@ ITEM_CATS = {
         on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims ) end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims ) return info end,
 
-        on_gui_world = function( info, tid, pic_x, pic_y, no_space, cant_buy, tip_func ) end,
+        on_gui_world = function( info, tid, pic_x, pic_y, tip_func, no_space, cant_buy ) end,
         on_gui_pause = function( info ) end,
         on_pickup = function( info, is_post )
             return ({
@@ -402,7 +402,7 @@ index.self_destruct
 index.get_status_data
 index.full_stopper
 index.hud_text_fix
-index.hud_num_fix
+index.hud_num_perc
 index.get_stain_perc
 index.get_effect_timer
 index.get_effect_duration
@@ -421,8 +421,8 @@ index.swap_check
 index.slot_swap
 index.check_item_name
 index.get_entity_name
-index.get_potion_info
-index.get_item_data
+index.get_potion_name
+index.get_item_info
 index.get_items
 index.vanilla_pick_up
 index.pick_up_item
