@@ -87,13 +87,13 @@ pen.c.index_settings = pen.c.index_settings or {
     do_vanilla_dropping = gg( index.SETTING_VANILLA_DROPPING, true ),
     no_action_on_drop = gg( index.SETTING_SILENT_DROPPING, true ),
     force_vanilla_fullest = gg( index.SETTING_FORCE_VANILLA_FULLEST, false ),
-    pickup_distance = gg( index.SETTING_PICKUP_DISTANCE, 50 ),
+    pickup_distance = math.floor( gg( index.SETTING_PICKUP_DISTANCE, 50 ) + 0.5 ),
 
-    max_perks = gg( index.SETTING_MAX_PERK_COUNT, 5 ),
+    max_perks = math.floor( gg( index.SETTING_MAX_PERK_COUNT, 5 ) + 0.5 ),
     short_hp = gg( index.SETTING_SHORT_HP, true ),
     short_gold = gg( index.SETTING_SHORT_GOLD, false ),
     fancy_potion_bar = gg( index.SETTING_FANCY_POTION_BAR, true ),
-    reload_threshold = gg( index.SETTING_RELOAD_THRESHOLD, 30 ),
+    reload_threshold = math.floor( gg( index.SETTING_RELOAD_THRESHOLD, 30 ) + 0.5 ),
 
     info_pointer = gg( index.SETTING_INFO_POINTER, false ),
     info_pointer_alpha = gg( index.SETTING_INFO_POINTER_ALPHA, 5 )*0.1,
@@ -109,7 +109,7 @@ pen.c.index_settings = pen.c.index_settings or {
     big_wand_spells = gg( index.SETTING_BIG_WAND_SPELLS, true ),
     spell_frame = gg( index.SETTING_SPELL_FRAME, 1 ),
     static_background = gg( index.SETTING_STATIC_BACKGROUND, false ),
-    max_slots = gg( index.SETTING_MAX_SLOTS, 20 ),
+    max_slots = math.floor( gg( index.SETTING_MAX_SLOTS, 20 ) + 0.5 ),
 }
 
 pen.c.index_struct = pen.c.index_struct or dofile( "mods/index_core/files/_structure.lua" )

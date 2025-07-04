@@ -2338,7 +2338,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 				pic_z, { extra_x, 7 }, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x, pic_y + size_y - 7, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "" ], has_shadow = true, alpha = inter_alpha })
-			pen.new_text( pic_x + 9, pic_y + size_y - 8, pic_z,
+			pen.new_text( pic_x + 9, pic_y + size_y - 8, pic_z - 0.01,
 				info.wand_info.actions_per_round, { has_shadow = true, color = pen.PALETTE.VNL.GREY, alpha = inter_alpha })
 		end
 		if( info.is_frozen ) then
@@ -2383,18 +2383,22 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 			if( is_hovered and ( is_prev or is_next )) then
 				local left_stop = xD.dragger.item_id == xD.slot_state[ info.id ][ scroll ][1]
 				local right_stop = xD.dragger.item_id == xD.slot_state[ info.id ][ scroll + xD.max_slots - 1 ][1]
-
+				
 				local wont_scroll = ( left_stop and is_next ) or ( right_stop and is_prev )
 				local cant_scroll = ( scroll == 1 and is_prev ) or ( scroll > slot_count - xD.max_slots and is_next )
 				if( not( wont_scroll or cant_scroll )) then
-					xM.wand_scroll[ info.id ] = scroll + ( is_next and 1 or -1 )
+					local drift = ( xD.shift_action and xD.max_slots or 1 )*( is_next and 1 or -1 )
+					xM.wand_scroll[ info.id ] = math.max( math.min( scroll + drift, slot_count - xD.max_slots + 1 ), 1 )
 					pen.c.estimator_memo[ anim_id ] = ( pen.c.estimator_memo[ anim_id ] or 0 ) + 3*( is_next and -1 or 1 )
 				end
 			end
 
-			local bar_size = 10
+			local bar_size = 11
 			local bar_pos = 2*d.edging + icon_w + 3 + ( 19*xD.max_slots - bar_size + 1 )*( scroll - 1 )/( slot_count - xD.max_slots )
-			pen.new_pixel( pic_x + bar_pos, pos_y - 1, pic_z + 0.005, pen.PALETTE.VNL.RUNIC, bar_size, scale_y + 2, is_hovered and 0.5 or 0.25 )
+			pen.new_pixel( pic_x + bar_pos, pos_y - 1, pic_z + 0.004, pen.PALETTE.SHADOW, bar_size, 1, 0.3 )
+			pen.new_image( pic_x + bar_pos, pos_y - 1, pic_z + 0.005, "mods/index_core/files/pics/wand_bar.png",
+				{ s_y = scale_y + 2, color = pen.PALETTE.VNL.NINE_MAIN_DARK, alpha = is_hovered and 0.6 or 0.4 })
+			pen.new_pixel( pic_x + bar_pos, pos_y + scale_y, pic_z + 0.004, pen.PALETTE.SHADOW, bar_size, 1, 0.3 )
 		end
 
 		if( can_tinker == nil ) then
@@ -2402,7 +2406,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 			if( can_tinker ) then can_tinker = xD.can_tinker or EntityHasTag( info.id, "index_unlocked" ) end
 		end
 		
-		local counter = 1
+		local counter = scroll%2
 		local slot_y = pic_y + size_y - 21
 		local slot_x = pic_x + 3*d.edging + icon_w + 1
 		slot_x = slot_x + pen.estimate( anim_id, 0, "exp5" )
