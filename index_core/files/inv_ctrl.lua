@@ -109,6 +109,7 @@ pen.c.index_settings = pen.c.index_settings or {
     big_wand_spells = gg( index.SETTING_BIG_WAND_SPELLS, true ),
     spell_frame = gg( index.SETTING_SPELL_FRAME, 1 ),
     static_background = gg( index.SETTING_STATIC_BACKGROUND, false ),
+    max_slots = gg( index.SETTING_MAX_SLOTS, 20 ),
 }
 
 pen.c.index_struct = pen.c.index_struct or dofile( "mods/index_core/files/_structure.lua" )

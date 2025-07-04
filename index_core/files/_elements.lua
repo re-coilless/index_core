@@ -287,7 +287,7 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
-        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, bar_data.length + 4, 8, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
+        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
         pic_y = pic_y + 10
     end)
     GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
@@ -311,7 +311,7 @@ function index.new_generic_air( screen_w, screen_h, xys )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
     end)
     return { pic_x, pic_y }
@@ -339,7 +339,7 @@ function index.new_generic_flight( screen_w, screen_h, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_perc( data.flight, data.flight_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then xM.flight_shake = nil end
         pic_y = pic_y + 8
     end)
@@ -393,7 +393,7 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_perc( value[1], value[2]) end
 
         local tip_x, tip_y = unpack( xys.hp )
-        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         pic_y = pic_y + 8
     end)
     return { pic_x, pic_y }
@@ -432,7 +432,7 @@ function index.new_generic_reload( screen_w, screen_h, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then xM.reload_shake[ xD.active_item ] = nil end
         pic_y = pic_y + 8
     end)
@@ -474,7 +474,7 @@ function index.new_generic_delay( screen_w, screen_h, xys )
         
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, 44, 6, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         if( shake_frame >= 20 ) then xM.delay_shake[ xD.active_item ] = nil end
         pic_y = pic_y + 8
     end)
@@ -580,7 +580,7 @@ function index.new_generic_gold( screen_w, screen_h, xys )
         local money_string = " "..(( data.money_always or xD.short_gold ) and v or le_money ).."$"
         local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "\n$", money_string )
         local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.LAYERS.TIPS,
-            10.5 + pen.get_text_dims( v, true ), 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+            { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         
         local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
         pen.new_image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
@@ -603,7 +603,7 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
         local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", v )
         local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.LAYERS.TIPS,
-            11 + pen.get_text_dims( v, true ), 8, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+            { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
 
         local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
         pen.new_image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
@@ -1186,8 +1186,8 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
     
-    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, w + 6, 10,
-        { data.name, data.desc }, { tid = "gmod", fully_featured = true, pos = { pic_x, pic_y }, is_left = true, do_corrections = true })
+    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.LAYERS.TIPS, { w + 6, 10 },
+        { data.name, data.desc }, { tid = "slot", fully_featured = true, pos = { pic_x, pic_y }, is_left = true, do_corrections = true, pause = pen.vld( index.M.pinned_tips[ "slot" ])})
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
     if( gonna_reset ) then for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end end

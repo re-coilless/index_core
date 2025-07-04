@@ -5,12 +5,10 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
--- cleanup + documentation
--- s_x/s_y and dims are inconsistent, just make it all dims
--- disable tips while scolling (create a way to pause all on_hover tips for that and a way to override this)
--- none of the misc gui elements should open tips if item tip is pinned
--- report shift-clicking in inv check
--- make sure adding n40 equipment style content is straightforward
+-- report shift-clicking in inv check + shift-clicking should use proper slot assignment with all the callbacks
+-- make sure the shit inherently supports virtual invs
+-- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
+-- wand pickup + pickup inv
 
 ------------------------------------------------------
 
@@ -20,8 +18,8 @@ index.M = index.M or {} --interframe memory values
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- validate z-levels
 -- two slots can be highlighted at once
--- make sure the shit inherently supports virtual invs
--- wand pickup + pickup inv
+-- final major refactor
+-- finalize documentation
 
 ------------------------------------------------------		 [BACKEND]		------------------------------------------------------
 
@@ -956,7 +954,7 @@ function index.drop_item( info, x, y, throw_force, do_action )
 			ComponentSetValue2( ctrl_comp, "mButtonFrameThrow", xD.frame_num + 1 )
 		else has_no_cancer = true end
 	end
-
+	
 	local p_d_x, p_d_y = xD.pointer_world[1] - x, xD.pointer_world[2] - y
 	local p_delta = math.min( math.sqrt( p_d_x^2 + p_d_y^2 ), 50 )/10
 	local angle = math.atan2( p_d_y, p_d_x )
@@ -1003,7 +1001,7 @@ function index.drop_item( info, x, y, throw_force, do_action )
 			local phys_mult = 1.75
 			local throw_comp = EntityGetFirstComponentIncludingDisabled( item_id, "PhysicsThrowableComponent" )
 			if( pen.vld( throw_comp, true )) then phys_mult = phys_mult*ComponentGetValue2( throw_comp, "throw_force_coeff" ) end
-			
+
 			local mass = pen.get_mass( item_id )
 			PhysicsApplyTorque( item_id, phys_mult*5*mass )
 			PhysicsApplyForce( item_id, phys_mult*force_x*mass, phys_mult*force_y*mass )
@@ -1106,6 +1104,7 @@ function index.new_dragger_shell( did, info, pic_x, pic_y, pic_w, pic_h )
 		if( xM.pending_slots[ did ]) then xM.dragger_buffer[2] = xD.frame_num end
 		xM.is_dragging = true
 	end
+
 	return pic_x, pic_y, drag_state, clicked, r_clicked, is_hovered
 end
 
@@ -1283,7 +1282,7 @@ function index.new_vanilla_hp( pic_x, pic_y, pic_z, entity_id, data )
         max_hp = math.min( math.floor( max_hp*25 + 0.5 ), 9e99 )
         index.new_vanilla_bar( pic_x, pic_y, pic_z, { length, height, length*hp/max_hp }, pic, nil, nil, data.only_slider )
 	end)
-    return { length = length, height = height, max_hp = max_hp, hp = hp, red_shift = red_shift }
+    return { length = length, height = height, hp_max = max_hp, hp = hp, red_shift = red_shift }
 end
 
 ---Draws various pickup-related widgets.
@@ -1326,22 +1325,21 @@ end
 ---@param pic_x number
 ---@param pic_y number
 ---@param pic_z number
----@param s_x number
----@param s_y number
+---@param dims table
 ---@param text string
 ---@param data? IndexTippingData
 ---@param func? fun( text?:string, d?:PenmanTooltipData )
 ---@return boolean is_active, boolean clicked, boolean r_clicked
-function index.tipping( pic_x, pic_y, pic_z, s_x, s_y, text, data, func )
+function index.tipping( pic_x, pic_y, pic_z, dims, text, data, func )
 	data = data or {}
 	local xD = index.D
 	if( data.pause ) then return false, false, false end
 	
 	local clicked, r_clicked = false, false
 	pic_z = pen.get_hybrid_table( pic_z or { pen.LAYERS.TIPS, pen.LAYERS.MAIN_DEEP })
-	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, s_x, s_y, pic_z[1], data )
+	clicked, r_clicked, data.is_active = pen.new_interface( pic_x, pic_y, dims[1], dims[2], pic_z[1], data )
 	if( data.is_active ) then
-		if( pen.vld( pic_z[2])) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.RUNIC, s_x, s_y, 0.75 ) end
+		if( pen.vld( pic_z[2])) then pen.new_pixel( pic_x, pic_y, pic_z[2], pen.PALETTE.VNL.RUNIC, dims[1], dims[2], 0.75 ) end
 	else return false, false, false end
 
 	local tip_x, tip_y = unpack( data.pos or { 0, 0 })
@@ -1499,14 +1497,14 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		if( info.is_frozen ) then
 			local tip = { GameTextGet( "$inventory_info_frozen"), GameTextGet( "$inventory_info_frozen_description")}
 			local is_hovered = index.tipping( pos_x - 4, pos_y - 4,
-				pic_z, 7, 7, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
+				pic_z, { 7, 7 }, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
 			pen.new_image( pos_x - 4, pos_y - 4, pic_z - 0.1, "mods/index_core/files/pics/frozen_marker.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], alpha = inter_alpha, has_shadow = true })
 		end
 		if( info.wand_info.shuffle_deck_when_empty ) then
 			local tip = { GameTextGet( "$inventory_shuffle"), GameTextGet( "$inventory_shuffle_tooltip")}
 			local is_hovered = index.tipping( pos_x + scale_x - 8, pos_y + 1,
-				pic_z, 7, 7, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
+				pic_z, { 7, 7 }, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
 			pen.new_image( pos_x + scale_x - 8, pos_y + 1, pic_z, "data/ui_gfx/inventory/icon_gun_shuffle.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], alpha = inter_alpha, has_shadow = true })
 		end
@@ -1545,7 +1543,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 			if( pen.vld( tip )) then
 				if( pen.vld( stat.desc )) then
 					tip = { tip.." = "..value, pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info ))} end
-				local is_hovered = index.tipping( t_x - 1, t_y, { pic_z, pic_z + 0.1 }, 55, 7.5, tip, { tid = "wtt_stat",
+				local is_hovered = index.tipping( t_x - 1, t_y, { pic_z, pic_z + 0.1 }, { 55, 7.5 }, tip, { tid = "wtt_stat",
 					is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1, pos = { t_x + ( info.in_world and 55 or -1 ), t_y + 9 }})
 				if( is_hovered ) then clr, alpha = "YELLOW", 1 end
 			end
@@ -1579,7 +1577,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 					local tip = {
 						GameTextGet( "$streamingevent_add_always_cast" ), "The following spells are permanently attached to the wand." }
 					local is_hovered = index.tipping( t_x + icon_off, t_y + icon_off,
-						pic_z, 7*icon_scale, 7*icon_scale, tip, { is_left = true, fully_featured = true, pic_z = pic_z - 1 })
+						pic_z, { 7*icon_scale, 7*icon_scale }, tip, { is_left = true, fully_featured = true, pic_z = pic_z - 1 })
 					pen.new_image( t_x + icon_off, t_y + icon_off, pic_z,
 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { s_x = icon_scale, s_y = icon_scale,
 						color = is_hovered and pen.PALETTE.VNL.YELLOW or nil, alpha = inter_alpha, has_shadow = true })
@@ -1664,7 +1662,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		local tip = table.concat({ GameTextGet( "$inventory_actiontype" ),
 			": {>color>{{-}|VNL|GREY|{-}", GameTextGet( index.FRAMER[ info.spell_info.type ][2]), "}<color<}" })
 		local is_hovered = index.tipping( pic_x + d.edging - 0.5, pic_y + d.edging - 0.5,
-			pic_z, 7, 7, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
+			pic_z, { 7, 7 }, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
 		pen.new_image( pic_x + d.edging - 0.5, pic_y + d.edging - 0.5, pic_z - 0.001, "data/ui_gfx/inventory/icon_action_type.png", {
 			color = is_hovered and pen.PALETTE.VNL.YELLOW or index.FRAMER[ info.spell_info.type ][1], alpha = inter_alpha, has_shadow = true })
 		pen.new_shadowed_text( pic_x + d.edging + 9, pic_y + d.edging - 2,
@@ -1676,7 +1674,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 			local tip = table.concat({ GameTextGet( "$inventory_usesremaining" ),
 				" = {>color>{{-}|VNL|GREY|{-}", info.charges, "/", info.spell_info.max_uses, "}<color<}" })
 			local is_hovered = index.tipping( pic_x + size_x - ( 20 + d.edging ) + 0.5,
-				pic_y + d.edging - 0.5, pic_z, 30, 7, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
+				pic_y + d.edging - 0.5, pic_z, { 30, 7 }, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
 			pen.new_image( pic_x + size_x - ( 7 + d.edging ) + 0.5, pic_y + d.edging - 0.5,
 				pic_z, "data/ui_gfx/inventory/icon_action_max_uses.png", { alpha = inter_alpha })
 			pen.new_shadowed_text( pic_x + size_x - ( 7 + d.edging ), pic_y + d.edging - 2, pic_z, pen.get_tiny_num( info.charges ),
@@ -1728,7 +1726,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 					if( pen.vld( stat.desc )) then
 						tip = { tip.." = "..value, pen.magic_translate( pen.get_hybrid_function( stat.desc or "", info ))} end
 					local is_hovered = index.tipping( t_x - ( is_right and 41 or 0 ), t_y - 1,
-						pic_z, 50, 7, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
+						pic_z, { 50, 7 }, tip, { is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1 })
 					if( is_hovered ) then clr, alpha = "YELLOW", 1 end
 				end
 				
@@ -2299,7 +2297,7 @@ end
 ---@param can_tinker? boolean [DFT: false ]
 ---@return number step_x, number step_y
 function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
-	local xD = index.D
+	local xD, xM = index.D, index.M
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.wand_info ))) then return end
 	if( not( pen.vld( xD.slot_state[ info.id ]))) then return end
@@ -2309,7 +2307,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 	icon_w = icon_w + (( info.wand_info.shuffle_deck_when_empty or info.wand_info.actions_per_round > 1 ) and 7 or 0 )
 	icon_w, icon_h = math.ceil( math.max( pic_scale*icon_w, 25 )/19 )*19, pic_scale*icon_h
 
-	local slot_w, slot_h = 19*info.wand_info.deck_capacity, 19
+	local slot_w, slot_h = 19*math.min( info.wand_info.deck_capacity, xD.max_slots ), 19
 	local size_x, size_y = icon_w + slot_w + 6, math.max( icon_h, slot_h )
 
 	xD.tip_func( "", {
@@ -2329,7 +2327,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		if( info.wand_info.shuffle_deck_when_empty ) then
 			local tip = { GameTextGet( "$inventory_shuffle" ), GameTextGet( "$inventory_shuffle_tooltip" )}
 			local is_hovered = index.tipping( pic_x, pic_y,
-				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
+				pic_z, { 7, 7 }, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x, pic_y, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_shuffle.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha })
 		end
@@ -2337,7 +2335,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 			local tip = { GameTextGet( "$inventory_actionspercast" ), GameTextGet( "$inventory_actionspercast_tooltip" )}
 			local extra_x = 7*( math.floor( info.wand_info.actions_per_round/10 ) + 2 )
 			local is_hovered = index.tipping( pic_x, pic_y + size_y - 7,
-				pic_z, extra_x, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
+				pic_z, { extra_x, 7 }, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x, pic_y + size_y - 7, pic_z - 0.01, "data/ui_gfx/inventory/icon_gun_actions_per_round.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "" ], has_shadow = true, alpha = inter_alpha })
 			pen.new_text( pic_x + 9, pic_y + size_y - 8, pic_z,
@@ -2346,7 +2344,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		if( info.is_frozen ) then
 			local tip = { GameTextGet( "$inventory_info_frozen" ), GameTextGet( "$inventory_info_frozen_description" )}
 			local is_hovered = index.tipping( pic_x + icon_w, pic_y + 3,
-				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
+				pic_z, { 7, 7 }, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x + icon_w, pic_y + 3, pic_z - 0.01, "mods/index_core/files/pics/frozen_marker.png",
 				{ color = pen.PALETTE.VNL[ is_hovered and "YELLOW" or "RED" ], has_shadow = true, alpha = inter_alpha })
 			pen.new_image( pic_x + 2*d.edging + icon_w,
@@ -2355,7 +2353,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		if( pen.vld( info.desc )) then
 			local tip = { info.name, info.desc }
 			local is_hovered = index.tipping( pic_x + d.edging + icon_w - 7, pic_y + size_y - 7,
-				pic_z, 7, 7, tip, { tid = "slot", fully_featured = true, pause = pause_tips })
+				pic_z, { 7, 7 }, tip, { tid = "slot", pos = { pic_x - 3, pic_y + size_y + 1 }, fully_featured = true, pause = pause_tips })
 			pen.new_image( pic_x + d.edging + icon_w - 7, pic_y + size_y - 5, pic_z - 0.01,
 				"data/ui_gfx/inventory/icon_fire_rate_wait.png", { color = is_hovered and pen.PALETTE.VNL.YELLOW or nil, alpha = inter_alpha })
 		end
@@ -2373,24 +2371,44 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		pen.new_image( pic_x + 2*d.edging + icon_w, pic_y + 1, pic_z,
 			separator_pic, { s_x = 1, s_y = size_y - 2, alpha = inter_alpha })
 		
+		xM.wand_scroll = xM.wand_scroll or {}
+		local anim_id = "wand_scroll_"..info.id
+		local scroll = xM.wand_scroll[ info.id ] or 1
 		local slot_count = info.wand_info.deck_capacity
-		if( slot_count > 26 ) then
-			--arrows
-			--small scrollbar indicator at the bottom, becomes more obvious on hover over the tip
+		if( slot_count > xD.max_slots ) then
+			local _,_,is_hovered = pen.new_interface( pic_x, pic_y, size_x, size_y, pic_z - 1 )
+			if( is_hovered ) then pen.unscroller() end
+
+			local is_prev, is_next = InputIsMouseButtonDown( 4 ), InputIsMouseButtonDown( 5 )
+			if( is_hovered and ( is_prev or is_next )) then
+				local left_stop = xD.dragger.item_id == xD.slot_state[ info.id ][ scroll ][1]
+				local right_stop = xD.dragger.item_id == xD.slot_state[ info.id ][ scroll + xD.max_slots - 1 ][1]
+
+				local wont_scroll = ( left_stop and is_next ) or ( right_stop and is_prev )
+				local cant_scroll = ( scroll == 1 and is_prev ) or ( scroll > slot_count - xD.max_slots and is_next )
+				if( not( wont_scroll or cant_scroll )) then
+					xM.wand_scroll[ info.id ] = scroll + ( is_next and 1 or -1 )
+					pen.c.estimator_memo[ anim_id ] = ( pen.c.estimator_memo[ anim_id ] or 0 ) + 3*( is_next and -1 or 1 )
+				end
+			end
+
+			local bar_size = 10
+			local bar_pos = 2*d.edging + icon_w + 3 + ( 19*xD.max_slots - bar_size + 1 )*( scroll - 1 )/( slot_count - xD.max_slots )
+			pen.new_pixel( pic_x + bar_pos, pos_y - 1, pic_z + 0.005, pen.PALETTE.VNL.RUNIC, bar_size, scale_y + 2, is_hovered and 0.5 or 0.25 )
 		end
 
 		if( can_tinker == nil ) then
 			can_tinker = not( info.is_frozen )
 			if( can_tinker ) then can_tinker = xD.can_tinker or EntityHasTag( info.id, "index_unlocked" ) end
 		end
-
-		--mouse wheel support even while dragging
-		--if hovering over the edge slot, snap with jiggle to the same side
-
+		
 		local counter = 1
-		local slot_x, slot_y = pic_x + 3*d.edging + icon_w + 1, pic_y + size_y - 21
-		for i,col in ipairs( xD.slot_state[ info.id ]) do
-			for e,slot in ipairs( col ) do
+		local slot_y = pic_y + size_y - 21
+		local slot_x = pic_x + 3*d.edging + icon_w + 1
+		slot_x = slot_x + pen.estimate( anim_id, 0, "exp5" )
+
+		for i = scroll,( scroll + math.min( slot_count, xD.max_slots ) - 1 ) do
+			for e,slot in ipairs( xD.slot_state[ info.id ][i]) do
 				if( counter%2 == 0 and slot_count > 2 ) then
 					pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
 				w, h = index.new_generic_slot( slot_x, slot_y, {
@@ -2490,6 +2508,7 @@ index.SETTING_BOSS_BAR_MODE = "INDEX_SETTING_BOSS_BAR_MODE"
 index.SETTING_BIG_WAND_SPELLS = "INDEX_SETTING_BIG_WAND_SPELLS"
 index.SETTING_SPELL_FRAME = "INDEX_SETTING_SPELL_FRAME"
 index.SETTING_STATIC_BACKGROUND = "INDEX_SETTING_STATIC_BACKGROUND"
+index.SETTING_MAX_SLOTS = "INDEX_SETTING_MAX_SLOTS"
 
 ---@alias spell_type
 

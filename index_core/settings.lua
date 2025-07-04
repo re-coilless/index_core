@@ -312,6 +312,19 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
+			{
+				id = "MAX_SLOTS",
+				ui_name = "Max Displayed Slots",
+				ui_description = "Changes the maximum number of wand slots displayed at once.",
+				value_default = 20,
+				
+				value_min = 10,
+				value_max = 30,
+				value_display_multiplier = 1,
+				value_display_formatting = " $0 ",
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
 		},
 	},
 }
