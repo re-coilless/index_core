@@ -98,8 +98,9 @@ pen.c.index_settings = pen.c.index_settings or {
     info_pointer = gg( index.SETTING_INFO_POINTER, false ),
     info_pointer_alpha = gg( index.SETTING_INFO_POINTER_ALPHA, 5 )*0.1,
     info_mtr_state = gg( index.SETTING_INFO_MATTER_MODE, 1 ),
-
+    
     mute_applets = gg( index.SETTING_MUTE_APPLETS, false ),
+    do_wand_tilting = gg( index.SETTING_DO_WAND_TILTING, false ),
     no_wand_scaling = gg( index.SETTING_NO_WAND_SCALING, false ),
     allow_tips_always = gg( index.SETTING_FORCE_SLOT_TIPS, false ),
     in_world_pickups = gg( index.SETTING_IN_WORLD_PICKUPS, false ),

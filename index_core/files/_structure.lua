@@ -511,7 +511,7 @@ local ITEM_CATS = {
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             local xD, xM = index.D, index.M
             local w, h = unpack( slot_dims )
-            index.new_slot_pic( pic_x - w/8, pic_y + h/8,
+            index.new_slot_pic( pic_x - w/8, pic_y + ( index.D.do_wand_tilting and h/8 or 0 ),
                 index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
             
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened

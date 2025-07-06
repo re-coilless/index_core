@@ -227,6 +227,15 @@ mod_settings =
 				change_fn = sync_settings,
 			},
 			{
+				id = "DO_WAND_TILTING",
+				ui_name = "Do Wand Tilting",
+				ui_description = "Wand slot icons are being displayed at 45 degrees.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
+			{
 				id = "NO_WAND_SCALING",
 				ui_name = "No Wand Scaling",
 				ui_description = "In-inventory wand pics are being displayed at their true resolution.",

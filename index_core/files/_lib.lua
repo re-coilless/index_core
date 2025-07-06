@@ -14,6 +14,7 @@ index.M = index.M or {} --interframe memory values
 
 -- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
 
+-- custom mnee frontend for index
 -- universal content origin field in all tooltips
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- validate z-levels
@@ -892,10 +893,11 @@ end
 ---@param is_silent? boolean Will any pickup feedbacks be executed? [DFT: false ]
 function index.pick_up_item( hooman, info, is_audible, is_silent )
 	local xD = index.D
+	local gonna_pause = 0
 	local callback = index.cat_callback( info, "on_pickup" )
 	if( pen.vld( callback )) then gonna_pause = callback( info, false ) end
-	local item_id, gonna_pause, is_shopping = info.id, 0, pen.vld( info.cost )
-	
+	local item_id, is_shopping = info.id, pen.vld( info.cost )
+
 	if( gonna_pause == 0 ) then
 		if( not( is_silent )) then
 			info.name = info.name or GameTextGetTranslatedOrNot( ComponentGetValue2( info.ItemC, "item_name" ))
@@ -1019,6 +1021,7 @@ end
 ---@param pic_z number
 ---@return number pic_z
 function index.slot_z( dragged_id, pic_z )
+	if( pen.vld( index.M.pinned_tips[ "slot" ])) then return pic_z end
 	return index.D.dragger.item_id == dragged_id and 2*pen.LAYERS.TIPS or pic_z
 end
 
@@ -1963,9 +1966,9 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 	
 	is_wand = is_wand or false
 	hov_scale = hov_scale or 1
-	angle = angle or ( is_wand and -math.rad( 45 ) or 0 )
+	angle = angle or (( is_wand and index.D.do_wand_tilting ) and -math.rad( 45 ) or 0 )
 	local pic_data = pen.cache({ "index_pic_data", pic }) or { xy = { 0, 0 }}
-
+	
 	local off_x, off_y = 0, 0
 	local w, h = unpack( pic_data.dims )
 	if( is_wand ) then
@@ -2323,7 +2326,7 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 			pic_x + d.edging + icon_w/2, pic_y + size_y/2, pic_z, info.pic, false, pic_scale, true, inter_alpha )
 		local separator_pic = "mods/index_core/files/pics/vanilla_tooltip_"..( in_hand and "B" or "A" )..".xml"
 
-		local pause_tips = pen.vld( index.M.pinned_tips[ "slot" ])
+		local pause_tips = pen.vld( xM.pinned_tips[ "slot" ])
 		if( info.wand_info.shuffle_deck_when_empty ) then
 			local tip = { GameTextGet( "$inventory_shuffle" ), GameTextGet( "$inventory_shuffle_tooltip" )}
 			local is_hovered = index.tipping( pic_x, pic_y,
@@ -2503,6 +2506,7 @@ index.SETTING_INFO_POINTER_ALPHA = "INDEX_SETTING_INFO_POINTER_ALPHA"
 index.SETTING_INFO_MATTER_MODE = "INDEX_SETTING_INFO_MATTER_MODE"
 
 index.SETTING_MUTE_APPLETS = "INDEX_SETTING_MUTE_APPLETS"
+index.SETTING_DO_WAND_TILTING = "INDEX_SETTING_DO_WAND_TILTING"
 index.SETTING_NO_WAND_SCALING = "INDEX_SETTING_NO_WAND_SCALING"
 index.SETTING_FORCE_SLOT_TIPS = "INDEX_SETTING_FORCE_SLOT_TIPS"
 index.SETTING_IN_WORLD_PICKUPS = "INDEX_SETTING_IN_WORLD_PICKUPS"
