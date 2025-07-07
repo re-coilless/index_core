@@ -449,7 +449,7 @@ local ITEM_CATS = {
             }
             
             local check_func = function( inv_info, item_info ) return item_info.is_spell or false end
-            local update_func = function( inv_info, item_info_old, item_info_new ) return pen.vld( inv_info.in_hand, true ) end
+            local update_func = function( inv_info, item_info_old, item_info_new, slot_data ) return pen.vld( inv_info.in_hand, true ) end
             local sort_func = function( a, b )
                 local inv_slot = { 0, 0 }
                 local is_perma = { false, false }
@@ -525,7 +525,7 @@ local ITEM_CATS = {
                     pen.t.loop( col, function( e, slot )
                         if( not( slot )) then return end
                         local spell_info = pen.t.get( xD.item_list, slot, nil, nil, {})
-                        if( not( spell_info.is_spell )) then return end
+                        if( not( spell_info.is_spell and pen.vld( spell_info.spell_info ))) then return end
 
                         if( spell_info.charges > 0 ) then
                             info.charges = spell_info.charges; return true

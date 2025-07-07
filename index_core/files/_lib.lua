@@ -652,7 +652,8 @@ function index.slot_swap( item_id, slot_data )
 	pen.t.loop({ parent1, parent2 }, function( i, p )
 		local inv_info = xD.invs[ p or 0 ] or {}
 		if( not( pen.vld( inv_info.update ))) then return end
-		if( inv_info.update( pen.t.get( xD.item_list, p, nil, nil, inv_info ), infos[( i + 1 )%2 + 1 ], infos[ i%2 + 1 ])) then
+		local parent_info = pen.t.get( xD.item_list, p, nil, nil, inv_info )
+		if( inv_info.update( parent_info, infos[( i + 1 )%2 + 1 ], infos[ i%2 + 1 ], slot_data )) then
 			table.insert( reset, pen.get_item_owner( p ))
 		end
 	end)
