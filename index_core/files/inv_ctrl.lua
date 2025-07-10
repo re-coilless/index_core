@@ -164,6 +164,7 @@ index.D = {
     box_func = inv.box,
     slot_func = inv.slot, icon_func = inv.icon,
     wand_func = inv.wand, tip_func = inv.tooltip,
+    pick_func = inv.pickup, drop_func = inv.drop,
 
     player_id = hooman,
     player_xy = { 0, 0 },

@@ -625,7 +625,7 @@ local ITEM_CATS = {
         on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims )
             local w, h = unpack( slot_dims )
             if( state_tbl.is_full ) then return end
-
+            
             pic_x, pic_y = pic_x + w/2, pic_y + h/2
             w, h = w - 4, h - 4
             pic_x, pic_y = pic_x - w/2, pic_y + h/2
