@@ -1029,7 +1029,7 @@ end
 ---Outputs the message both through vanilla and Index channels.
 ---@param msg string|table
 ---@param is_special? boolean [DFT: false ]
-function index.print( msg, is_special )
+function index.print( msg, is_special ) --send message through globals if index>d.player_id is nil
 	is_special = is_special or false
 	( is_special and GamePrintImportant or GamePrint )( unpack( pen.get_hybrid_table( msg )))
 	if( not( index.D.custom_logging )) then return end
@@ -2158,11 +2158,11 @@ function index.new_vanilla_slot( pic_x, pic_y, slot_data, info, is_active, can_d
 	pen.hallway( function()
 		if( not( pen.vld( xD.dragger.item_id, true ))) then return end
 		if( not( pen.check_bounds( xD.pointer_ui, { -w/2, w/2, -h/2, h/2 }, { pic_x, pic_y }))) then return end
-
+		
 		xD.dragger.wont_drop = true
 		if( not( can_drag )) then return end
-		local dragged_data = pen.t.get( xD.item_list, xD.dragger.item_id )
-		if( not( index.swap_check( dragged_data, info, slot_data ))) then return end
+		local dragged_data = pen.t.get( xD.item_list, xD.dragger.item_id, nil, nil, {})
+		if( not( pen.vld( dragged_data ) and index.swap_check( dragged_data, info, slot_data ))) then return end
 
 		if( xD.dragger.swap_now ) then
 			if( pen.vld( info.id, true )) then
@@ -2501,6 +2501,7 @@ index.SETTING_SHORT_HP = "INDEX_SETTING_SHORT_HP"
 index.SETTING_SHORT_GOLD = "INDEX_SETTING_SHORT_GOLD"
 index.SETTING_FANCY_POTION_BAR = "INDEX_SETTING_FANCY_POTION_BAR"
 index.SETTING_RELOAD_THRESHOLD = "INDEX_SETTING_RELOAD_THRESHOLD"
+index.SETTING_CUSTOM_LOGGER = "INDEX_SETTING_CUSTOM_LOGGER"
 
 index.SETTING_INFO_POINTER = "INDEX_SETTING_INFO_POINTER"
 index.SETTING_INFO_POINTER_ALPHA = "INDEX_SETTING_INFO_POINTER_ALPHA"

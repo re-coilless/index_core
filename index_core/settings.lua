@@ -165,6 +165,15 @@ mod_settings =
 				scope = MOD_SETTING_SCOPE_RUNTIME,
 				change_fn = sync_settings,
 			},
+			{
+				id = "CUSTOM_LOGGER",
+				ui_name = "Force Custom Logger",
+				ui_description = "Displays custom message log window no matter whether the vanilla one is suppressed or not.",
+				value_default = false,
+				
+				scope = MOD_SETTING_SCOPE_RUNTIME,
+				change_fn = sync_settings,
+			},
 		},
 	},
 	

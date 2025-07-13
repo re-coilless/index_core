@@ -40,8 +40,6 @@ if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
 end
 
 pen.c.index_settings = pen.c.index_settings or {
-    custom_logging = MagicNumbersGetValue( "GAME_LOG_ENABLED" ) == "0",
-
     player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
@@ -94,6 +92,8 @@ pen.c.index_settings = pen.c.index_settings or {
     short_gold = gg( index.SETTING_SHORT_GOLD, false ),
     fancy_potion_bar = gg( index.SETTING_FANCY_POTION_BAR, true ),
     reload_threshold = math.floor( gg( index.SETTING_RELOAD_THRESHOLD, 30 ) + 0.5 ),
+    custom_logging = gg( index.SETTING_CUSTOM_LOGGER, false )
+            or MagicNumbersGetValue( "GAME_LOG_ENABLED" ) == "0",
 
     info_pointer = gg( index.SETTING_INFO_POINTER, false ),
     info_pointer_alpha = gg( index.SETTING_INFO_POINTER_ALPHA, 5 )*0.1,

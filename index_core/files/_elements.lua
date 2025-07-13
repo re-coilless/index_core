@@ -1145,19 +1145,56 @@ function index.new_generic_logger( screen_w, screen_h, xys )
     if( not( pen.vld( xM.log ))) then return end
     if( not( xD.custom_logging )) then return end
 
-    --a setting to save old messages with a scrollbar and clear button
-    --logger size + pos globals
+    --accept new messages from globals
     --special messages should be displayed all at once
-    --combine same messages together (special print ignores repeats)
-    --start scrolled to the bottom
-    --automatically scroll to bottom on new message (unless is prevented by setting)
-    --scrollbar to the left
-    
-    local pic_x, pic_y = unpack( xys.logger or { 19, screen_h - 50 })
-    pen.new_scroller( "index_logger", pic_x, pic_y, pen.LAYERS.BACKGROUND + 10, 100, 50, function( scroll_pos )
-        local dims = pen.new_text( 0, scroll_pos, 0, table.concat( xM.log, "\n" ), { fully_featured = true, dims = { 100, -1 }})
-        return dims[2]
-    end)
+    --a setting to have no scrollbar and just display n messages at a time (continuuosly purge the list, so it contains no more than a screen-full)
+    --clear button + pos dragger + setting to pick how many messages are displayed at once
+
+    local frame_num = GameGetFrameNum()
+    xM.logger_memo = xM.logger_memo or {}
+    xM.logger_memo.max_l = xM.logger_memo.max_l or 100
+    local length = math.min( screen_w - 30, xM.logger_memo.max_l + 10 )
+    xM.logger_memo.shake = xM.logger_memo.shake or { 0, 0 }
+
+    local k, accum = #xM.log, 0
+    local last_num, last_msg = 0, ""
+    for i = math.max( k - 1000, 1 ), k do
+        local msg = xM.log[i]
+        if( pen.vld( msg )) then
+            if( last_msg == msg ) then
+                xM.log[i], accum = "", accum + 1
+                if( i == k ) then xM.logger_memo.shake = { last_num, frame_num } end
+            else last_num, last_msg = i, msg end
+        else accum = accum + 1 end
+    end
+
+    local height = 55
+    local text_height = 9*( #xM.log - accum )
+    local is_small = text_height < height
+
+    local pic_z = pen.LAYERS.BACKGROUND + 10
+    local pic_x, pic_y = unpack( xys.logger or { 20, screen_h - height - 2 })
+    pen.new_scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
+        local h = 0
+        local pos_y = is_small and ( height - text_height ) or scroll_pos
+        for i = math.max( k - 1000, 1 ), k do
+            if( pen.vld( xM.log[i])) then
+                if( pos_y > -10 and pos_y < ( height + 1 )) then
+                    local pos_x = 0
+                    if( xM.logger_memo.shake[1] == i ) then
+                        local drift = math.max(( xM.logger_memo.shake[2] + 30 ) - frame_num, 0 )
+                        pos_x = pen.animate({ 0, 5 }, drift, { ease_out = "sin", frames = 30 })
+                    end
+
+                    local dims = pen.new_shadowed_text( pos_x, pos_y, pic_z,
+                        xM.log[i], { fully_featured = true, line_offset = -2 })
+                    if( dims[1] > xM.logger_memo.max_l ) then xM.logger_memo.max_l = dims[1] end
+                end
+                pos_y, h = pos_y + 9, h + 9
+            end
+        end
+        return h + 1
+    end, { scroll_step = 9, is_left = ( pic_x < screen_w/2 ), hide_bar = true, bottom_start = true })
 end
 
 function index.new_generic_gmod( screen_w, screen_h, xys )
