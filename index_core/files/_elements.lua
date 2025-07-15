@@ -1142,10 +1142,16 @@ end
 
 function index.new_generic_logger( screen_w, screen_h, xys )
     local xD, xM = index.D, index.M
+
+    local log = GlobalsGetValue( index.GLOBAL_CUSTOM_LOG, "" )
+    if( log ~= "" ) then
+        for v in string.gmatch( pen.DIV_0..log, pen.ptrn( 0 )) do table.insert( xM.log, v ) end
+        GlobalsSetValue( index.GLOBAL_CUSTOM_LOG, "" )
+    end
+
     if( not( pen.vld( xM.log ))) then return end
     if( not( xD.custom_logging )) then return end
 
-    --accept new messages from globals
     --special messages should be displayed all at once
     --a setting to have no scrollbar and just display n messages at a time (continuuosly purge the list, so it contains no more than a screen-full)
     --clear button + pos dragger + setting to pick how many messages are displayed at once
@@ -1185,7 +1191,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
                         local drift = math.max(( xM.logger_memo.shake[2] + 30 ) - frame_num, 0 )
                         pos_x = pen.animate({ 0, 5 }, drift, { ease_out = "sin", frames = 30 })
                     end
-
+                    
                     local dims = pen.new_shadowed_text( pos_x, pos_y, pic_z,
                         xM.log[i], { fully_featured = true, line_offset = -2 })
                     if( dims[1] > xM.logger_memo.max_l ) then xM.logger_memo.max_l = dims[1] end
@@ -1194,7 +1200,12 @@ function index.new_generic_logger( screen_w, screen_h, xys )
             end
         end
         return h + 1
-    end, { scroll_step = 9, is_left = ( pic_x < screen_w/2 ), hide_bar = true, bottom_start = true })
+    end, {
+        scroll_step = 9,
+        forced_zone_x = 20,
+        is_left = ( pic_x < screen_w/2 ),
+        hide_bar = true, bottom_start = true
+    })
 end
 
 function index.new_generic_gmod( screen_w, screen_h, xys )

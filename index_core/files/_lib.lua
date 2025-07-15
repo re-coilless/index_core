@@ -2440,6 +2440,7 @@ end
 
 index.GLOBAL_FUNGAL_MEMO = "INDEX_GLOBAL_FUNGAL_MEMO" --stores fungal transformations
 index.GLOBAL_FUCK_YOUR_MANA = "INDEX_GLOBAL_FUCK_YOUR_MANA" --trigger mana bar shaking
+index.GLOBAL_CUSTOM_LOG = "INDEX_GLOBAL_CUSTOM_LOG" --external logger input in csv format
 
 index.GLOBAL_FORCED_STATE = "INDEX_GLOBAL_FORCED_STATE" --0 checks CtrlComp for enabled, 1 is always enabled, -1 is always disabled
 index.GLOBAL_GLOBAL_MODE = "INDEX_GLOBAL_GLOBAL_MODE" --GMOD type
