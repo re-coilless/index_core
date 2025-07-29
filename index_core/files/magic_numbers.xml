@@ -1,5 +1,4 @@
 <MagicNumbers 
 	_DEBUG_DONT_SAVE_MAGIC_NUMBERS="1"
 	UI_LOW_HP_THRESHOLD="0.01"
-	GAME_LOG_ENABLED="1"
 ></MagicNumbers>

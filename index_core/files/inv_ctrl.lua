@@ -187,6 +187,7 @@ index.D = {
     pointer_delta = { muid_x, muid_y, math.sqrt( muid_x^2 + muid_y^2 )},
     pointer_delta_world = { md_x, md_y, math.sqrt( md_x^2 + md_y^2 )},
     pointer_matter = mtr_action and pen.get_xy_matter( m_x, m_y, -10 ) or 0,
+    cam_xy = { GameGetCameraPos()},
 
     matter_action = mtr_action,
     tip_action = index.get_input( "tip_action", true ),
