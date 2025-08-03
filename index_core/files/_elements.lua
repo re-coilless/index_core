@@ -1152,6 +1152,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
     if( not( pen.vld( xM.log ))) then return end
     if( not( xD.custom_logging )) then return end
 
+    --input to function as a console
     --special messages should be displayed all at once
     --a setting to have no scrollbar and just display n messages at a time (continuuosly purge the list, so it contains no more than a screen-full)
     --clear button + pos dragger + setting to pick how many messages are displayed at once

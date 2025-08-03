@@ -1,3 +1,9 @@
+_MNEEDATA[ "index_core" ] = {
+	order_id = 1.3,
+	name = "HermeS Index EXQ",
+	desc = "Various GUI-related actions.",
+}
+
 _BINDINGS[ "index_core" ] = {
 	shift_action = {
 		order_id = "aa",
@@ -29,6 +35,7 @@ _BINDINGS[ "index_core" ] = {
 	},
 	matter_action = {
 		order_id = "ae",
+		is_weak = true,
 		name = "Matter Probing",
 		desc = "Displays the name of the matter below the pointer.",
 		keys = {[ "`" ] = 1 },
@@ -36,61 +43,71 @@ _BINDINGS[ "index_core" ] = {
 
 	invmode_next = {
 		order_id = "ba",
+		is_weak = true,
 		name = "Next Inv Mode",
-		desc = "Inventory mod switch hotkey.",
+		desc = "Inventory mode switch hotkey.",
 		keys = {[ "keypad_+" ] = 1 },
 	},
 	invmode_previous = {
 		order_id = "bb",
+		is_weak = true,
 		name = "Previous Inv Mode",
-		desc = "Inventory mod switch hotkey.",
+		desc = "Inventory mode switch hotkey.",
 		keys = {[ "keypad_-" ] = 1 },
 	},
 
 	quickest_1 = {
 		order_id = "za",
+		is_weak = true,
 		name = "Select Quickest 1",
 		desc = "Equipping shortcut.",
 		keys = {[ "1" ] = 1 },
 	},
 	quickest_2 = {
 		order_id = "za",
+		is_weak = true,
 		name = "Select Quickest 2",
 		desc = "Equipping shortcut.",
 		keys = {[ "2" ] = 1 },
 	},
 	quickest_3 = {
 		order_id = "za",
+		is_weak = true,
 		name = "Select Quickest 3",
 		desc = "Equipping shortcut.",
 		keys = {[ "3" ] = 1 },
 	},
 	quickest_4 = {
 		order_id = "za",
+		is_weak = true,
 		name = "Select Quickest 4",
 		desc = "Equipping shortcut.",
 		keys = {[ "4" ] = 1 },
 	},
 	quick_1 = {
 		order_id = "zb",
+		is_weak = true,
 		name = "Select Quick 1",
 		desc = "Equipping shortcut.",
 		keys = {[ "5" ] = 1 },
 	},
 	quick_2 = {
 		order_id = "zb",
+		is_weak = true,
 		name = "Select Quick 2",
 		desc = "Equipping shortcut.",
 		keys = {[ "6" ] = 1 },
 	},
 	quick_3 = {
 		order_id = "zb",
+		is_weak = true,
 		name = "Select Quick 3",
 		desc = "Equipping shortcut.",
 		keys = {[ "7" ] = 1 },
 	},
 	quick_4 = {
 		order_id = "zb",
+		is_weak = true,
 		name = "Select Quick 4",
 		desc = "Equipping shortcut.",
 		keys = {[ "8" ] = 1 },

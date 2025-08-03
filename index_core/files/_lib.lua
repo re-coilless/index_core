@@ -29,11 +29,11 @@ index.M = index.M or {} --interframe memory values
 ---@param is_continuous? boolean [DFT: true ]
 ---@param is_clean? boolean [DFT: true ]
 ---@return boolean
-function index.get_input( mnee_id, is_continuous, is_clean )
-	return mnee.mnin( "bind", { "index_core", mnee_id }, { pressed = not( is_continuous ), dirty = not( is_clean )})
+function index.get_input( mnee_id, is_continuous )
+	return mnee.mnin( "bind", { "index_core", mnee_id }, { pressed = not( is_continuous )})
 end
 
---A wrapper for Penman sound player.
+---A wrapper for Penman sound player.
 ---@param sfx table|string
 ---@param x? number [DFT: index.D.player_xy[1] ]
 ---@param y? number [DFT: index.D.player_xy[2] ]
@@ -515,7 +515,7 @@ function index.inv_boy( info, in_hand )
 	end)
 
 	if( is_free ) then return end
-	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end --the hell is this
+	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end
 	if( in_hand ) then hooman = EntityGetParent( item_id ) end
 	local x, y = EntityGetTransform( hooman )
 	EntitySetTransform( item_id, x, y )
