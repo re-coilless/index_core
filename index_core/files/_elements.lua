@@ -1203,7 +1203,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
         return h + 1
     end, {
         scroll_step = 9,
-        forced_zone_x = 20,
+        forced_zone = { 20 },
         is_left = ( pic_x < screen_w/2 ),
         hide_bar = true, bottom_start = true
     })
