@@ -5,6 +5,7 @@ index = index or {}
 index.D = index.D or {} --frame-iterated data
 index.M = index.M or {} --interframe memory values
 
+-- "rmb to drop at feet" dropping mode
 -- report shift-clicking in inv check + shift-clicking should use proper slot assignment with all the callbacks
 -- make sure the shit inherently supports virtual invs
 -- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
@@ -1464,7 +1465,7 @@ function index.new_vanilla_wtt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 	local spell_size = xD.big_wand_spells and 18 or 9
 	local got_spells = ( pen.vld( spells.p ) or pen.vld( spells.n )) and not( xD.tip_action or is_simple )
-	local size_x, size_y = spell_size*math.ceil( math.max( desc_w + 2, title_w, stats_w )/spell_size ), title_h + desc_h + stats_h + 5
+	local size_x, size_y = spell_size*math.ceil( math.max( desc_w + 2, title_w, stats_w )/spell_size ), title_h + desc_h + stats_h + 4
 	if( got_spells ) then size_y = size_y +
 		( spell_size + 1 )*math.ceil( spell_size*#spells.p/size_x ) + ( spell_size + 1 )*math.ceil( spell_size*#spells.n/size_x ) + 5 end
 	if( pen.vld( spells.p )) then size_y = size_y + ( pen.vld( spells.n ) and 2 or 0 ) end
@@ -1649,7 +1650,7 @@ function index.new_vanilla_stt( info, tid, pic_x, pic_y, pic_z, is_simple )
 		stats_h = math.max( stats_h, this_h - ( no_spacer and ( spacer_size - 8 ) or 0 ))
 	end
 	
-	local size_x, size_y = math.max( title_w, desc_w + 2, stats_w ), title_h + desc_h + stats_h + 7
+	local size_x, size_y = math.max( title_w, desc_w + 1, stats_w ), title_h + desc_h + stats_h + 6
 	got_advanced = got_advanced and not( is_simple )
 
 	return xD.tip_func( "", {
@@ -1791,7 +1792,7 @@ function index.new_vanilla_ptt( info, tid, pic_x, pic_y, pic_z, is_simple )
 
 	local title_w, title_h = pen.get_text_dims( info.name, true )
 	local desc_w, desc_h = unpack( pen.get_tip_dims( desc, math.max( title_w + 2, 100 ), -1, -2 ))
-	local size_x, size_y = math.max( title_w + 2, desc_w + 2 ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+	local size_x, size_y = math.max( title_w + 2, desc_w + 2 ) + icon_w + 6, math.max( title_h + desc_h + 3, icon_h )
 	
 	local will_matter = pen.vld( matter_desc ) and xD.tip_action
 	if( will_matter ) then
@@ -1874,15 +1875,15 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ru
 	local xD = index.D
 	if( not( pen.vld( info.pic ))) then return end
 	if( not( pen.vld( info.name ))) then return end
-	if( not( pen.vld( info.desc ))) then return end
 	
 	local pic_scale = 1.5
 	local icon_w, icon_h = pen.get_pic_dims( info.pic )
 	icon_w, icon_h = pic_scale*icon_w, pic_scale*icon_h
 
 	local title_w, title_h = pen.get_text_dims( info.name, true )
-	local desc_w, desc_h = unpack( pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
-	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 7, math.max( title_h + desc_h + 4, icon_h )
+	local desc_w, desc_h = unpack( not( pen.vld( info.desc )) and { 0, 0 }
+		or pen.get_tip_dims( info.desc, math.max( title_w + 2, 100 ), -1, -2 ))
+	local size_x, size_y = math.max( title_w + 2, desc_w ) + icon_w + 6, math.max( title_h + desc_h + 3, icon_h )
 
 	return xD.tip_func( "", {
 		tid = tid, info = info,
@@ -1900,16 +1901,18 @@ function index.new_vanilla_itt( info, tid, pic_x, pic_y, pic_z, is_simple, do_ru
 			dims = { size_x - icon_w - 3, size_y }, fully_featured = true, alpha = inter_alpha,
 			color = pen.PALETTE.VNL[( do_runes or is_sampo ) and "RUNIC" or "YELLOW" ]})
 		
-		local runic_state = do_runes and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
-		if( runic_state ~= 1 ) then
-			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
-				"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
-				fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
-			pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "index_runic"..info.id, { 1, 0 }, "exp500" ))
-		end
-		if( runic_state > 0 ) then
-			pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
-				dims = { desc_w + 2, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
+		if( pen.vld( info.desc )) then
+			local runic_state = do_runes and pen.magic_storage( info.id, "index_runic_cypher", "value_float", nil, true ) or 1
+			if( runic_state ~= 1 ) then
+				pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
+					"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
+					fully_featured = true, color = pen.PALETTE.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
+				pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "index_runic"..info.id, { 1, 0 }, "exp500" ))
+			end
+			if( runic_state > 0 ) then
+				pen.new_shadowed_text( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.001, info.desc, {
+					dims = { desc_w + 2, size_y }, fully_featured = true, alpha = inter_alpha*runic_state, line_offset = -2 })
+			end
 		end
 		
 		local inter_size = 15*( 1 - pen.animate( 1, d.t, { ease_out = "wav1.5", frames = d.frames }))
@@ -2064,8 +2067,8 @@ function index.new_vanilla_icon( pic_x, pic_y, pic_z, info, kind )
 		local is_extra = type( info.tip ) == "function"
 		if( is_extra ) then
 			dims = {
-				14*math.min( #info.other_perks, 10 ),
-				14*math.max( math.ceil(( #info.other_perks )/10 ), 1 ) + 1
+				14*math.min( #info.other_perks, 10 ) - 1,
+				14*math.max( math.ceil(( #info.other_perks )/10 ), 1 ) - 1
 			}
 			tid, tip_y = "perk_extra", tip_y - 2
 		else
@@ -2311,8 +2314,8 @@ function index.new_vanilla_wand( pic_x, pic_y, info, in_hand, can_tinker )
 	icon_w = icon_w + (( info.wand_info.shuffle_deck_when_empty or info.wand_info.actions_per_round > 1 ) and 7 or 0 )
 	icon_w, icon_h = math.ceil( math.max( pic_scale*icon_w, 25 )/19 )*19, pic_scale*icon_h
 
-	local slot_w, slot_h = 19*math.min( info.wand_info.deck_capacity, xD.max_slots ), 19
-	local size_x, size_y = icon_w + slot_w + 6, math.max( icon_h, slot_h )
+	local slot_w, slot_h = 19*math.min( info.wand_info.deck_capacity, xD.max_slots ), 18
+	local size_x, size_y = icon_w + slot_w + 5, math.max( icon_h, slot_h )
 
 	xD.tip_func( "", {
 		tid = "wand"..info.id, info = info, is_active = true,
@@ -2492,7 +2495,7 @@ index.GLOBAL_SFX_MOVE_ITEM = "INDEX_GLOBAL_SFX_MOVE_ITEM"
 
 index.SETTING_ALWAYS_SHOW_FULL = "INDEX_SETTING_ALWAYS_SHOW_FULL"
 index.SETTING_NO_INV_SHOOTING = "INDEX_SETTING_NO_INV_SHOOTING"
-index.SETTING_VANILLA_DROPPING = "INDEX_SETTING_VANILLA_DROPPING"
+index.SETTING_DROPPING_MODE = "INDEX_SETTING_DROPPING_MODE"
 index.SETTING_SILENT_DROPPING = "INDEX_SETTING_SILENT_DROPPING"
 index.SETTING_FORCE_VANILLA_FULLEST = "INDEX_SETTING_FORCE_VANILLA_FULLEST"
 index.SETTING_PICKUP_DISTANCE = "INDEX_SETTING_PICKUP_DISTANCE"

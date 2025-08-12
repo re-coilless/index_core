@@ -1109,7 +1109,7 @@ function index.new_generic_pickup( screen_w, screen_h, xys, info_func )
 end
 
 function index.new_generic_drop( item_id )
-    local xD = index.D
+    local xD, xM = index.D, index.M
     local dude = EntityGetRootEntity( item_id )
     if( dude ~= xD.player_id ) then return index.play_sound( "error" ) end
     index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
@@ -1125,7 +1125,9 @@ function index.new_generic_drop( item_id )
         if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
     end
 
-    if( do_default ) then index.drop_item( info, xD.player_xy[1], xD.player_xy[2], xD.throw_force, not( xD.no_action_on_drop )) end
+    if( do_default ) then
+        index.drop_item( info, xD.player_xy[1], xD.player_xy[2],
+            xM.gentle_drop and 0 or xD.throw_force, not( xD.no_action_on_drop )) end
     if( pen.vld( callback )) then callback( info, true ) end
 end
 
@@ -1183,7 +1185,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
     local pic_x, pic_y = unpack( xys.logger or { 20, screen_h - height - 2 })
     pen.new_scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
         local h = 0
-        local pos_y = is_small and ( height - text_height ) or scroll_pos
+        local pos_y = is_small and ( height - text_height ) or scroll_pos[1]
         for i = math.max( k - 1000, 1 ), k do
             if( pen.vld( xM.log[i])) then
                 if( pos_y > -10 and pos_y < ( height + 1 )) then
@@ -1200,7 +1202,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
                 pos_y, h = pos_y + 9, h + 9
             end
         end
-        return h + 1
+        return { h + 1, 1 }
     end, {
         scroll_step = 9,
         forced_zone = { 20 },

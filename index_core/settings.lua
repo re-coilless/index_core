@@ -64,12 +64,14 @@ mod_settings =
 				change_fn = sync_settings,
 			},
 			{
-				id = "VANILLA_DROPPING",
-				ui_name = "Instant Dropping",
-				ui_description = "Restores dropping logic to its original vanilla glory.",
-				value_default = true,
+				id = "DROPPING_MODE",
+				ui_name = "Dropping Mode",
+				ui_description = "Changes the advanced dropping behavior (RMB before letting go).",
+				values = { "Vanilla", "RMB to Confirm", "RMB to Place at Feet" },
+				value_default = 1,
 				
 				scope = MOD_SETTING_SCOPE_RUNTIME,
+				ui_fn = mod_setting_custom_enum,
 				change_fn = sync_settings,
 			},
 			{
@@ -209,7 +211,7 @@ mod_settings =
 			{
 				id = "INFO_MATTER_MODE",
 				ui_name = "Material Info Mode",
-				ui_description = "Changes how the behavior of the displayed material names.",
+				ui_description = "Changes the behavior of the displayed material names.",
 				values = { "Auto", "Hotkeyed", "Persistent" },
 				value_default = 1,
 				

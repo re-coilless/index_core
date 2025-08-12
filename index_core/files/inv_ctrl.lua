@@ -82,7 +82,7 @@ pen.c.index_settings = pen.c.index_settings or {
     
     always_show_full = gg( index.SETTING_ALWAYS_SHOW_FULL, false ),
     no_inv_shooting = gg( index.SETTING_NO_INV_SHOOTING, true ),
-    do_vanilla_dropping = gg( index.SETTING_VANILLA_DROPPING, true ),
+    dropping_mode = gg( index.SETTING_DROPPING_MODE, true ),
     no_action_on_drop = gg( index.SETTING_SILENT_DROPPING, true ),
     force_vanilla_fullest = gg( index.SETTING_FORCE_VANILLA_FULLEST, false ),
     pickup_distance = math.floor( gg( index.SETTING_PICKUP_DISTANCE, 50 ) + 0.5 ),
@@ -402,7 +402,7 @@ if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, 
 
 
 --dropping handling
-if( xD.do_vanilla_dropping ) then
+if( xD.dropping_mode == 1 ) then
     if( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.never_drop = false
     elseif( xD.gmod.allow_advanced_draggables or xM.never_drop ) then
@@ -410,7 +410,7 @@ if( xD.do_vanilla_dropping ) then
     elseif( xD.drag_action and xM.pending_slots[ xD.dragger.item_id ]) then
         xM.never_drop = true
     end
-else
+elseif( xD.dropping_mode == 2 ) then
     if( not( xM.gonna_drop )) then
         if( not( xD.drag_action ) or xD.gmod.allow_advanced_draggables ) then
             xD.dragger.wont_drop = true
@@ -420,6 +420,18 @@ else
     elseif( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.gonna_drop = false
     else pen.new_shadowed_text( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
+elseif( xD.dropping_mode == 3 ) then
+    if( not( pen.vld( xD.dragger.item_id, true ))) then
+        xM.gentle_drop = false
+    elseif( xD.gmod.allow_advanced_draggables or xM.never_drop ) then
+        xD.dragger.wont_drop = true
+    elseif( xD.drag_action and xM.pending_slots[ xD.dragger.item_id ]) then
+        xM.gentle_drop = true
+    end
+
+    if( xM.gentle_drop ) then
+        pen.new_shadowed_text( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[PLACE]" )
+    end
 end
 
 if( xM.slot_hover_sfx[2]) then
