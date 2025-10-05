@@ -134,7 +134,7 @@ if( is_going == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" ) else is_going = is_going > 0 end
 if( not( is_going and pen.vld( inv_comp, true ))) then return pen.gui_builder( false ) end
 
-local m_x, m_y = DEBUG_GetMouseWorld()
+local m_x, m_y = pen.get_mouse_pos( true )
 local md_x = m_x - ( xM.mouse_memo_world[1] or m_x )
 local md_y = m_y - ( xM.mouse_memo_world[2] or m_y )
 xM.mouse_memo_world = { m_x, m_y }

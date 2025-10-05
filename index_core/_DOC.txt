@@ -3,11 +3,13 @@ This system fullfils many roles, yet focuses on the following three:
     - It is a UX-centered interface replacement, aiming to streamline interactions with the game while enriching the core functionality.
     - It is also a powerful inventory library, enabling painless manipulations with all and any UI components seen on the screen (except for pause menus and alike).
     - However, the primary focus of this project has always been complete extendability support – it is a modding-first system, designed for complex and overlapping modpacks, attempting to keep miriad of parallel content sources manageable.
+
 Due to the elaborate nature of the implementation, some of the more sophisticated parts are removed and published as a separate releases, a decision nessessary to keep the entire assembly manageable from development perspective:
     - [DEPENDENCY] Penman is the foundation of the entire system, a general purpose modding library featuring integrated GUI solution and beyond.
     - [DEPENDENCY] M-Nee is another inherent component within greater whole – as a custom inputs framework, it provides feature-rich input customization and integration, occupying the niche of keyboard based interactions while Index handles on-screen gameplay.
     - [ADDON] Twin-Linked is an acient mod reborn as Index addon, intending to provide seamless dual-wielding capability.
     - [ADDON] HermeS Marshall is an example of an Index-supporting system (stereo sound control system), working just fine without it, yet integrating neatly if both are running at once.
+
 Finally, this UI solution handles certain things different from vanilla, changing some things and adding brand new features:
     - The central part of the user-accessible interface are Global Modes – note the "FULL" button at the top right of your "MISCELLANEOUS" inventory. These allow one to alter general inventory functionality and are an organizational tool to reduce clutter should the addon dencity get too high. At present, the default configuration lists four distinct Global Modes (any addon can also add GMs of their own): FULL (the default state of the system, it provides complete vanilla feature parity except for multiple rows of "MISCELLANEOUS" inventory), MANAGEMENT (this mode is designed to handle screen-spanning storage environments, it hides wands, displays external inventories and allows the full range of "MISCELLANEOUS" inventory rows to be displayed), INTERACTIVE (the point of this mode is to make playable with open inventory, should such feature be desired, it also allows Dragging Action to execute – the right clicking the dragged potion in mid air while holding shift), CUSTOM_MENU (this is meant to be a developer-only mode, not observed in normal gameplay and manually triggered through code to allow for custom menus to be displayed with no obstructions).
     - Another compatibility feature is Applets system. A pair of dynamically extendible menus, one to the left (only visible with inventory closed) and one to the right (only visible with inventory opened), containing any and all feature-toggling buttons developer wish to introduce without running into placement choice hell.
@@ -26,6 +28,7 @@ HermeS Index operates on following general principles:
 Items are being handled as follows:
     - Every item has to have a global kind that determines generic behavior (can be customized further through VariableStorageComponents).
     - Only items that legitimately occupy a slot are being displayed.
+
 The primary means of altering/exteding functionality of baseline implementation:
     - Add VariableStorageComponents: a vast array of entity-spesific features can be altered in real time through their addition.
     - Append via pen.magic_append to _structure.lua – the primary modification route alongside the implement mentioned above:
@@ -59,6 +62,7 @@ Technical changes as compared to vanilla game:
         - data/shaders/post_final.frag (custom low hp blinking implementation)
         - data/scripts/items/spell_refresh.lua (now restores charges even on child entities)
         - init.lua -> slotless_scum (marks all slotless items with a corresponding tag)
+
 Here are all of the unique entity tags this mod introduces:
     - index_slotless (makes sure the abysmal way in which vanilla handles events such as gold nugget pickups is accounted for)
     - index_ctrl (is present in component, marks interaction_nuker.lua that ensures InteractableComponents are properly prosessed, and entity variants, points to the main entity of the inventory – player)
@@ -115,6 +119,7 @@ Then, a list of every single global this mod utilizes (except for setting interf
     - INDEX_GLOBAL_SFX_RESET
     - INDEX_GLOBAL_SFX_MOVE_EMPTY
     - INDEX_GLOBAL_SFX_MOVE_ITEM
+
 At last, a compilation of all VariableStorageComponent names being considered by the system:
     - index_off (value_float; spesifies the size of exclusion zone when calculation per-potion cutout max height)
     - index_bar (value_string, path to function( pic_x, pic_y, pic_z, enemy_id, data ) return length, height end; per-enemy override for bossbar)

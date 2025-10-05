@@ -12,21 +12,6 @@ function OnModInit()
 	dofile_once( "mods/index_core/files/_lib.lua" )
 	pen.add_translations( "mods/index_core/files/translations.csv" )
 
-	pen.magic_write( "data/fonts/_font_pixel.xml", pen.magic_read( "data/fonts/font_pixel.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_pixel.xml", {
-		[176] = { pos = { 2, 0, 2 }, rect_h = 11, rect_w = 2 },
-	}, "mods/index_core/files/pics/font_atlas.png" )
-	pen.magic_write( "data/fonts/_font_pixel_noshadow.xml", pen.magic_read( "data/fonts/font_pixel_noshadow.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_pixel_noshadow.xml", {
-		[176] = { pos = { 5, 0, 2 }, rect_h = 11, rect_w = 2 },
-	}, "mods/index_core/files/pics/font_atlas.png" )
-	pen.magic_write( "data/fonts/_font_small_numbers.xml", pen.magic_read( "data/fonts/font_small_numbers.xml" ))
-	pen.lib.font_builder( "data/fonts/_font_small_numbers.xml", {
-		[45] = { pos = { 17, 0, 4 }, rect_h = 6, rect_w = 4 },
-		[66] = { pos = { 23, 0, 6 }, rect_h = 6, rect_w = 6 },
-		[101] = { pos = { 29, 0, 4 }, rect_h = 6, rect_w = 4 },
-	}, "mods/index_core/files/pics/font_atlas.png" )
-
 	local shader_file = "data/shaders/post_final.frag"
 	local file = pen.magic_read( shader_file )
 	file = string.gsub( file, "uniform float low_health_indicator_alpha;", "uniform float low_health_indicator_alpha;\r\nuniform vec4 low_health_indicator_alpha_proper;" )
@@ -179,12 +164,6 @@ function OnPlayerSpawned( hooman )
 	GameAddFlagRun( initer )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
-	GlobalsSetValue( pen.GLOBAL_FONT_REMAP, pen.t.pack( pen.t.unarray({
-		["data/fonts/font_pixel.xml"] = "data/fonts/_font_pixel.xml",
-		["data/fonts/font_pixel_noshadow.xml"] = "data/fonts/_font_pixel_noshadow.xml",
-		["data/fonts/font_small_numbers.xml"] = "data/fonts/_font_small_numbers.xml",
-	})))
-
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent", {
 		script_source_file = "mods/index_core/files/inv_ctrl.lua",
 		execute_every_n_frame = "1",
