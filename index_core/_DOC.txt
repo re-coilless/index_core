@@ -262,7 +262,7 @@ ITEM_CATS = {
 GUI_STRUCT = {
     slot = index.new_vanilla_slot,
     icon = index.new_vanilla_icon,
-    tooltip = pen.new_tooltip,
+    tooltip = pen.new.tip,
     box = index.new_vanilla_box,
     wand = index.new_vanilla_wand,
 

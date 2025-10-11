@@ -28,7 +28,7 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         
         local alpha = 0.7
         local w, h = pen.get_pic_dims( pic )
-        local clicked, _, is_hovered = pen.new_image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_BACK + 0.001,
+        local clicked, _, is_hovered = pen.new.image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_FRONT + 10.1,
             pic, { color = pen.PALETTE.SHADOW, alpha = 0.3, can_click = true })
         if( not( xD.is_opened )) then
             local _,is_empty = index.get_inv_space( inv_id )
@@ -46,7 +46,7 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         end
         
         local extra_scale = 16/18
-        pen.new_image( pic_x - w/2 + 1, pic_y - w/2 + 1, pen.LAYERS.WORLD_BACK,
-            xD.loot_marker, { s_x = extra_scale, s_y = extra_scale, alpha = alpha })
+        pen.new.image( pic_x - w/2 + 1, pic_y - w/2 + 1,
+            pen.LAYERS.WORLD_FRONT + 10, pic, { s_x = extra_scale, s_y = extra_scale, alpha = alpha })
     end
 end

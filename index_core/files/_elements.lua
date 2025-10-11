@@ -51,6 +51,7 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
     local xD, xM = index.D, index.M
 
     local full_depth = 1
+    local pic_z = pen.LAYERS.BACKGROUND
     if( xD.gmod.show_fullest or pen.c.index_settings.force_vanilla_fullest ) then
         full_depth = #xD.slot_state[ xD.invs_p.f ][1] end
     if( not( xD.is_opened )) then return full_depth end
@@ -58,39 +59,39 @@ function index.new_generic_background( pic_x, pic_y, screen_w, screen_h, xys )
     if( not( xD.gmod.can_see )) then
         local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
         local alpha = 0.5*math.cos( math.pi*delta/30 )
-        pen.new_image( -2, -2, pen.LAYERS.BACKGROUND + 1.1,
+        pen.new.image( -2, -2, pic_z + 1,
             "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
     end
 
     if( xD.static_background ) then
-        pen.new_image( pic_x - 19, pic_y - 20, pen.LAYERS.BACKGROUND, "data/ui_gfx/inventory/background.png" )
+        pen.new.image( pic_x - 19, pic_y - 20, pic_z, "data/ui_gfx/inventory/background.png" )
         return full_depth
     end
 
     local bg_x, bg_y = pic_x - 3, pic_y - 3
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+    pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_a.xml" )
     for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quickest ) do
         bg_x = bg_x + 4
-        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+        pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_b.xml" )
     end
     bg_x = bg_x + 5
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.001, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
-    pen.new_image( bg_x - 1, bg_y, pen.LAYERS.BACKGROUND - 0.001, "mods/index_core/files/pics/vanilla_inv_c.xml" )
-    pen.new_image( bg_x - 2, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+    pen.new.image( bg_x, bg_y, pic_z - 0.1, "mods/index_core/files/pics/vanilla_inv_c.xml", { s_x = -1 })
+    pen.new.image( bg_x - 1, bg_y, pic_z - 0.1, "mods/index_core/files/pics/vanilla_inv_c.xml" )
+    pen.new.image( bg_x - 2, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_b.xml" )
     for i = 1,( 5*#xD.slot_state[ xD.invs_p.q ].quick ) do
-        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+        pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_b.xml" )
         bg_x = bg_x + 4
     end
-    pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_d.xml" )
+    pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_d.xml" )
     if( xD.gmod.show_full and full_depth == 1 and not( xD.gmod.allow_external_inventories )) then
         bg_x = bg_x + 7
-        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_a.xml" )
+        pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_a.xml" )
         for i = 1,( 5*#xD.slot_state[ xD.invs_p.f ]) do
             bg_x = bg_x + 4
-            pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND, "mods/index_core/files/pics/vanilla_inv_b.xml" )
+            pen.new.image( bg_x, bg_y, pic_z, "mods/index_core/files/pics/vanilla_inv_b.xml" )
         end
         bg_x = bg_x + 2
-        pen.new_image( bg_x, bg_y, pen.LAYERS.BACKGROUND - 0.01, "mods/index_core/files/pics/vanilla_inv_d.xml" )
+        pen.new.image( bg_x, bg_y, pic_z - 0.2, "mods/index_core/files/pics/vanilla_inv_d.xml" )
     end
 
     return full_depth
@@ -131,11 +132,12 @@ function index.new_generic_inventory( screen_w, screen_h, xys )
     end
 
     if( xD.is_opened ) then
+        local pic_z = pen.LAYERS.MAIN_DEEP
         pic_x = pic_x + xD.inv_spacings[2]
-        pen.new_shadowed_text( cat_wands + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_wands" ))
-        pen.new_shadowed_text( cat_items + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$hud_title_throwables" ))
+        pen.new.text_shad( cat_wands + 1, pic_y - 13, pic_z, GameTextGet( "$hud_title_wands" ))
+        pen.new.text_shad( cat_items + 1, pic_y - 13, pic_z, GameTextGet( "$hud_title_throwables" ))
         if( xD.gmod.show_full ) then
-            pen.new_shadowed_text( pic_x + 1, pic_y - 13, pen.LAYERS.MAIN_DEEP, GameTextGet( "$menuoptions_heading_misc" ))
+            pen.new.text_shad( pic_x + 1, pic_y - 13, pic_z, GameTextGet( "$menuoptions_heading_misc" ))
         end
     end
     
@@ -182,7 +184,7 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         local drift_target, core_off = 5, is_left and -10 or 0
         local total_drift, allow_clicks = l - drift_target, true
         if( not( data[ tbl[ type ][2]])) then
-            local clicked, r_clicked, is_hovered = pen.new_interface(
+            local clicked, r_clicked, is_hovered = pen.new.interface(
                 is_left and -1 or ( screen_w - 10 ), -1, 11, 19, pen.LAYERS.TIPS_FRONT )
             xD.tip_func( "[APPLETS]", { is_active = is_hovered })
             if( not( is_hovered )) then drift_target = 0 end
@@ -217,8 +219,8 @@ function index.new_generic_applets( screen_w, screen_h, xys )
                 local t_x = pic_x + sign*( i - 1 )*11
                 local off_x, off_y = icon.off_x or -1, icon.off_y or -1
                 local metahover = not( got_one ) and data[ tbl[ type ][5]][i]
-                local clicked,_,is_hovered = pen.new_interface( t_x, pic_y, 10, 10, pen.LAYERS.MAIN_BACK )
-                pen.new_image( t_x + off_x, pic_y + off_y, pen.LAYERS.MAIN_BACK, icon.pic, { angle = metahover and math.rad( -5 ) or 0 })
+                local clicked,_,is_hovered = pen.new.interface( t_x, pic_y, 10, 10, pen.LAYERS.FOREGROUND - 5 )
+                pen.new.image( t_x + off_x, pic_y + off_y, pen.LAYERS.FOREGROUND - 5, icon.pic, { angle = metahover and math.rad( -5 ) or 0 })
 
                 pen.hallway( function()
                     if( not( allow_clicks )) then return end
@@ -246,9 +248,9 @@ function index.new_generic_applets( screen_w, screen_h, xys )
         else pen.colourer( nil, pen.PALETTE.VNL.YELLOW ) end
 
         if( is_left ) then pic_x = pic_x - ( l - 10 ) end
-        pen.new_image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
-            pen.LAYERS.MAIN_BACK - 0.001, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
-        xD.box_func( pic_x, pic_y, pen.LAYERS.MAIN_DEEP - 0.1, { total_drift + 5, 10 })
+        pen.new.image( pic_x - sign*( 1 + arrow_off ), pic_y + 1,
+            pen.LAYERS.FOREGROUND - 0.1, "data/ui_gfx/keyboard_cursor"..( is_left and ".png" or "_right.png" ))
+        xD.box_func( pic_x, pic_y, pen.LAYERS.FOREGROUND, { total_drift + 5, 10 })
         if( is_left ) then
             pic_x = pic_x + arrow_off + 11
         else pic_x = pic_x - ( 3 + arrow_off ) end
@@ -279,12 +281,12 @@ function index.new_generic_hp( screen_w, screen_h, xys )
         if( data.hp_max <= 0 ) then return end
         
         local bar_data = index.new_vanilla_hp(
-            pic_x, pic_y, pen.LAYERS.MAIN_BACK, xD.player_id, { dmg_data = data })
+            pic_x, pic_y, pen.LAYERS.MAIN - 5, xD.player_id, { dmg_data = data })
         pain_flash = bar_data.red_shift
 
         local hp_max_text, hp_text = pen.get_short_num( bar_data.hp_max ), pen.get_short_num( bar_data.hp )
-        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
-        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new.image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.LAYERS.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
         index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
@@ -305,9 +307,9 @@ function index.new_generic_air( screen_w, screen_h, xys )
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
         if( not( data.can_air ) or data.air/data.air_max > 0.9 ) then return end
 
-        pen.new_text( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new.text( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
         index.new_vanilla_bar( pic_x, pic_y,
-            pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.PALETTE.VNL.MANA, nil, 0.75 )
+            pen.LAYERS.MAIN - 5, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.PALETTE.VNL.MANA, nil, 0.75 )
 
         local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
@@ -333,8 +335,8 @@ function index.new_generic_flight( screen_w, screen_h, xys )
         end
 
         local shake_frame = xD.frame_num - ( xM.flight_shake or xD.frame_num )
-        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
-        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
+        pen.new.image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN - 5, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
             pen.PALETTE.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
@@ -381,11 +383,11 @@ function index.new_generic_mana( screen_w, screen_h, xys )
         if( value[1] < 0 or value[2] <= 0 ) then return end
         
         local ratio = math.min( value[1]/value[2], 1 )
-        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, potion_info.pic or "data/ui_gfx/hud/mana.png", { has_shadow = true })
+        pen.new.image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, potion_info.pic or "data/ui_gfx/hud/mana.png", { has_shadow = true })
         if( pen.vld( potion_info.color )) then
-            pen.new_pixel( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN_BACK + 0.001, pen.PALETTE.W, math.min( 40*ratio + 0.5, 40 ), 2 ) end
+            pen.new.pixel( pic_x - 40, pic_y + 1, pen.LAYERS.MAIN - 4.9, pen.PALETTE.W, math.min( 40*ratio + 0.5, 40 ), 2 ) end
         index.new_vanilla_bar( pic_x, pic_y,
-            pen.LAYERS.MAIN_BACK, { 40, 2, 40*ratio }, potion_info.color or pen.PALETTE.VNL.MANA, throw_it_back, potion_info.alpha )
+            pen.LAYERS.MAIN - 5, { 40, 2, 40*ratio }, potion_info.color or pen.PALETTE.VNL.MANA, throw_it_back, potion_info.alpha )
         
         local tip = ""
         if( pen.vld( potion_info )) then
@@ -426,8 +428,8 @@ function index.new_generic_reload( screen_w, screen_h, xys )
         xM.reload_shake[ xD.active_item ] = reloading_shake
         
         local shake_frame = xD.frame_num - ( reloading_shake or xD.frame_num )
-        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
+        pen.new.image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN - 5,
             { 40, 2, 40*reloading/reloading_full }, pen.PALETTE.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
@@ -468,8 +470,8 @@ function index.new_generic_delay( screen_w, screen_h, xys )
         xM.delay_shake[ xD.active_item ] = delay_shake
         
         local shake_frame = xD.frame_num - ( delay_shake or xD.frame_num )
-        pen.new_image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
-        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN_BACK,
+        pen.new.image( pic_x + 3, pic_y - 1, pen.LAYERS.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
+        index.new_vanilla_bar( pic_x, pic_y, pen.LAYERS.MAIN - 5,
             { 40, 2, 40*delay/delay_full }, pen.PALETTE.VNL.CAST, pen.vld( delay_shake ) and -shake_frame or nil )
         
         local tip_x, tip_y = unpack( xys.hp )
@@ -509,10 +511,10 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
                 local pic_w, pic_h = pen.get_pic_dims( data.custom.pic )
                 local off_x, off_y = custom_pos[5] or 0, custom_pos[6] or 0
                 local t_x, t_y = pic_x - pic_w/2 + off_x, pic_y - 2 + off_y
-                pen.new_image( t_x, t_y, pic_z - 0.01, data.custom.pic )
+                pen.new.image( t_x, t_y, pic_z - 0.1, data.custom.pic )
                 if( pen.vld( data.custom.color_bg )) then
                     t_x, t_y = t_x + ( custom_pos[1] or 0 ), t_y + ( custom_pos[2] or 0 )
-                    pen.new_pixel( t_x, t_y, pic_z + 0.1, data.custom.color_bg, bar_data.length, bar_data.height )
+                    pen.new.pixel( t_x, t_y, pic_z + 0.2, data.custom.color_bg, bar_data.length, bar_data.height )
                 end
             end
 
@@ -525,13 +527,13 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
             if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
             local t_x = pic_x + ( data.in_world and 0 or ( -bar_data.length/2 + off_name ))
             local t_y = pic_y + ( data.in_world and ( bar_data.height + 1 ) or off_text )
-            pen.new_text( t_x, t_y, pic_z - 0.01, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
+            pen.new.text( t_x, t_y, pic_z - 0.1, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
             
-            local value = pen.rounder( 100*bar_data.hp/bar_data.hp_max, rounding ).."%"
+            local value = pen.rnd( 100*bar_data.hp/bar_data.hp_max, rounding ).."%"
             t_x, t_y = pic_x + ( data.in_world and 4 or ( bar_data.length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
-            pen.new_text( t_x, t_y, pic_z - 0.01, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
+            pen.new.text( t_x, t_y, pic_z - 0.1, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
                 color = data.custom.color_text or pen.PALETTE.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
-            pen.new_text( t_x, t_y, pic_z + 0.007, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
+            pen.new.text( t_x, t_y, pic_z + 0.1, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
             
             if( pen.vld( data.custom.func_extra ) and not( in_world )) then
                 data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data ) end
@@ -552,7 +554,7 @@ function index.new_generic_bossbar( screen_w, screen_h, xys )
         if( xD.boss_bar_mode ~= 1 ) then in_world = xD.boss_bar_mode == 2 end
         if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y )
             bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id, true )).max_y + 10 end
-        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_BACK, enemy_id, {
+        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.LAYERS.WORLD_UI + 10, enemy_id, {
             custom = custom,
             centered = true, in_world = in_world, is_boss = is_boss,
             low_hp = 0, low_hp_min = 0, only_slider = pen.vld( custom ) and not( in_world ),
@@ -583,8 +585,8 @@ function index.new_generic_gold( screen_w, screen_h, xys )
             { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         
         local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
-        pen.new_image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
-        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new.image( pic_x + 2.5, pic_y - 1.5, pen.LAYERS.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
 
         pic_y = pic_y + 8
     end)
@@ -606,8 +608,8 @@ function index.new_generic_orbs( screen_w, screen_h, xys )
             { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
 
         local c = is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
-        pen.new_image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
-        pen.new_text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+        pen.new.image( pic_x + 3, pic_y, pen.LAYERS.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.LAYERS.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
 
         pic_y = pic_y + 8
     end)
@@ -625,7 +627,7 @@ function index.new_generic_info( screen_w, screen_h, xys )
         end
 
         local color = pen.vld( hover_func ) and hover_func( offset_x ) or nil
-        pen.new_shadowed_text( p_x, p_y, pen.LAYERS.MAIN, txt, { color = color, alpha = alpha })
+        pen.new.text_shad( p_x, p_y, pen.LAYERS.MAIN, txt, { color = color, alpha = alpha })
     end
     
     local pic_x, pic_y = 0, 0
@@ -730,7 +732,7 @@ function index.new_generic_info( screen_w, screen_h, xys )
         
         pic_x, pic_y = unpack( xys.delay )
         do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
-            local _,_,is_hovered = pen.new_interface( pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.LAYERS.TIPS )
+            local _,_,is_hovered = pen.new.interface( pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.LAYERS.TIPS )
             if( is_hovered ) then xM.mtr_prb = { matter, xD.frame_num + 300 } end
             return is_hovered and pen.PALETTE.VNL.YELLOW or pen.PALETTE.W
         end)
@@ -814,7 +816,7 @@ function index.new_generic_perks( screen_w, screen_h, xys )
                 for i,pic in ipairs( perks ) do
                     local drift_x = 14*(( i - 1 )%10 )
                     local drift_y = 14*math.floor(( i - 1 )/10 )
-                    pen.new_image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic )
+                    pen.new.image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic )
                 end
             end,
         }
@@ -1181,9 +1183,9 @@ function index.new_generic_logger( screen_w, screen_h, xys )
     local text_height = 9*( #xM.log - accum )
     local is_small = text_height < height
 
-    local pic_z = pen.LAYERS.BACKGROUND + 10
+    local pic_z = pen.LAYERS.MAIN_OVERLAY
     local pic_x, pic_y = unpack( xys.logger or { 20, screen_h - height - 2 })
-    pen.new_scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
+    pen.new.scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
         local h = 0
         local pos_y = is_small and ( height - text_height ) or scroll_pos[1]
         for i = math.max( k - 1000, 1 ), k do
@@ -1195,7 +1197,7 @@ function index.new_generic_logger( screen_w, screen_h, xys )
                         pos_x = pen.animate({ 0, 5 }, drift, { ease_out = "sin", frames = 30 })
                     end
                     
-                    local dims = pen.new_shadowed_text( pos_x, pos_y, pic_z,
+                    local dims = pen.new.text_shad( pos_x, pos_y, pic_z,
                         xM.log[i], { fully_featured = true, line_offset = -2 })
                     if( dims[1] > xM.logger_memo.max_l ) then xM.logger_memo.max_l = dims[1] end
                 end
@@ -1227,12 +1229,12 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
     local new_mode = xD.global_mode
     local arrow_left_c, arrow_right_c = nil, nil
     local gonna_reset, gonna_highlight, arrow_left_a, arrow_right_a = false, false, 0.3, 0.3
-    local clicked, r_clicked, is_hovered = pen.new_interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.LAYERS.TIPS )
+    local clicked, r_clicked, is_hovered = pen.new.interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.LAYERS.TIPS )
     if( is_hovered ) then arrow_left_c, arrow_left_a = pen.PALETTE.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_previous" )) then new_mode, arrow_left_a = new_mode - 1, 1 end
 
-    clicked, r_clicked, is_hovered = pen.new_interface( pic_x - 10, pic_y - 11, 15, 10, pen.LAYERS.TIPS )
+    clicked, r_clicked, is_hovered = pen.new.interface( pic_x - 10, pic_y - 11, 15, 10, pen.LAYERS.TIPS )
     if( is_hovered ) then arrow_right_c, arrow_right_a = pen.PALETTE.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
@@ -1242,14 +1244,15 @@ function index.new_generic_gmod( screen_w, screen_h, xys )
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
     if( gonna_reset ) then for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end end
-
-    pen.new_text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
-        pen.LAYERS.MAIN, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
-    xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pen.LAYERS.MAIN_BACK, { w + 2, 6 })
     
-    pen.new_image( pic_x - ( 12 + w ), pic_y - 10, pen.LAYERS.MAIN_BACK,
+    local pic_z = pen.LAYERS.MAIN_OVERLAY
+    pen.new.text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
+        pic_z - 0.1, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
+    xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pic_z, { w + 2, 6 })
+    
+    pen.new.image( pic_x - ( 12 + w ), pic_y - 10, pic_z,
         "data/ui_gfx/keyboard_cursor_right.png", { color = arrow_left_c, alpha = arrow_left_a })
-    pen.new_image( pic_x - 2, pic_y - 10, pen.LAYERS.MAIN_BACK,
+    pen.new.image( pic_x - 2, pic_y - 10, pic_z,
         "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
 
     if( xD.global_mode == new_mode ) then return end

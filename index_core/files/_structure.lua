@@ -77,7 +77,7 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 		color_bg = { 209, 97, 97, 47/255 }, pos = { 4, 4, 302, 15, 19, -1 },
 		func_extra = function( pic_x, pic_y, pic_z, entity_id, data )
 			local mode = pen.magic_storage( entity_id, "mode", "value_int" )
-			pen.new_image( pic_x - 188.5, pic_y - 9, pic_z, "mods/index_core/files/pics/priskips_bossbars/wizard_"..mode..".png" )
+			pen.new.image( pic_x - 188.5, pic_y - 9, pic_z, "mods/index_core/files/pics/priskips_bossbars/wizard_"..mode..".png" )
 		end,
 	},
 	-- ["data/entities/animals/maggot_tiny/maggot_tiny.xml"] = {},
@@ -635,13 +635,13 @@ local ITEM_CATS = {
             local size = k*math.min( info.matter_info.matter[1], info.matter_info.volume )
             for i,m in ipairs( info.matter_info.matter[2]) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
-                pen.new_pixel( pic_x, pic_y - math.min( delta, h ), pen.LAYERS.MAIN + tonumber( "0.001"..i ),
+                pen.new.pixel( pic_x, pic_y - math.min( delta, h ), pen.LAYERS.MAIN_FRONT +  tonumber( "4."..i ),
                     pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
                 if( delta >= h ) then break end
             end
             
             if(( h - delta ) > 0.5 and math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 ) > 0 ) then
-                pen.new_pixel( pic_x, pic_y - ( delta + 0.3 ), pen.LAYERS.MAIN + 0.002, pen.PALETTE.W, w, 1 )
+                pen.new.pixel( pic_x, pic_y - ( delta + 0.3 ), pen.LAYERS.MAIN_FRONT + 5, pen.PALETTE.W, w, 1 )
             end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
@@ -650,7 +650,7 @@ local ITEM_CATS = {
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
-
+            
             local is_done = true
             local target_angle = 0
             if( state_tbl.is_dragged ) then
@@ -679,7 +679,7 @@ local ITEM_CATS = {
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
             pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, pic_z,
                 info.pic, false, hov_scale, nil, 0.8 - 0.5*ratio, angle )
-            pen.new_image( pic_x, pic_y, pic_z - 0.01, info.pic,
+            pen.new.image( pic_x, pic_y, pic_z + 0.05, info.pic,
                 { color = pen.magic_uint( GameGetPotionColorUint( info.id )), s_x = hov_scale, s_y = hov_scale, angle = angle })
             return info, info.matter_info.matter[1] ~= 0, true
         end,
@@ -851,8 +851,8 @@ local ITEM_CATS = {
             index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
             if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
             index.new_spell_frame( pic_x, pic_y,
-                pen.LAYERS[ is_considered and "ICONS" or "ICONS_FRONT" ], info.spell_info.type, is_considered and 0.6 or 1 )
-
+                is_considered and pen.LAYERS.ICONS or ( pen.LAYERS.ICONS_FRONT + 5 ), info.spell_info.type, is_considered and 0.6 or 1 )
+            
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
             index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true })
 
@@ -899,7 +899,7 @@ local ITEM_CATS = {
                 hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
             return info
         end,
-
+        
         on_gui_world = index.new_vanilla_worldtip,
         on_pickup = function( info, is_post )
             return ({
@@ -917,7 +917,7 @@ local ITEM_CATS = {
 local GUI_STRUCT = {
     slot = index.new_vanilla_slot,
     icon = index.new_vanilla_icon,
-    tooltip = pen.new_tooltip,
+    tooltip = pen.new.tip,
     box = index.new_vanilla_box,
     wand = index.new_vanilla_wand,
 
@@ -962,10 +962,12 @@ local GUI_STRUCT = {
     },
 }
 
---<{> MAGICAL APPEND MARKER <}>--
-
-return {
+index.STRUCT = {
     GLOBAL_MODES, GLOBAL_MUTATORS, APPLETS,
     BOSS_BARS, WAND_STATS, SPELL_STATS, MATTER_DESCS,
     ITEM_CATS, GUI_STRUCT
 }
+
+--<{> MAGIC APPEND MARKER <}>--
+
+return index.STRUCT

@@ -1,4 +1,4 @@
-if( ModIsEnabled( "mnee" ) and ModIsEnabled( "penman" )) then
+if( ModIsEnabled( "mnee" )) then
 	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
 else return end
 

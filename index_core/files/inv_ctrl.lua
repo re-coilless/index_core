@@ -18,7 +18,7 @@ xM.mouse_memo_world = xM.mouse_memo_world or {} --for getting pointer delta in-w
 
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
-if( not( pen.vld( ctrl_bodies ))) then return pen.gui_builder( false ) end
+if( not( pen.vld( ctrl_bodies ))) then return pen.new.builder( false ) end
 
 local function gg( g, dft )
     xM.settings_init = xM.settings_init or {}
@@ -31,7 +31,7 @@ local function gg( g, dft )
 end
 
 local hooman = ctrl_bodies[1]
-if( not( EntityGetIsAlive( hooman ))) then return pen.gui_builder( false ) end
+if( not( EntityGetIsAlive( hooman ))) then return pen.new.builder( false ) end
 local hooman_x, hooman_y = EntityGetTransform( hooman )
 
 if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
@@ -132,7 +132,7 @@ end
 local is_going = gg( index.GLOBAL_FORCED_STATE, 1 )
 if( is_going == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" ) else is_going = is_going > 0 end
-if( not( is_going and pen.vld( inv_comp, true ))) then return pen.gui_builder( false ) end
+if( not( is_going and pen.vld( inv_comp, true ))) then return pen.new.builder( false ) end
 
 local m_x, m_y = pen.get_mouse_pos( true )
 local md_x = m_x - ( xM.mouse_memo_world[1] or m_x )
@@ -144,7 +144,7 @@ local muid_x = mui_x - ( xM.mouse_memo[1] or mui_x )
 local muid_y = mui_y - ( xM.mouse_memo[2] or mui_y )
 xM.mouse_memo = { mui_x, mui_y }
 
-local gui = pen.gui_builder()
+local gui = pen.new.builder()
 local screen_w, screen_h = GuiGetScreenDimensions( gui )
 
 local effect_tbl, perk_tbl = index.get_status_data( hooman )
@@ -396,7 +396,7 @@ if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     index.play_sound( xD.is_opened and "close" or "open" )
     ComponentSetValue2( iui_comp, "mActive", not( xD.is_opened ))
 elseif( xD.gmod.force_inv_open and not( xD.is_opened )) then ComponentSetValue2( iui_comp, "mActive", true ) end
-if( xD.no_inv_shooting and xD.is_opened ) then pen.new_interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
+if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
 if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, true ) end
 
 
@@ -419,7 +419,7 @@ elseif( xD.dropping_mode == 2 ) then
         end
     elseif( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.gonna_drop = false
-    else pen.new_shadowed_text( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
+    else pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
 elseif( xD.dropping_mode == 3 ) then
     if( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.gentle_drop = false
@@ -430,7 +430,7 @@ elseif( xD.dropping_mode == 3 ) then
     end
 
     if( xM.gentle_drop ) then
-        pen.new_shadowed_text( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[PLACE]" )
+        pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[PLACE]" )
     end
 end
 
@@ -467,5 +467,5 @@ if( xM.is_dragging or xD.dragger.item_id ~= 0 ) then
     xM.is_dragging = false
 end
 
-pen.gui_builder( true )
+pen.new.builder( true )
 index.D = nil
