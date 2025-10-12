@@ -12,6 +12,39 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 	[7] = { pen.PALETTE.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
 }
 
+function index.new_generic_structure( screen_w, screen_h, inv )
+    local xD = index.D
+    if( pen.vld( inv.full_inv )) then xD.xys.inv_root, xD.xys.full_inv = inv.full_inv( screen_w, screen_h, xD.xys ) end
+    
+    local bars = inv.bars or {}
+    if( pen.vld( bars.hp )) then xD.xys.hp = bars.hp( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( bars.air )) then xD.xys.air = bars.air( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( bars.flight )) then xD.xys.flight = bars.flight( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( bars.bossbar )) then xD.xys.bossbar = bars.bossbar( screen_w, screen_h, xD.xys ) end
+    
+    if( pen.vld( inv.applet_strip )) then xD.xys.applets_l, xD.xys.applets_r = inv.applet_strip( screen_w, screen_h, xD.xys ) end
+
+    local actions = bars.action or {}
+    if( pen.vld( actions.mana )) then xD.xys.mana = actions.mana( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( actions.reload )) then xD.xys.reload = actions.reload( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( actions.delay )) then xD.xys.delay = actions.delay( screen_w, screen_h, xD.xys ) end
+
+    if( pen.vld( inv.gold )) then xD.xys.gold = inv.gold( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( inv.orbs )) then xD.xys.orbs = inv.orbs( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( inv.info )) then xD.xys.info = inv.info( screen_w, screen_h, xD.xys ) end
+    
+    local icons = inv.icons or {}
+    if( pen.vld( icons.ingestions )) then xD.xys.ingestions = icons.ingestions( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( icons.stains )) then xD.xys.stains = icons.stains( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( icons.effects )) then xD.xys.effects = icons.effects( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( icons.perks )) then xD.xys.perks = icons.perks( screen_w, screen_h, xD.xys ) end
+
+    if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, xD.xys, inv.pickup_info ) end
+    if( pen.vld( inv.gmodder )) then inv.gmodder( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( inv.logger )) then inv.logger( screen_w, screen_h, xD.xys ) end
+    if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
+end
+
 function index.new_generic_slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
     local xD = index.D
 	local info = slot_data.idata or {}

@@ -355,37 +355,7 @@ local global_callback = xD.gmod.custom_func
 if( xD.gmod.allow_shooting ) then xD.no_inv_shooting = false end
 if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, false ) end
 
-if( not( xD.gmod.nuke_default )) then
-    if( pen.vld( inv.full_inv )) then xD.xys.inv_root, xD.xys.full_inv = inv.full_inv( screen_w, screen_h, xD.xys ) end
-    
-    local bars = inv.bars or {}
-    if( pen.vld( bars.hp )) then xD.xys.hp = bars.hp( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.air )) then xD.xys.air = bars.air( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.flight )) then xD.xys.flight = bars.flight( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.bossbar )) then xD.xys.bossbar = bars.bossbar( screen_w, screen_h, xD.xys ) end
-    
-    if( pen.vld( inv.applet_strip )) then xD.xys.applets_l, xD.xys.applets_r = inv.applet_strip( screen_w, screen_h, xD.xys ) end
-
-    local actions = bars.action or {}
-    if( pen.vld( actions.mana )) then xD.xys.mana = actions.mana( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( actions.reload )) then xD.xys.reload = actions.reload( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( actions.delay )) then xD.xys.delay = actions.delay( screen_w, screen_h, xD.xys ) end
-
-    if( pen.vld( inv.gold )) then xD.xys.gold = inv.gold( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.orbs )) then xD.xys.orbs = inv.orbs( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.info )) then xD.xys.info = inv.info( screen_w, screen_h, xD.xys ) end
-    
-    local icons = inv.icons or {}
-    if( pen.vld( icons.ingestions )) then xD.xys.ingestions = icons.ingestions( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.stains )) then xD.xys.stains = icons.stains( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.effects )) then xD.xys.effects = icons.effects( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.perks )) then xD.xys.perks = icons.perks( screen_w, screen_h, xD.xys ) end
-
-    if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, xD.xys, inv.pickup_info ) end
-    if( pen.vld( inv.gmodder )) then inv.gmodder( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.logger )) then inv.logger( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
-end
+if( not( xD.gmod.nuke_default )) then inv.structure( screen_w, screen_h, inv ) end
 
 if( not( xD.gmod.nuke_custom )) then
     for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
