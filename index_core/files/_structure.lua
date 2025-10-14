@@ -2,7 +2,7 @@ dofile_once( "mods/index_core/files/_elements.lua" )
 
 local GLOBAL_MODES = {
     {
-        name = "FULL", color = pen.PALETTE.W,
+        name = "FULL", color = pen.P.W,
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
         
@@ -11,17 +11,17 @@ local GLOBAL_MODES = {
         -- allow_external_inventories = false, allow_advanced_draggables = false,
     },
     {
-        name = "MANAGEMENT", color = pen.PALETTE.VNL.YELLOW,
+        name = "MANAGEMENT", color = pen.P.VNL.YELLOW,
         desc = "Extended inventory management capability.",
         allow_external_inventories = true, show_full = true, show_fullest = true,
     },
     {
-        name = "INTERACTIVE", color = pen.PALETTE.VNL.RUNIC,
+        name = "INTERACTIVE", color = pen.P.VNL.RUNIC,
         desc = "Dragging actions and in-world interactivity.",
         can_see = true, allow_shooting = true, allow_advanced_draggables = true,
     },
     {
-        name = "CUSTOM_MENU", color = pen.PALETTE.VNL.DAMAGE,
+        name = "CUSTOM_MENU", color = pen.P.VNL.DAMAGE,
         desc = "Clears space to the right and limits interactions.",
         menu_capable = true, is_hidden = true, force_inv_open = true,
     },
@@ -43,8 +43,8 @@ local BOSS_BARS = { --apocalyptic thanks to Priskip
 	["data/entities/animals/boss_alchemist/boss_alchemist.xml"] = {
 		pic = "mods/index_core/files/pics/priskips_bossbars/alchemist.png",
 		-- in_world = false,
-		-- color = pen.PALETTE.VNL.HP,
-		-- color_text = pen.PALETTE.VNL.ACTION_OTHER,
+		-- color = pen.P.VNL.HP,
+		-- color_text = pen.P.VNL.ACTION_OTHER,
 		color_bg = { 120, 131, 146, 47/255 }, pos = { 20, 3, 294, 17 },
 		-- func = function( pic_x, pic_y, pic_z, entity_id, data ) return length, height end,
 		-- func_extra = function( pic_x, pic_y, pic_z, entity_id, data, perc ) end,
@@ -498,13 +498,13 @@ local ITEM_CATS = {
             end)
         end,
 
-        on_tooltip = index.new_vanilla_wtt,
+        on_tip = index.new_wand_tip,
         on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims )
             local xD = index.D
             if( not( xD.is_opened )) then return end
             if( not( state_tbl.is_quick )) then return end
             if( not( xD.gmod.allow_wand_editing )) then return end
-            pic_x, pic_y = unpack( pen.vld( xD.xys.wands ) and xD.xys.wands or xD.xys.full_inv )
+            pic_x, pic_y = unpack( pen.vld( xD.xys.wands ) and xD.xys.wands or xD.xys.inv )
             w, h = xD.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
             xD.xys.wands = { pic_x, pic_y + h }
         end,
@@ -512,10 +512,10 @@ local ITEM_CATS = {
             local xD, xM = index.D, index.M
             local w, h = unpack( slot_dims )
             index.new_slot_pic( pic_x - w/8, pic_y + ( index.D.do_wand_tilting and h/8 or 0 ),
-                index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, true, hov_scale, true )
+                index.slot_z( info.id, pen.Z.ICONS ), info.pic, true, hov_scale, true )
             
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
-            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true })
+            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS, true })
 
             if( info.wand_info.actions_per_round > 0 and info.charges < 0 ) then
                 info.charges = 0
@@ -547,7 +547,7 @@ local ITEM_CATS = {
             return info
         end,
 
-        on_gui_world = index.new_vanilla_worldtip,
+        on_gui_world = index.new_world_tip,
         -- on_gui_pause = function( info ) --should know if is picked or not
         --     return
         -- end,
@@ -621,7 +621,7 @@ local ITEM_CATS = {
             return info
         end,
         
-        on_tooltip = index.new_vanilla_ptt,
+        on_tip = index.new_potion_tip,
         on_inventory = function( info, pic_x, pic_y, state_tbl, slot_dims )
             local w, h = unpack( slot_dims )
             if( state_tbl.is_full ) then return end
@@ -635,20 +635,20 @@ local ITEM_CATS = {
             local size = k*math.min( info.matter_info.matter[1], info.matter_info.volume )
             for i,m in ipairs( info.matter_info.matter[2]) do
                 local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
-                pen.new.pixel( pic_x, pic_y - math.min( delta, h ), pen.LAYERS.MAIN_FRONT +  tonumber( "4."..i ),
+                pen.new.pixel( pic_x, pic_y - math.min( delta, h ), pen.Z.MAIN_FRONT +  tonumber( "4."..i ),
                     pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
                 if( delta >= h ) then break end
             end
             
             if(( h - delta ) > 0.5 and math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 ) > 0 ) then
-                pen.new.pixel( pic_x, pic_y - ( delta + 0.3 ), pen.LAYERS.MAIN_FRONT + 5, pen.PALETTE.W, w, 1 )
+                pen.new.pixel( pic_x, pic_y - ( delta + 0.3 ), pen.Z.MAIN_FRONT + 5, pen.P.W, w, 1 )
             end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             local xD, xM = index.D, index.M
             local pic_data = pen.cache({ "index_pic_data", info.pic })
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
             
             local is_done = true
@@ -675,7 +675,7 @@ local ITEM_CATS = {
                 pic_y = pic_y + pen.estimate( "index_sdrift", target_off, "exp5", 1 )
             end
             
-            local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
+            local pic_z = index.slot_z( info.id, pen.Z.ICONS )
             local ratio = math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 )
             pic_x, pic_y = index.new_slot_pic( pic_x, pic_y, pic_z,
                 info.pic, false, hov_scale, nil, 0.8 - 0.5*ratio, angle )
@@ -773,7 +773,7 @@ local ITEM_CATS = {
             })[ type ]
         end,
 
-        on_gui_world = index.new_vanilla_worldtip,
+        on_gui_world = index.new_world_tip,
         on_pickup = function( info, is_post )
             return ({
                 function( info ) return 0 end,
@@ -828,7 +828,7 @@ local ITEM_CATS = {
             if( pen.vld( pic_comp, true )) then EntityRemoveComponent( info.id, pic_comp ) end
         end,
 
-        on_tooltip = index.new_vanilla_stt,
+        on_tip = index.new_spell_tip,
         on_slot_check = function( info, inv_info )
             return pen.t.get( inv_info.kind, "quickest" ) == 0
         end,
@@ -847,19 +847,19 @@ local ITEM_CATS = {
                 else angle = 1.5*angle end
             end
             
-            local pic_z = index.slot_z( info.id, pen.LAYERS.ICONS )
+            local pic_z = index.slot_z( info.id, pen.Z.ICONS )
             index.new_slot_pic( pic_x, pic_y, pic_z, info.pic, false, hov_scale, false, nil, angle )
-            if( is_considered ) then pen.colourer( nil, pen.PALETTE.VNL.DARK_SLOT ) end
+            if( is_considered ) then pen.colourer( nil, pen.P.VNL.DARK_SLOT ) end
             index.new_spell_frame( pic_x, pic_y,
-                is_considered and pen.LAYERS.ICONS or ( pen.LAYERS.ICONS_FRONT + 5 ), info.spell_info.type, is_considered and 0.6 or 1 )
+                is_considered and pen.Z.ICONS or ( pen.Z.ICONS_FRONT + 5 ), info.spell_info.type, is_considered and 0.6 or 1 )
             
             local is_active = pen.vld( hov_func ) and state_tbl.is_hov and state_tbl.is_opened
-            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS, true })
+            index.pinning({ "slot", info.id }, is_active, hov_func, { info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS, true })
 
             return info, ( state_tbl.is_hov and state_tbl.can_drag ) and 1 or nil
         end,
 
-        on_gui_world = index.new_vanilla_worldtip,
+        on_gui_world = index.new_world_tip,
     },
     {
         id = "TABLET",
@@ -869,15 +869,15 @@ local ITEM_CATS = {
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "BookComponent" ), true )
         end,
         
-        on_tooltip = index.new_vanilla_ttt,
+        on_tip = index.new_tablet_tip,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.Z.ICONS ), info.pic, false, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS ) end
             return info, true
         end,
 
-        on_gui_world = index.new_vanilla_worldtip,
+        on_gui_world = index.new_world_tip,
     },
     {
         id = "ITEM",
@@ -892,15 +892,15 @@ local ITEM_CATS = {
             return info
         end,
         
-        on_tooltip = index.new_vanilla_itt,
+        on_tip = index.new_item_tip,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
-            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.LAYERS.ICONS ), info.pic, false, hov_scale )
+            index.new_slot_pic( pic_x, pic_y, index.slot_z( info.id, pen.Z.ICONS ), info.pic, false, hov_scale )
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
-                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.LAYERS.TIPS ) end
+                hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS ) end
             return info
         end,
         
-        on_gui_world = index.new_vanilla_worldtip,
+        on_gui_world = index.new_world_tip,
         on_pickup = function( info, is_post )
             return ({
                 function( info )
@@ -915,47 +915,44 @@ local ITEM_CATS = {
 }
 
 local GUI_STRUCT = {
-    slot = index.new_vanilla_slot,
-    icon = index.new_vanilla_icon,
-    tooltip = pen.new.tip,
-    box = index.new_vanilla_box,
-    wand = index.new_vanilla_wand,
+    tip = pen.new.tip, bar = index.new_bar,
+    box = index.new_box, icon = index.new_icon,
+    slot = index.new_slot, wand = index.new_wand,
 
-    structure = index.new_generic_structure,
-    
-    gmodder = index.new_generic_gmod,
-    logger = index.new_generic_logger,
-    full_inv = index.new_generic_inventory,
-    applet_strip = index.new_generic_applets,
-    
+    structure = index.dft.struct,
+
+    inv = index.dft.inv,
+    applets = index.dft.applets,
+
     bars = {
-        hp = index.new_generic_hp,
-        air = index.new_generic_air,
-        flight = index.new_generic_flight,
-        bossbar = index.new_generic_bossbar,
+        hp = index.dft.hp,
+        air = index.dft.air,
+        flight = index.dft.flight,
+        bossbar = index.dft.bossbar,
         action = {
-            mana = index.new_generic_mana,
-            reload = index.new_generic_reload,
-            delay = index.new_generic_delay,
+            mana = index.dft.mana,
+            reload = index.dft.reload,
+            delay = index.dft.delay,
         },
     },
 
-    gold = index.new_generic_gold,
-    orbs = index.new_generic_orbs,
-    info = index.new_generic_info,
+    gold = index.dft.gold,
+    orbs = index.dft.orbs,
+    info = index.dft.info,
     
     icons = {
-        ingestions = index.new_generic_ingestions,
-        stains = index.new_generic_stains,
-        effects = index.new_generic_effects,
-        perks = index.new_generic_perks,
+        ingestions = index.dft.ingestions,
+        stains = index.dft.stains,
+        effects = index.dft.effects,
+        perks = index.dft.perks,
     },
 
-    pickup = index.new_generic_pickup,
-    pickup_info = index.new_pickup_info,
-    drop = index.new_generic_drop,
-    
-    extra = index.new_generic_extra,
+    pickup = index.dft.pickup,
+    drop = index.dft.drop,
+    gmodder = index.dft.gmodder,
+    logger = index.dft.logger,
+    extra = index.dft.extra,
+
     custom = {
         aa_readme = function( screen_w, screen_h, xys ) --allow appending to README
             --? menu where all the controls will be described (+ some quick settings and settings refresh button; put README menu in custom)

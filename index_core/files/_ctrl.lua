@@ -160,12 +160,12 @@ index.D = {
     perk_data = perk_tbl, icon_data = effect_tbl,
     item_cats = item_cats, boss_bars = boss_bars,
     wand_stats = wand_stats, spell_stats = spell_stats,
-
-    box_func = inv.box,
-    slot_func = inv.slot, icon_func = inv.icon,
-    wand_func = inv.wand, tip_func = inv.tooltip,
+    
+    tip_func = inv.tip, bar_func = inv.bar,
+    box_func = inv.box, icon_func = inv.icon,
+    slot_func = inv.slot, wand_func = inv.wand,
     pick_func = inv.pickup, drop_func = inv.drop,
-
+    
     player_id = hooman,
     player_xy = { 0, 0 },
     can_tinker = false, sampo = 0,
@@ -389,7 +389,7 @@ elseif( xD.dropping_mode == 2 ) then
         end
     elseif( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.gonna_drop = false
-    else pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[DROP]" ) end
+    else pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.Z.TIPS_FRONT, "[DROP]" ) end
 elseif( xD.dropping_mode == 3 ) then
     if( not( pen.vld( xD.dragger.item_id, true ))) then
         xM.gentle_drop = false
@@ -400,7 +400,7 @@ elseif( xD.dropping_mode == 3 ) then
     end
 
     if( xM.gentle_drop ) then
-        pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.LAYERS.TIPS_FRONT, "[PLACE]" )
+        pen.new.text_shad( xD.pointer_ui[1] + 6, xD.pointer_ui[2] - 13, pen.Z.TIPS_FRONT, "[PLACE]" )
     end
 end
 

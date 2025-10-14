@@ -165,7 +165,7 @@ function OnPlayerSpawned( hooman )
 	
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent", {
-		script_source_file = "mods/index_core/files/inv_ctrl.lua",
+		script_source_file = "mods/index_core/files/_ctrl.lua",
 		execute_every_n_frame = "1",
 	})
 	

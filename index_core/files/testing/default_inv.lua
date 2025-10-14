@@ -10,7 +10,7 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         pic_x, pic_y = core_x, core_y
         for i,col in pairs( inv ) do
             for e,slot in ipairs( col ) do
-                w, h = index.new_generic_slot( pic_x, pic_y, {
+                w, h = index.dft.slot( pic_x, pic_y, {
                     inv_slot = { i, e },
                     inv_id = inv_id, id = slot,
                 }, xD.is_opened, true )
@@ -28,8 +28,8 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         
         local alpha = 0.7
         local w, h = pen.get_pic_dims( pic )
-        local clicked, _, is_hovered = pen.new.image( pic_x - w/2, pic_y - w/2, pen.LAYERS.WORLD_FRONT + 10.1,
-            pic, { color = pen.PALETTE.SHADOW, alpha = 0.3, can_click = true })
+        local clicked, _, is_hovered = pen.new.image( pic_x - w/2, pic_y - w/2, pen.Z.WORLD_FRONT + 10.1,
+            pic, { color = pen.P.SHADOW, alpha = 0.3, can_click = true })
         if( not( xD.is_opened )) then
             local _,is_empty = index.get_inv_space( inv_id )
             xD.tip_func( is_empty and "[OPEN]" or "[LOOT]", { is_active = is_hovered })
@@ -47,6 +47,6 @@ return function( pic_x, pic_y, inv_info, xys, slot_func )
         
         local extra_scale = 16/18
         pen.new.image( pic_x - w/2 + 1, pic_y - w/2 + 1,
-            pen.LAYERS.WORLD_FRONT + 10, pic, { s_x = extra_scale, s_y = extra_scale, alpha = alpha })
+            pen.Z.WORLD_FRONT + 10, pic, { s_x = extra_scale, s_y = extra_scale, alpha = alpha })
     end
 end

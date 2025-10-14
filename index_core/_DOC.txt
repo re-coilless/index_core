@@ -22,7 +22,7 @@ Finally, this UI solution handles certain things different from vanilla, changin
 HermeS Index operates on following general principles:
     - The main LUA script runs from inside WorldsStateEntity and searches for "index_ctrl" tag to link to the player.
     - Everything exists within the same LUA context, enabling every component to access the entirety of available values (as long as order of operations allows), which is achieved through global "index.D" table (often localized as "xD") that is being rebuilt from scratch every frame (meaning that it can be safely used for pass value changes forward in the pipeline). Additionally, there exists "index.M" table (localized as "xM") which functions as means of preserving variables between frames.
-    - UI layout is built around pen.LAYERS table, enabling more or less rigorously segmenting the depth in predefined sections.
+    - UI layout is built around pen.Z table, enabling more or less rigorously segmenting the depth in predefined sections.
     - Player inventories are hardcoded to be handled as a special case due to thier two-fold nature (player inventory consists of two independent entities). While the system is more than flexible enough to allow reimplementation of vanilla inventory within a singular entity, for the sake of compatibility a decision was made to leave it as is.
     - External inventories as being initialized by looking for "index_inventory" tag, upon which VariableStorageComponents are being consulted.
 Items are being handled as follows:
@@ -266,38 +266,38 @@ GUI_STRUCT = {
     box = index.new_vanilla_box,
     wand = index.new_vanilla_wand,
 
-    gmodder = index.new_generic_gmod,
-    full_inv = index.new_generic_inventory,
-    applet_strip = index.new_generic_applets,
+    gmodder = index.dft.gmodder,
+    full_inv = index.dft.inv,
+    applet_strip = index.dft.applets,
     
     bars = {
-        hp = index.new_generic_hp,
-        air = index.new_generic_air,
-        flight = index.new_generic_flight,
-        bossbar = index.new_generic_bossbar,
+        hp = index.dft.hp,
+        air = index.dft.air,
+        flight = index.dft.flight,
+        bossbar = index.dft.bossbar,
         action = {
-            mana = index.new_generic_mana,
-            reload = index.new_generic_reload,
-            delay = index.new_generic_delay,
+            mana = index.dft.mana,
+            reload = index.dft.reload,
+            delay = index.dft.delay,
         },
     },
 
-    gold = index.new_generic_gold,
-    orbs = index.new_generic_orbs,
-    info = index.new_generic_info,
+    gold = index.dft.gold,
+    orbs = index.dft.orbs,
+    info = index.dft.info,
     
     icons = {
-        ingestions = index.new_generic_ingestions,
-        stains = index.new_generic_stains,
-        effects = index.new_generic_effects,
-        perks = index.new_generic_perks,
+        ingestions = index.dft.ingestions,
+        stains = index.dft.stains,
+        effects = index.dft.effects,
+        perks = index.dft.perks,
     },
 
-    pickup = index.new_generic_pickup,
+    pickup = index.dft.pickup,
     pickup_info = index.new_pickup_info,
-    drop = index.new_generic_drop,
+    drop = index.dft.drop,
     
-    extra = index.new_generic_extra,
+    extra = index.dft.extra,
     custom = {
         unique_name = function( screen_w, screen_h, xys ) return { pic_x, pic_y } end,
     },
@@ -373,30 +373,30 @@ index.D = {
 
 
 [ELEMENTS]
-index.new_generic_slot
-index.new_generic_background
-index.new_generic_inventory
-index.new_generic_applets
-index.new_generic_hp
-index.new_generic_air
-index.new_generic_flight
-index.new_generic_mana
-index.new_generic_reload
-index.new_generic_delay
-index.new_generic_bossbar
-index.new_generic_gold
-index.new_generic_orbs
-index.new_generic_info
-index.new_generic_ingestions
-index.new_generic_stains
-index.new_generic_effects
-index.new_generic_perks
-index.new_generic_ending
-index.new_generic_pickup
-index.new_generic_drop
-index.new_generic_extra
-index.new_generic_logger
-index.new_generic_gmod
+index.dft.slot
+index.dft.inv_bg
+index.dft.inv
+index.dft.applets
+index.dft.hp
+index.dft.air
+index.dft.flight
+index.dft.mana
+index.dft.reload
+index.dft.delay
+index.dft.bossbar
+index.dft.gold
+index.dft.orbs
+index.dft.info
+index.dft.ingestions
+index.dft.stains
+index.dft.effects
+index.dft.perks
+index.dft.pickup_ending
+index.dft.pickup
+index.dft.drop
+index.dft.extra
+index.dft.logger
+index.dft.gmodder
 
 
 
