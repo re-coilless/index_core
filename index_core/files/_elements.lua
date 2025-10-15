@@ -1,16 +1,6 @@
 dofile_once( "mods/index_core/files/_lib.lua" )
 
-index.INV_CATS = { QUICK = -1, TRUE_QUICK = -0.5, ANY = 0, FULL = 0.5 }
-index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%23CAA146-%23A8D5DA-%238EC373-%233F8492-%23735D8E-%234A446D
-	[0] = { pen.P.VNL.ACTION_PROJECTILE, "$inventory_actiontype_projectile" },
-	[1] = { pen.P.VNL.ACTION_STATIC, "$inventory_actiontype_staticprojectile" },
-	[2] = { pen.P.VNL.ACTION_MODIFIER, "$inventory_actiontype_modifier" },
-	[3] = { pen.P.VNL.ACTION_DRAW, "$inventory_actiontype_drawmany" },
-	[4] = { pen.P.VNL.ACTION_MATERIAL, "$inventory_actiontype_material" },
-    [5] = { pen.P.VNL.ACTION_OTHER, "$inventory_actiontype_other" },
-	[6] = { pen.P.VNL.ACTION_UTILITY, "$inventory_actiontype_utility" },
-	[7] = { pen.P.VNL.ACTION_PASSIVE, "$inventory_actiontype_passive" },
-}
+index.dft = index.dft or {}
 
 function index.dft.struct( screen_w, screen_h, inv )
     local xD = index.D
