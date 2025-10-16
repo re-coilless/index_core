@@ -1853,7 +1853,7 @@ function index.new_potion_tip( info, tid, pic_x, pic_y, pic_z, is_simple )
 			pen.new.pixel( t_x, t_y, pic_z + tonumber( "0.1"..i ),
 				pen.get_color_matter( CellFactory_GetName( m[1])), -perc, line_h, inter_alpha )
 			if(( line_w + 2 ) - perc > 0.25 ) then
-				pen.new.pixel( t_x - perc, t_y, pic_z + tonumber( "0.1"..i ), pen.P.W, -0.5, line_h, 0.75*inter_alpha )
+				pen.new.pixel( t_x - perc, t_y, pic_z + tonumber( "0.1"..i ), pen.P.WHITE, -0.5, line_h, 0.75*inter_alpha )
 			end
 		end
 
@@ -2037,7 +2037,7 @@ function index.new_icon( pic_x, pic_y, pic_z, info, kind )
 		if( pos > 0 ) then
 			pen.new.pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1, pic_z - 0.1, pen.P.VNL.GREY, 10, pos, 0.3 ) end
 		pen.new.pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y + 1 + pos,
-			pic_z + 0.5, is_hovered and pen.P.VNL.YELLOW or pen.P.W, 10, scale, is_hovered and 1 or 0.5 )
+			pic_z + 0.5, is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE, 10, scale, is_hovered and 1 or 0.5 )
 		
 		pen.new.pixel( pic_x + pic_off_x + 0.5, pic_y + pic_off_y, pic_z + 0.5, pen.P.SHADOW, 10, 1, 0.35 )
 		pen.new.pixel( pic_x + pic_off_x - 0.5, pic_y + pic_off_y + 1, pic_z + 0.5, pen.P.SHADOW, 1, 10, 0.35 )
@@ -2055,11 +2055,11 @@ function index.new_icon( pic_x, pic_y, pic_z, info, kind )
 	if( pen.vld( info.txt )) then
 		info.txt = pen.despacer( info.txt )
 		pen.new.text_shad( pic_x + txt_off_x - 1, pic_y + 1 + txt_off_y, pic_z, info.txt,
-			{ is_right_x = true, color = is_hovered and pen.P.VNL.YELLOW or pen.P.W, alpha = is_hovered and 1 or 0.5 })
+			{ is_right_x = true, color = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE, alpha = is_hovered and 1 or 0.5 })
 	end
 	if(( info.count or 0 ) > 1 ) then
 		pen.new.text_shad( pic_x + 15, pic_y + 1 + txt_off_y, pic_z, "x"..info.count,
-			{ color = is_hovered and pen.P.VNL.YELLOW or pen.P.W, alpha = is_hovered and 1 or 0.5 })
+			{ color = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE, alpha = is_hovered and 1 or 0.5 })
 	end
 
 	local tip_x, tip_y = pic_x + 15, pic_y + 16

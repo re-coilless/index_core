@@ -2,7 +2,7 @@ dofile_once( "mods/index_core/files/_elements.lua" )
 
 local GLOBAL_MODES = {
     {
-        name = "FULL", color = pen.P.W,
+        name = "FULL", color = pen.P.WHITE,
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
         
@@ -641,7 +641,7 @@ local ITEM_CATS = {
             end
             
             if(( h - delta ) > 0.5 and math.min( info.matter_info.matter[1]/info.matter_info.volume, 1 ) > 0 ) then
-                pen.new.pixel( pic_x, pic_y - ( delta + 0.3 ), pen.Z.MAIN_FRONT + 5, pen.P.W, w, 1 )
+                pen.new.pixel( pic_x, pic_y - ( delta + 0.3 ), pen.Z.MAIN_FRONT + 5, pen.P.WHITE, w, 1 )
             end
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )

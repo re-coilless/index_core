@@ -170,7 +170,7 @@ index.D = {
     player_xy = { 0, 0 },
     can_tinker = false, sampo = 0,
     orbs = GameGetOrbCountThisRun(),
-    just_fired = ({ mnee.vanilla_input( "Fire", hooman )})[2],
+    just_fired_real = ({ mnee.vanilla_input( "Fire", hooman )})[2],
     active_item = pen.get_active_item( hooman ), active_info = {},
     no_mana = tonumber( GlobalsGetValue( index.GLOBAL_FUCK_YOUR_MANA, "0" )) == hooman,
 
@@ -286,7 +286,7 @@ if( pen.vld( xD.active_item, true )) then
         if( pen.vld( xD.active_info.AbilityC, true )) then
             xM.shot_count = xM.shot_count or {}
             local shot_count = ComponentGetValue2( xD.active_info.AbilityC, "stat_times_player_has_shot" )
-            xD.just_fired = xD.just_fired or (( xM.shot_count[ xD.active_item ] or shot_count ) < shot_count )
+            xD.just_fired = xD.just_fired_real or (( xM.shot_count[ xD.active_item ] or shot_count ) < shot_count )
             if( xD.just_fired ) then xM.shot_count[ xD.active_item ] = shot_count end
         end
     else xD.active_item = 0 end

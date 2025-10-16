@@ -46,8 +46,7 @@ function index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h, xys )
     if( not( xD.gmod.can_see )) then
         local delta = math.max(( xM.inv_alpha or xD.frame_num ) - xD.frame_num, 0 )
         local alpha = 0.5*math.cos( math.pi*delta/30 )
-        pen.new.image( -2, -2, pic_z + 1,
-            "data/ui_gfx/empty_black.png", { s_x = screen_w + 4, s_y = screen_h + 4, alpha = alpha })
+        pen.new.pixel( -2, -2, pic_z + 1, pen.P.BLACK, screen_w + 4, screen_h + 4, alpha )
     end
 
     if( xD.static_background ) then
@@ -487,7 +486,7 @@ function index.dft.mana( screen_w, screen_h, xys )
         local ratio = math.min( value[1]/value[2], 1 )
         pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, potion_info.pic or "data/ui_gfx/hud/mana.png", { has_shadow = true })
         if( pen.vld( potion_info.color )) then
-            pen.new.pixel( pic_x - 40, pic_y + 1, pen.Z.MAIN - 4.9, pen.P.W, math.min( 40*ratio + 0.5, 40 ), 2 ) end
+            pen.new.pixel( pic_x - 40, pic_y + 1, pen.Z.MAIN - 4.9, pen.P.WHITE, math.min( 40*ratio + 0.5, 40 ), 2 ) end
         xD.bar_func( pic_x, pic_y,
             pen.Z.MAIN - 5, { 40, 2, 40*ratio }, potion_info.color or pen.P.VNL.MANA, throw_it_back, potion_info.alpha )
         
@@ -525,7 +524,7 @@ function index.dft.reload( screen_w, screen_h, xys )
         if( reloading_full <= xD.reload_threshold ) then return end
         
         local reloading_shake = xM.reload_shake[ xD.active_item ]
-        local it_is_time = xD.just_fired and reloading_full ~= reloading
+        local it_is_time = xD.just_fired_real and reloading_full ~= reloading
         if( not( pen.vld( reloading_shake )) and it_is_time ) then reloading_shake = xD.frame_num end
         xM.reload_shake[ xD.active_item ] = reloading_shake
         
@@ -567,7 +566,7 @@ function index.dft.delay( screen_w, screen_h, xys )
         if( delay_full <= xD.reload_threshold ) then return end
         
         local delay_shake = xM.delay_shake[ xD.active_item ]
-        local it_is_time = xD.just_fired and delay_full ~= delay
+        local it_is_time = xD.just_fired_real and delay_full ~= delay
         if( not( pen.vld( delay_shake )) and it_is_time ) then delay_shake = xD.frame_num end
         xM.delay_shake[ xD.active_item ] = delay_shake
         
@@ -606,7 +605,7 @@ function index.dft.gold( screen_w, screen_h, xys )
         local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.Z.TIPS,
             { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
         
-        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.W
+        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         pen.new.image( pic_x + 2.5, pic_y - 1.5, pen.Z.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
         pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
 
@@ -629,7 +628,7 @@ function index.dft.orbs( screen_w, screen_h, xys )
         local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.Z.TIPS,
             { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
 
-        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.W
+        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         pen.new.image( pic_x + 3, pic_y, pen.Z.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
         pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
 
@@ -756,7 +755,7 @@ function index.dft.info( screen_w, screen_h, xys )
         do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
             local _,_,is_hovered = pen.new.interface( pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.Z.TIPS )
             if( is_hovered ) then xM.mtr_prb = { matter, xD.frame_num + 300 } end
-            return is_hovered and pen.P.VNL.YELLOW or pen.P.W
+            return is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         end)
     end)
     return { pic_x, pic_y }
