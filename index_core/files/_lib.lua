@@ -7,11 +7,13 @@ index.M = index.M or {} -- interframe memory values
 
 -- on new status effect, translate the icon to the left
 -- add a way to do custom shader edge effect (blink or continuous) for any status effect
+-- universal content origin field in all tooltips
 
 -- report shift-clicking in inv check + shift-clicking should use proper slot assignment with all the callbacks
 -- make sure the shit inherently supports virtual invs
 -- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
 -- wand pickup + pickup inv
+-- instead of full phantom invs, just do a straightforward phantom slot implementation
 
 ------------------------------------------------------
 
@@ -19,10 +21,8 @@ index.M = index.M or {} -- interframe memory values
 
 -- cutscene capable gmod that hides the vast majority of ui
 -- custom mnee frontend for index
--- universal content origin field in all tooltips
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- two slots can be highlighted at once
--- final major refactor
 -- finalize documentation
 
 ------------------------------------------------------		 [BACKEND]		------------------------------------------------------

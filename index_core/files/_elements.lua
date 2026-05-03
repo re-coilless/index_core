@@ -1169,26 +1169,27 @@ function index.dft.gmodder( screen_w, screen_h, xys )
     elseif( xys.applets_r[1] <= ( pic_x + 5 )) then return end
     if( pen.vld( xys.gmodder )) then pic_x, pic_y = unpack( xys.gmodder ) end
     
+    local pic_z = pen.Z.MAIN_OVERLAY
+
     local new_mode = xD.global_mode
     local arrow_left_c, arrow_right_c = nil, nil
     local gonna_reset, gonna_highlight, arrow_left_a, arrow_right_a = false, false, 0.3, 0.3
-    local clicked, r_clicked, is_hovered = pen.new.interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pen.Z.TIPS )
+    local clicked, r_clicked, is_hovered = pen.new.interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pic_z )
     if( is_hovered ) then arrow_left_c, arrow_left_a = pen.P.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_previous" )) then new_mode, arrow_left_a = new_mode - 1, 1 end
 
-    clicked, r_clicked, is_hovered = pen.new.interface( pic_x - 10, pic_y - 11, 15, 10, pen.Z.TIPS )
+    clicked, r_clicked, is_hovered = pen.new.interface( pic_x - 10, pic_y - 11, 15, 10, pic_z )
     if( is_hovered ) then arrow_right_c, arrow_right_a = pen.P.VNL.YELLOW, 1 end
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
     if( clicked or index.get_input( "invmode_next" )) then new_mode, arrow_right_a = new_mode + 1, 1 end
     
-    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pen.Z.TIPS, { w + 6, 10 },
+    is_hovered, clicked, r_clicked = index.tipping( pic_x - ( 6 + w ), pic_y - 11, pic_z, { w + 6, 10 },
         { data.name, data.desc }, { tid = "slot", fully_featured = true, pos = { pic_x, pic_y }, is_left = true, do_corrections = true, pause = pen.vld( index.M.pinned_tips[ "slot" ])})
     gonna_reset, gonna_highlight = gonna_reset or r_clicked, gonna_highlight or is_hovered
 
     if( gonna_reset ) then for i,gmod in ipairs( xD.gmods ) do if( gmod.is_default ) then new_mode = i; break end end end
     
-    local pic_z = pen.Z.MAIN_OVERLAY
     pen.new.text( pic_x - ( 3 + w ), pic_y - ( 2 + h ),
         pic_z - 0.1, data.name, { color = data.color, alpha = gonna_highlight and 1 or 0.3 })
     xD.box_func( pic_x - ( 4 + w ), pic_y - 9, pic_z, { w + 2, 6 })

@@ -366,7 +366,7 @@ if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     index.play_sound( xD.is_opened and "close" or "open" )
     ComponentSetValue2( iui_comp, "mActive", not( xD.is_opened ))
 elseif( xD.gmod.force_inv_open and not( xD.is_opened )) then ComponentSetValue2( iui_comp, "mActive", true ) end
-if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, 9999 ) end
+if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, pen.Z.NON_CLICK ) end
 if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, true ) end
 
 
