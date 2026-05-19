@@ -1909,7 +1909,7 @@ function index.new_item_tip( info, tid, pic_x, pic_y, pic_z, is_simple, do_runes
 				pen.new.text_shad( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z,
 					"{>runic>{"..info.desc.."}<runic<}", { dims = { desc_w + 2, size_y },
 					fully_featured = true, color = pen.P.VNL.RUNIC, alpha = inter_alpha*( 1 - runic_state ), line_offset = -2 })
-				pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "index_runic"..info.id, { 1, 0 }, "exp500" ))
+				pen.magic_storage( info.id, "index_runic_cypher", "value_float", pen.estimate( "index_runic"..info.id, { 1, 0 }, "exp0.002" ))
 			end
 			if( runic_state > 0 ) then
 				pen.new.text_shad( pic_x + d.edging + 2, pic_y + d.edging + title_h, pic_z + 0.1, info.desc, {
@@ -2418,7 +2418,7 @@ function index.new_wand( pic_x, pic_y, info, in_hand, can_tinker )
 		local counter = scroll%2
 		local slot_y = pic_y + size_y - 21
 		local slot_x = pic_x + 3*d.edging + icon_w + 1
-		slot_x = slot_x + pen.estimate( anim_id, 0, "exp5" )
+		slot_x = slot_x + pen.estimate( anim_id, 0, "exp0.2" )
 
 		for i = scroll,( scroll + math.min( slot_count, xD.max_slots ) - 1 ) do
 			for e,slot in ipairs( xD.slot_state[ info.id ][i]) do

@@ -228,7 +228,7 @@ function index.dft.applets( screen_w, screen_h, xys )
         
         xD[ tbl[ type ][4]] = total_drift
         local arrow_off = is_left and ( l - 8 ) or 0
-        local extra_off = pen.estimate( tbl[ type ][4], drift_target, "exp5", 1 )
+        local extra_off = pen.estimate( tbl[ type ][4], drift_target, "exp0.2", 1 )
         pic_x = pic_x - sign*( core_off + extra_off )
 
         if( data[ tbl[ type ][2]]) then
@@ -596,7 +596,7 @@ function index.dft.gold( screen_w, screen_h, xys )
         if( xD.gmod.menu_capable ) then return end
         if( data.money < 0 ) then return end
         
-        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp10", data.money/1000 ))
+        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp", data.money/1000 ))
         
         local tip_x, tip_y = unpack( xys.hp )
         local v = pen.get_short_num( le_money )
