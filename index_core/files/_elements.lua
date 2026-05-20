@@ -228,7 +228,7 @@ function index.dft.applets( screen_w, screen_h, xys )
         
         xD[ tbl[ type ][4]] = total_drift
         local arrow_off = is_left and ( l - 8 ) or 0
-        local extra_off = pen.estimate( tbl[ type ][4], drift_target, "exp0.2", 1 )
+        local extra_off = pen.estimate( tbl[ type ][4], drift_target, { "exp", 0.2 }, 1 )
         pic_x = pic_x - sign*( core_off + extra_off )
 
         if( data[ tbl[ type ][2]]) then
