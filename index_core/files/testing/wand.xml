@@ -14,7 +14,7 @@
         sprite_file="data/items_gfx/wands/custom/good_01.xml"
         swim_propel_amount="0"
         throw_as_item="0"
-        ui_name="All Spells"
+        ui_name="<COUNT> Spells"
         add_these_child_actions="<SPELLS>"
         use_gun_script="1"
         ><gun_config

@@ -646,7 +646,7 @@ local ITEM_CATS = {
         end,
         on_slot = function( info, pic_x, pic_y, state_tbl, rmb_func, drag_func, hov_func, hov_scale, slot_dims )
             local xD, xM = index.D, index.M
-            local pic_data = pen.cache({ "index_pic_data", info.pic })
+            local pic_info = pen.cache({ "index_pic_info", info.pic })
             if( state_tbl.is_opened and state_tbl.is_hov and pen.vld( hov_func )) then
                 hov_func( info, "slot", pic_x - 10, pic_y + 7, pen.Z.TIPS ) end
             if( info.matter_info.matter[1] == 0 ) then info.charges = 0 end
@@ -658,13 +658,13 @@ local ITEM_CATS = {
                 pen.c.dragger_data[ info.id ].off = { -w/2, -h/2 }
                 if( pen.vld( drag_func ) and xD.drag_action ) then is_done, target_angle = unpack( drag_func( info )) end
             elseif( pen.vld( rmb_func ) and state_tbl.is_rmb and state_tbl.is_quick ) then rmb_func( info ) end
-            if( is_done ) then _,pic_data.dims[2] = pen.get_pic_dims( info.pic ) end
+            if( is_done ) then _,pic_info.dims[2] = pen.get_pic_dims( info.pic ) end
             
             local target_off = 0
             if( not( is_done )) then
                 if( not( xD.shift_action )) then
-                    target_off = pic_data.dims[2]/2
-                else pic_data.dims[2] = pen.estimate( "index_pdrift", { 0, pic_data.dims[2]}, { "exp", 0.2 }, 0.5 ) end
+                    target_off = pic_info.dims[2]/2
+                else pic_info.dims[2] = pen.estimate( "index_pdrift", { 0, pic_info.dims[2]}, { "exp", 0.2 }, 0.5 ) end
             elseif( not( pen.vld( xD.dragger.item_id, true )) or xD.dragger.item_id == info.id ) then
                 if( EntityGetIsAlive( xM.john_pouring or 0 )) then EntityKill( xM.john_pouring ); xM.john_pouring = nil end
             end
@@ -803,12 +803,15 @@ local ITEM_CATS = {
             info.ActionC = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
 
             info.spell_id = ComponentGetValue2( info.ActionC, "action_id" )
-            info.spell_info = pen.get_spell_data( info.spell_id )
+            info.spell_info = pen.get_spell_info( info.spell_id )
             info.pic = info.spell_info.sprite
             
             info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( info.spell_info.name ))
-            info.name = info.tip_name..( info.charges >= 0 and " ("..info.charges..")" or "" )
             info.desc = index.full_stopper( GameTextGetTranslatedOrNot( info.spell_info.description ))
+            
+            info.name = info.tip_name
+            if( info.charges >= 0 ) then
+                info.name = table.concat({ info.name, " (", info.charges, ")" }) end
             info.tip_name = string.upper( info.tip_name )
             
             local parent_id = EntityGetParent( info.id )

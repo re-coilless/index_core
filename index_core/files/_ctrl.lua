@@ -276,7 +276,8 @@ if( pen.vld( xD.active_item, true )) then --just fix this with phantom "hand" it
     end
 end
 
-
+pen.debug_print( "total = "..pen.get_delta_time( "total" ), 50, 40, true )
+pen.get_delta_time( "get_items" )
 
 --item data init
 index.get_items( hooman )
@@ -292,7 +293,9 @@ if( pen.vld( xD.active_item, true )) then
     else xD.active_item = 0 end
 end
 
-
+pen.debug_print( "get_items = "..pen.get_delta_time( "get_items" ).." ("..pen.c.item_time.."+"..pen.c.proc_time..")", 50, 50, true )
+pen.c.item_time, pen.c.proc_time = nil, nil
+pen.get_delta_time( "slot_state" )
 
 --slot table init
 xD.slot_state = {}
@@ -310,19 +313,27 @@ for i,inv_info in pairs( xD.invs ) do
     end
 end
 
+pen.debug_print( "slot_state = "..pen.get_delta_time( "slot_state" ), 50, 60, true )
+pen.get_delta_time( "set_to_slot" )
+local loop_a, loop_b = 0, 0
+
 local get_out = {}
 for i,info in ipairs( xD.item_list ) do
+    pen.get_delta_time( "loop_a" )
     xD.item_list[i] = index.set_to_slot( info )
     if( not( pen.vld( info.inv_slot ))) then table.insert( get_out, i ) end
+    loop_a = loop_a + pen.get_delta_time( "loop_a" )
 
+    pen.get_delta_time( "loop_b" )
     local skip_man = false
     local ctrl_func = index.cat_callback( info, "ctrl_script" )
     if( pen.vld( ctrl_func )) then skip_man = ctrl_func( info ) end
     if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
+    loop_b = loop_b + pen.get_delta_time( "loop_b" )
 end
 for i = #get_out,1,-1 do table.remove( xD.item_list, get_out[i]) end
 
-
+pen.debug_print( "set_to_slot = "..pen.get_delta_time( "set_to_slot" ).." ("..loop_a.."+"..loop_b..")", 50, 70, true )
 
 --gmods and applets init
 xD.gmod = xD.gmods[ xD.global_mode ]
@@ -348,7 +359,7 @@ if( xD.applets.done == nil ) then
     table.insert( xD.applets.r, close_applets )
 end
 
-
+pen.get_delta_time( "rendering" )
 
 --rendering pass
 local global_callback = xD.gmod.custom_func
@@ -369,7 +380,7 @@ elseif( xD.gmod.force_inv_open and not( xD.is_opened )) then ComponentSetValue2(
 if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, pen.Z.NON_CLICK ) end
 if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, true ) end
 
-
+pen.debug_print( "rendering = "..pen.get_delta_time( "rendering" ), 50, 80, true )
 
 --dropping handling
 if( xD.dropping_mode == 1 ) then

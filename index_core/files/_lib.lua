@@ -5,13 +5,14 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
+-- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
+
 -- on new status effect, translate the icon to the left
 -- add a way to do custom shader edge effect (blink or continuous) for any status effect
 -- universal content origin field in all tooltips
 
 -- report shift-clicking in inv check + shift-clicking should use proper slot assignment with all the callbacks
 -- make sure the shit inherently supports virtual invs
--- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
 -- wand pickup + pickup inv
 -- instead of full phantom invs, just do a straightforward phantom slot implementation
 
@@ -504,25 +505,23 @@ function index.inv_boy( info, in_hand )
 		local wand_id = in_wand and info.in_wand or item_id
 		in_hand = pen.vld( pen.get_item_owner( wand_id, true ), true )
 	end
-	
+
 	local hooman = EntityGetRootEntity( item_id )
-	local is_free = hooman == item_id
-	pen.t.loop( EntityGetAllComponents( item_id ), function( i, comp )
-		local world_check, inv_check, hand_check = false, false, false
-		if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
-			world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
-			inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
-			hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
-		end
-		EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
-	end)
+	local is_free = hooman == item_id --thanks Lamia
+	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_world", is_free )
+	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_inventory", not( is_free ))
+	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_hand", in_hand )
+	EntitySetComponentsWithTagEnabled( item_id, "not_enabled_in_wand", not( in_wand ))
 
 	if( is_free ) then return end
 	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end
 	if( in_hand ) then hooman = EntityGetParent( item_id ) end
-	local x, y = EntityGetTransform( hooman )
-	EntitySetTransform( item_id, x, y )
-	EntityApplyTransform( item_id, x, y )
+	
+	local h_x, h_y = EntityGetTransform( hooman )
+	local i_x, i_y = EntityGetTransform( item_id )
+	if( pen.epc( h_x, i_x, 0.5 ) and pen.epc( h_y, i_y, 0.5 )) then return end
+	EntitySetTransform( item_id, h_x, h_y )
+	EntityApplyTransform( item_id, h_x, h_y )
 end
 
 ---A child-enabled wrapper for index.inv_boy.
@@ -760,6 +759,9 @@ function index.get_item_info( item_id, inv_info, item_list )
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
 	if( not( pen.vld( item_comp, true ))) then return {} end
 	
+	info.update = EntityHasTag( info.id, "index_update" )
+	if( info.update ) then EntityRemoveTag( info.id, "index_update" ) end
+	
 	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
 	if( pen.vld( abil_comp, true  )) then
 		info.AbilityC = abil_comp
@@ -823,7 +825,7 @@ function index.get_item_info( item_id, inv_info, item_list )
 			if( pen.vld( func_path )) then return dofile_once( func_path ) end
 		end)
 	end
-	
+
 	pen.t.loop( xD.item_cats, function( k, cat )
 		if( not( cat.on_check( item_id ))) then return end
 		info.cat = k
@@ -856,14 +858,17 @@ end
 function index.get_items()
 	local xD = index.D
 	local item_tbl = {}
-	pen.t.loop({ "invs", "invs_i" }, function( k, inv_tbl )
+	for k,inv_tbl in ipairs({ "invs", "invs_i" }) do
 		for i,inv_info in pairs( xD[ inv_tbl ]) do
 			if( k == 2 ) then xD.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child )
 				if( EntityHasTag( child, "not_an_item" )) then return end
+				pen.get_delta_time( "item_time" )
 				local new_info = index.get_item_info( child, inv_info, item_tbl )
+				pen.c.item_time = ( pen.c.item_time or 0 ) + pen.get_delta_time( "item_time" )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
+				pen.get_delta_time( "proc_time" )
 				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
 					index.cat_callback( new_info, "on_processed", {})
 					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
@@ -873,9 +878,10 @@ function index.get_items()
 				index.cat_callback( new_info, "on_processed_forced", {})
 				index.register_item_pic( new_info )
 				table.insert( item_tbl, new_info )
+				pen.c.proc_time = ( pen.c.proc_time or 0 ) + pen.get_delta_time( "proc_time" )
 			end, inv_info.sort )
 		end
-	end)
+	end
 	xD.item_list = item_tbl
 end
 
@@ -1044,11 +1050,8 @@ end
 ---@return PicInfo
 function index.register_item_pic( info )
 	if( not( pen.vld( info.pic ))) then return end
-	local force_update = EntityHasTag( info.id, "index_update" )
-	if( force_update ) then EntityRemoveTag( info.id, "index_update" ) end
-
-	return pen.cache({ "index_pic_data", info.pic }, function()
-		local w, h, xy_xml = pen.get_pic_dims( info.pic, force_update )
+	return pen.cache({ "index_pic_info", info.pic }, function()
+		local w, h, xy_xml = pen.get_pic_dims( info.pic, info.update )
 		local data = { dims = { w, h }, xy = { 0, 0 }, xy_xml = xy_xml }
 
 		local anim_data = pen.magic_storage( info.id, "index_pic_anim", "value_string" ) --this should contain the anim name and nothing else
@@ -1064,7 +1067,7 @@ function index.register_item_pic( info )
 		else data.xy = pen.t.pack( off_data ) end
 		
 		return data
-	end, { reset_count = 0, force_update = force_update })
+	end, { reset_count = 0, force_update = info.update })
 end
 
 ---A wrapper for pen.new.dragger.
@@ -1449,9 +1452,9 @@ function index.new_wand_tip( info, tid, pic_x, pic_y, pic_z, is_simple )
 		desc_h = desc_h + 5
 	end
 
-	local pic_data = index.register_item_pic( info )
+	local pic_info = index.register_item_pic( info )
 	local pic_scale = xD.no_wand_scaling and 1 or 2
-	local pic_w, pic_h = pic_scale*pic_data.dims[1], pic_scale*pic_data.dims[2]
+	local pic_w, pic_h = pic_scale*pic_info.dims[1], pic_scale*pic_info.dims[2]
 	
 	local spacer_size = 12
 	local stats_w, stats_h = 60 + pic_h, 0
@@ -1973,13 +1976,13 @@ function index.new_slot_pic( pic_x, pic_y, pic_z, pic, is_wand, hov_scale, fancy
 	is_wand = is_wand or false
 	hov_scale = hov_scale or 1
 	angle = angle or (( is_wand and index.D.do_wand_tilting ) and -math.rad( 45 ) or 0 )
-	local pic_data = pen.cache({ "index_pic_data", pic }) or { xy = { 0, 0 }}
+	local pic_info = pen.cache({ "index_pic_info", pic }) or { xy = { 0, 0 }}
 	
 	local off_x, off_y = 0, 0
-	local w, h = unpack( pic_data.dims )
+	local w, h = unpack( pic_info.dims )
 	if( is_wand ) then
-		local xml_offs = pic_data.xy_xml or { 0, 0 }
-		off_x, off_y = pic_data.xy[1] + xml_offs[1], pic_data.xy[2] + xml_offs[2]
+		local xml_offs = pic_info.xy_xml or { 0, 0 }
+		off_x, off_y = pic_info.xy[1] + xml_offs[1], pic_info.xy[2] + xml_offs[2]
 	else off_x, off_y = w/2, h/2 end
 	
 	off_x, off_y = pen.rot( off_x, off_y, angle )
@@ -2373,7 +2376,7 @@ function index.new_wand( pic_x, pic_y, info, in_hand, can_tinker )
 
 		local gui, uid = pen.new.builder()
 		GuiOptionsAddForNextWidget( gui, 2 ) --NonInteractive
-		GuiZSetForNextWidget( gui, pic_z + 0.5 )
+		GuiZSetForNextWidget( gui, pic_z + 0.7 )
 		local tip_bg = "data/ui_gfx/decorations/9piece0"..( in_hand and "" or "_gray" )..".png"
 		GuiImageNinePiece( gui, uid, pos_x, pos_y, scale_x, scale_y, 1.15*math.max( 1 - inter_alpha/6, 0.1 ), tip_bg )
 
