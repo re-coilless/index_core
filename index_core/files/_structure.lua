@@ -418,36 +418,41 @@ local ITEM_CATS = {
         end,
         on_data = function( info, wip_item_list )
             local xD = index.D
-            info.wand_info = {
-                shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-                actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
-                deck_capacity = ComponentObjectGetValue2( info.AbilityC, "gun_config", "deck_capacity" ),
-                spread_degrees = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "spread_degrees" ),
-                mana_max = ComponentGetValue2( info.AbilityC, "mana_max" ),
-                mana_charge_speed = ComponentGetValue2( info.AbilityC, "mana_charge_speed" ),
-                mana = ComponentGetValue2( info.AbilityC, "mana" ),
+            info.wand_info = pen.cache({ "index_wand_info", info.id }, function()
+                return {
+                    shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
+                    actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
+                    deck_capacity = ComponentObjectGetValue2( info.AbilityC, "gun_config", "deck_capacity" ),
+                    spread_degrees = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "spread_degrees" ),
+                    mana_max = ComponentGetValue2( info.AbilityC, "mana_max" ),
+                    mana_charge_speed = ComponentGetValue2( info.AbilityC, "mana_charge_speed" ),
 
-                never_reload = ComponentGetValue2( info.AbilityC, "never_reload" ),
-                reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) +
-                                ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
-                delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-                reload_frame = math.max( ComponentGetValue2( info.AbilityC, "mReloadNextFrameUsable" ) - xD.frame_num, 0 ),
-                delay_frame = math.max( ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - xD.frame_num, 0 ),
+                    never_reload = ComponentGetValue2( info.AbilityC, "never_reload" ),
+                    reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) +
+                                    ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
+                    delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
 
-                speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
-                lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
-                bounces = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "bounces" ),
+                    speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
+                    lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
+                    bounces = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "bounces" ),
 
-                crit_chance = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-                crit_mult = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+                    crit_chance = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_chance" ),
+                    crit_mult = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
 
-                damage_electricity_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-                damage_explosion_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-                damage_fire_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_fire_add" ),
-                damage_melee_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_melee_add" ),
-                damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
-            }
+                    damage_electricity_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_electricity_add" ),
+                    damage_explosion_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_explosion_add" ),
+                    damage_fire_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_fire_add" ),
+                    damage_melee_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_melee_add" ),
+                    damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
+                }
+            end, { force_update = info.update or xD.Controls.inv[2] or xD.just_fired })
             
+            info.wand_info.delay_frame = math.max(
+                ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - xD.frame_num, 0 )
+            info.wand_info.reload_frame = math.max(
+                ComponentGetValue2( info.AbilityC, "mReloadNextFrameUsable" ) - xD.frame_num, 0 )
+            info.wand_info.mana = ComponentGetValue2( info.AbilityC, "mana" )
+
             local check_func = function( inv_info, item_info ) return item_info.is_spell or false end
             local update_func = function( inv_info, item_info_old, item_info_new, slot_data ) return pen.vld( inv_info.in_hand, true ) end
             local sort_func = function( a, b )
@@ -470,14 +475,22 @@ local ITEM_CATS = {
         on_processed_forced = function( info )
             local children = EntityGetAllChildren( info.id )
             if( not( pen.vld( children ))) then return end
-            
+            index.M.wand_slot_memo = {}
+
             table.sort( children, function( a, b )
                 local inv_slot = { 0, 0 }
-                pen.t.loop({ a, b }, function( i,v )
-                    local item_comp = EntityGetFirstComponentIncludingDisabled( v, "ItemComponent" )
-                    if( not( pen.vld( item_comp, true ))) then return end
-                    inv_slot[i] = math.max( ComponentGetValue2( item_comp, "inventory_slot" ), 0 )
-                end)
+                for i,v in ipairs({ a, b }) do
+                    if( index.M.wand_slot_memo[v] == nil ) then
+                        local item_comp = EntityGetFirstComponentIncludingDisabled( v, "ItemComponent" )
+                        if( pen.vld( item_comp, true )) then
+                            index.M.wand_slot_memo[v] = ComponentGetValue2( item_comp, "inventory_slot" )
+                        end
+                    end
+
+                    if( index.M.wand_slot_memo[v] ~= nil ) then
+                        inv_slot[i] = math.max( index.M.wand_slot_memo[v], 0 )
+                    end
+                end
                 return inv_slot[1] < inv_slot[2]
             end)
             
@@ -494,8 +507,10 @@ local ITEM_CATS = {
             pen.t.loop( children, function( i, child )
                 local item_comp = EntityGetFirstComponentIncludingDisabled( child, "ItemComponent" )
                 if( not( pen.vld( item_comp, true ))) then return end
-                ComponentSetValue2( item_comp, "inventory_slot", ComponentGetValue2( item_comp, "inventory_slot" ), -5 )
+                ComponentSetValue2( item_comp, "inventory_slot", index.M.wand_slot_memo[ child ], -5 )
             end)
+
+            index.M.wand_slot_memo = nil
         end,
 
         on_tip = index.new_wand_tip,
@@ -800,14 +815,20 @@ local ITEM_CATS = {
             local xD = index.D
             if( info.is_permanent ) then info.charges = -1 end
 
-            info.ActionC = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
+            local cached = pen.cache({ "index_spell_info", info.id }, function()
+                local act_comp = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
+                local spell_id = ComponentGetValue2( act_comp, "action_id" )
+                local spell_info = pen.get_spell_info( spell_id )
+                return {
+                    act_comp, spell_id, spell_info,
+                    pen.capitalizer( GameTextGetTranslatedOrNot( spell_info.name )),
+                    index.full_stopper( GameTextGetTranslatedOrNot( spell_info.description )),
+                }
+            end, { force_update = info.update or xD.Controls.inv[2]})
 
-            info.spell_id = ComponentGetValue2( info.ActionC, "action_id" )
-            info.spell_info = pen.get_spell_info( info.spell_id )
+            info.ActionC, info.spell_id = cached[1], cached[2]
+            info.spell_info, info.tip_name, info.desc = cached[3], cached[4], cached[5]
             info.pic = info.spell_info.sprite
-            
-            info.tip_name = pen.capitalizer( GameTextGetTranslatedOrNot( info.spell_info.name ))
-            info.desc = index.full_stopper( GameTextGetTranslatedOrNot( info.spell_info.description ))
             
             info.name = info.tip_name
             if( info.charges >= 0 ) then

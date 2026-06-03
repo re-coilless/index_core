@@ -529,11 +529,12 @@ end
 ---@param in_hand? boolean
 ---@param force_full? boolean Use this to automatically process children of inventory entities (like wands). [DFT: false ]
 function index.inv_man( info, in_hand, force_full )
+	if( not( force_full )) then return index.inv_boy( info, in_hand ) end
+
 	local item_id = info.id
 	pen.child_play_full( item_id, function( child, params )
 		info.id = child
 		index.inv_boy( info, in_hand )
-		if( not( force_full ) and pen.vld( index.D.invs[ child ])) then return true end
 	end)
 	info.id = item_id
 end
@@ -825,20 +826,24 @@ function index.get_item_info( item_id, inv_info, item_list )
 			if( pen.vld( func_path )) then return dofile_once( func_path ) end
 		end)
 	end
-
-	pen.t.loop( xD.item_cats, function( k, cat )
-		if( not( cat.on_check( item_id ))) then return end
-		info.cat = k
-		info.is_wand = cat.is_wand or false
-		info.is_potion = cat.is_potion or false
-		info.is_spell = cat.is_spell or false
-		info.is_quickest = cat.is_quickest or false
-		info.is_hidden = cat.is_hidden or false
-		info.deep_processing = cat.deep_processing or false
-		return true
-	end)
 	
-	info.name, info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
+	for k,cat in ipairs( xD.item_cats ) do
+		if( cat.on_check( item_id )) then
+			info.cat = k
+			info.is_wand = cat.is_wand or false
+			info.is_potion = cat.is_potion or false
+			info.is_spell = cat.is_spell or false
+			info.is_quickest = cat.is_quickest or false
+			info.is_hidden = cat.is_hidden or false
+			info.deep_processing = cat.deep_processing or false
+			break
+		end
+	end
+
+	info.name, info.raw_name = pen.cache({ "index_item_name", info.id }, function()
+		return index.get_entity_name( item_id, item_comp, abil_comp )
+	end, { force_update = info.update or xD.Controls.inv[2]})
+
 	if( not( pen.vld( info.cat ))) then
 		return {}
 	elseif( not( pen.vld( info.name ))) then
