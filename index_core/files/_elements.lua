@@ -160,14 +160,14 @@ function index.dft.slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
 		slot_data.id = -1
 		info = { id = slot_data.id, in_hand = 0 }
 	elseif( not( pen.vld( info.id, true ))) then
-		info = pen.t.get( xD.item_list, slot_data.id )
+		info = xD.item_list[ slot_data.id ] or {}
 	end
 	if( pen.vld( slot_data.id, true )) then
 		if( EntityHasTag( info.id, "index_unlocked" )) then
 			can_drag = true
 		elseif( info.is_locked ) then can_drag = false end
 	elseif( EntityHasTag( xD.dragger.item_id, "index_unlocked" )) then
-		local inv_info = pen.t.get( xD.item_list, slot_data.inv_id, nil, nil, {})
+		local inv_info = xD.item_list[ slot_data.inv_id ] or {}
 		if( not( pen.vld( inv_info.id, true )) or not( inv_info.is_frozen )) then can_drag = true end
 	end
 	
@@ -1139,12 +1139,12 @@ function index.dft.drop( item_id )
     index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
     
     local do_default = true
-    local info = pen.t.get( xD.item_list, item_id )
+    local info = xD.item_list[ item_id ] or {}
     local callback = index.cat_callback( info, "on_drop" )
     if( pen.vld( callback )) then do_default = callback( info, false ) end
     
     local inv_info = xD.invs[ info.inv_id ] or {}
-    if( pen.vld( inv_info.update ) and inv_info.update( pen.t.get( xD.item_list, p, nil, nil, inv_info ), info, {})) then
+    if( pen.vld( inv_info.update ) and inv_info.update( xD.item_list[ p ] or inv_info, info, {})) then
         local reset_id = pen.get_item_owner( p, true )
         if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
     end

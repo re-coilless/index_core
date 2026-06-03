@@ -281,7 +281,7 @@ pen.get_delta_time( "get_items" )
 --item data init
 index.get_items( hooman )
 if( pen.vld( xD.active_item, true )) then
-    xD.active_info = pen.t.get( xD.item_list, xD.active_item, nil, nil, {})
+    xD.active_info = xD.item_list[ xD.active_item ] or {}
     if( pen.vld( xD.active_info.id, true )) then
         if( pen.vld( xD.active_info.AbilityC, true )) then
             xM.shot_count = xM.shot_count or {}
@@ -315,7 +315,7 @@ pen.get_delta_time( "set_to_slot" )
 local loop_a, loop_b = 0, 0
 
 local get_out = {}
-for i,info in ipairs( xD.item_list ) do
+for i,info in pairs( xD.item_list ) do
     pen.get_delta_time( "loop_a" )
     xD.item_list[i] = index.set_to_slot( info )
     if( not( pen.vld( info.inv_slot ))) then table.insert( get_out, i ) end
@@ -328,7 +328,7 @@ for i,info in ipairs( xD.item_list ) do
     if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
     loop_b = loop_b + pen.get_delta_time( "loop_b" )
 end
-for i = #get_out,1,-1 do table.remove( xD.item_list, get_out[i]) end
+for i = #get_out,1,-1 do xD.item_list[ get_out[i]] = nil end
 
 pen.debug_print( "set_to_slot = "..pen.get_delta_time( "set_to_slot" ).." ("..loop_a.."+"..loop_b..")", 50, 70, true )
 

@@ -648,14 +648,14 @@ end
 function index.slot_swap( item_id, slot_data )
 	local xD = index.D
 	local reset, infos = { 0, 0 }, {}
-	infos[1] = pen.t.get( xD.item_list, item_id, nil, nil, {})
-	infos[2] = pen.t.get( xD.item_list, slot_data.id, nil, nil, {})
+	infos[1] = xD.item_list[ item_id ] or {}
+	infos[2] = xD.item_list[ slot_data.id ] or {}
 	local parent1, parent2 = EntityGetParent( item_id ), slot_data.inv_id
 	
 	pen.t.loop({ parent1, parent2 }, function( i, p )
 		local inv_info = xD.invs[ p or 0 ] or {}
 		if( not( pen.vld( inv_info.update ))) then return end
-		local parent_info = pen.t.get( xD.item_list, p, nil, nil, inv_info )
+		local parent_info = xD.item_list[ p ] or inv_info
 		if( inv_info.update( parent_info, infos[( i + 1 )%2 + 1 ], infos[ i%2 + 1 ], slot_data )) then
 			table.insert( reset, pen.get_item_owner( p ))
 		end
@@ -826,7 +826,7 @@ function index.get_item_info( item_id, inv_info, item_list )
 			if( pen.vld( func_path )) then return dofile_once( func_path ) end
 		end)
 	end
-	
+
 	for k,cat in ipairs( xD.item_cats ) do
 		if( cat.on_check( item_id )) then
 			info.cat = k
@@ -882,7 +882,7 @@ function index.get_items()
 				
 				index.cat_callback( new_info, "on_processed_forced", {})
 				index.register_item_pic( new_info )
-				table.insert( item_tbl, new_info )
+				item_tbl[ new_info.id ] = new_info
 				pen.c.proc_time = ( pen.c.proc_time or 0 ) + pen.get_delta_time( "proc_time" )
 			end, inv_info.sort )
 		end
@@ -1433,7 +1433,7 @@ function index.new_wand_tip( info, tid, pic_x, pic_y, pic_z, is_simple )
 	
 	local spells = { p = {}, n = {}}
 	pen.t.loop( EntityGetAllChildren( info.id ), function( i, spell )
-		local kid_info = pen.t.get( xD.item_list, spell, nil, nil, {})
+		local kid_info = xD.item_list[ spell ] or {}
 		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_info( spell, info, xD.item_list ) end
 		if( pen.vld( kid_info.id, true )) then table.insert( spells[ kid_info.is_permanent and "p" or "n" ], kid_info ) end
 	end)
@@ -2174,7 +2174,7 @@ function index.new_slot( pic_x, pic_y, slot_data, info, is_active, can_drag, is_
 		
 		xD.dragger.wont_drop = true
 		if( not( can_drag )) then return end
-		local dragged_data = pen.t.get( xD.item_list, xD.dragger.item_id, nil, nil, {})
+		local dragged_data = xD.item_list[ xD.dragger.item_id ] or {}
 		if( not( pen.vld( dragged_data ) and index.swap_check( dragged_data, info, slot_data ))) then return end
 
 		if( xD.dragger.swap_now ) then
@@ -2437,7 +2437,7 @@ function index.new_wand( pic_x, pic_y, info, in_hand, can_tinker )
 					inv_id = info.id, id = slot,
 				}, can_tinker, true, false )
 
-				if( pen.t.get( xD.item_list, slot, nil, nil, {}).is_permanent ) then
+				if(( xD.item_list[ slot ] or {}).is_permanent ) then
 					pen.new.image( slot_x + 1, slot_y + h - 7, pen.Z.ICONS_FRONT,
 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { has_shadow = true })
 				end

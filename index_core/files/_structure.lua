@@ -539,7 +539,7 @@ local ITEM_CATS = {
                 for i,col in ipairs( xD.slot_state[ info.id ]) do
                     pen.t.loop( col, function( e, slot )
                         if( not( slot )) then return end
-                        local spell_info = pen.t.get( xD.item_list, slot, nil, nil, {})
+                        local spell_info = xD.item_list[ slot ] or {}
                         if( not( spell_info.is_spell and pen.vld( spell_info.spell_info ))) then return end
 
                         if( spell_info.charges > 0 ) then
@@ -837,7 +837,7 @@ local ITEM_CATS = {
             
             local parent_id = EntityGetParent( info.id )
             if( pen.vld( parent_id, true ) and pen.vld( xD.invs[ parent_id ])) then
-                parent_id = pen.t.get( wip_item_list, parent_id, nil, nil, {})
+                parent_id = wip_item_list[ parent_id ] or {}
                 if( parent_id.is_wand ) then info.in_wand = parent_id.id end
             end
 
