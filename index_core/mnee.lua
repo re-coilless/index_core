@@ -11,6 +11,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Shift Action",
 		desc = "Fancy inventory stuff.",
 		keys = {[ "left_shift" ] = 1 },
+		keys_alt = {[ "1gpd_r1_gui" ] = 1 },
 	},
 	drag_action = {
 		order_id = "ab",
@@ -18,6 +19,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Dragging Action",
 		desc = "Fancy dragging stuff.",
 		keys = {[ "mouse_right" ] = 1 },
+		keys_alt = {[ "1gpd_y_gui" ] = 1 },
 	},
 	tip_action = {
 		order_id = "ac",
@@ -25,6 +27,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Tip Action",
 		desc = "Displays additional info in the tooltip.",
 		keys = {[ "left_alt" ] = 1 },
+		keys_alt = {[ "1gpd_l2_gui" ] = 1 },
 	},
 	hide_slot_tips = {
 		order_id = "ad",
@@ -32,6 +35,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Hide Slot Tips",
 		desc = "Hides all the inventory item tooltips to make organizing easier.",
 		keys = {[ "left_ctrl" ] = 1 },
+		keys_alt = {[ "1gpd_r2_gui" ] = 1 },
 	},
 	matter_action = {
 		order_id = "ae",
@@ -39,6 +43,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Matter Probing",
 		desc = "Displays the name of the matter below the pointer.",
 		keys = {[ "`" ] = 1 },
+		keys_alt = {[ "1gpd_x" ] = 1 },
 	},
 
 	invmode_next = {
@@ -47,6 +52,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Next Inv Mode",
 		desc = "Inventory mode switch hotkey.",
 		keys = {[ "keypad_+" ] = 1 },
+		keys_alt = {[ "1gpd_up" ] = 1 },
 	},
 	invmode_previous = {
 		order_id = "bb",
@@ -54,6 +60,7 @@ _BINDINGS[ "index_core" ] = {
 		name = "Previous Inv Mode",
 		desc = "Inventory mode switch hotkey.",
 		keys = {[ "keypad_-" ] = 1 },
+		keys_alt = {[ "1gpd_down" ] = 1 },
 	},
 
 	quickest_1 = {

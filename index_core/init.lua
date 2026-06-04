@@ -1,6 +1,6 @@
-if( ModIsEnabled( "mnee" )) then
-	ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
-else return end
+if( not( ModIsEnabled( "mnee" ))) then return end
+ModLuaFileAppend( "mods/mnee/bindings.lua", "mods/index_core/mnee.lua" )
+if( not( ModIsEnabled( "vector_core" ))) then return end
 
 ModMagicNumbersFileAdd( "mods/index_core/files/magic_numbers.xml" )
 ModLuaFileAppend( "data/scripts/gun/gun_actions.lua", "mods/index_core/files/actions.lua" )
@@ -163,6 +163,7 @@ function OnPlayerSpawned( hooman )
 	if( GameHasFlagRun( initer )) then return end
 	GameAddFlagRun( initer )
 	
+	EntityAddTag( hooman, "vector_ctrl" )
 	GlobalsSetValue( "HERMES_IS_REAL", "1" )
 	EntityAddComponent( GameGetWorldStateEntity(), "LuaComponent", {
 		script_source_file = "mods/index_core/files/_ctrl.lua",
@@ -173,9 +174,13 @@ function OnPlayerSpawned( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 
-
-
 	if( true ) then
+		EntityLoad( "data/entities/items/pickup/potion.xml", x + 10, y )
+		EntityLoad( "data/entities/items/pickup/potion.xml", x + 20, y )
+		EntityLoad( "data/entities/items/pickup/potion.xml", x + 30, y )
+	end
+
+	if( false ) then
 		-- CreateItemActionEntity( "HERMES_CORE", x, y )
 		local chest = EntityLoad( "mods/index_core/files/testing/chest.xml", x - 50, y - 20 )
 

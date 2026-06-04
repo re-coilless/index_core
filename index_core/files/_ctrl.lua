@@ -134,12 +134,17 @@ if( is_going == 0 ) then
     is_going = ComponentGetValue2( ctrl_comp, "enabled" ) else is_going = is_going > 0 end
 if( not( is_going and pen.vld( inv_comp, true ))) then return pen.new.builder( false ) end
 
-local m_x, m_y = pen.get_mouse_pos( true )
+local jpad = 0
+if( mnee.is_jpad_real()) then
+    jpad = mnee.bind2jpad( "vector_core", "aim_h" ) or 0
+end
+
+local m_x, m_y = pen.get_mouse_pos( true, jpad )
 local md_x = m_x - ( xM.mouse_memo_world[1] or m_x )
 local md_y = m_y - ( xM.mouse_memo_world[2] or m_y )
 xM.mouse_memo_world = { m_x, m_y }
 
-local mui_x, mui_y = pen.get_mouse_pos()
+local mui_x, mui_y = pen.get_mouse_pos( false, jpad )
 local muid_x = mui_x - ( xM.mouse_memo[1] or mui_x )
 local muid_y = mui_y - ( xM.mouse_memo[2] or mui_y )
 xM.mouse_memo = { mui_x, mui_y }
@@ -276,7 +281,7 @@ if( pen.vld( xD.active_item, true )) then --just fix this with phantom "hand" it
     end
 end
 
-pen.get_delta_time( "get_items" )
+
 
 --item data init
 index.get_items( hooman )
@@ -292,8 +297,7 @@ if( pen.vld( xD.active_item, true )) then
     else xD.active_item = 0 end
 end
 
-pen.debug_print( "get_items = "..pen.get_delta_time( "get_items" ).." ("..pen.c.item_time.."+"..pen.c.proc_time..")", 50, 50, true )
-pen.c.item_time, pen.c.proc_time = nil, nil
+
 
 --slot table init
 xD.slot_state = {}
@@ -311,26 +315,21 @@ for i,inv_info in pairs( xD.invs ) do
     end
 end
 
-pen.get_delta_time( "set_to_slot" )
-local loop_a, loop_b = 0, 0
+
 
 local get_out = {}
-for i,info in pairs( xD.item_list ) do
-    pen.get_delta_time( "loop_a" )
+for i,info in index.slot_sorter( xD.item_list ) do
     xD.item_list[i] = index.set_to_slot( info )
     if( not( pen.vld( info.inv_slot ))) then table.insert( get_out, i ) end
-    loop_a = loop_a + pen.get_delta_time( "loop_a" )
 
     local skip_man = false
     local ctrl_func = index.cat_callback( info, "ctrl_script" )
     if( pen.vld( ctrl_func )) then skip_man = ctrl_func( info ) end
-    pen.get_delta_time( "loop_b" )
     if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
-    loop_b = loop_b + pen.get_delta_time( "loop_b" )
 end
 for i = #get_out,1,-1 do xD.item_list[ get_out[i]] = nil end
 
-pen.debug_print( "set_to_slot = "..pen.get_delta_time( "set_to_slot" ).." ("..loop_a.."+"..loop_b..")", 50, 70, true )
+
 
 --gmods and applets init
 xD.gmod = xD.gmods[ xD.global_mode ]

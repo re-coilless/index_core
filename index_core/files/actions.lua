@@ -1,4 +1,4 @@
-dofile_once( "mods/penman/_penman.lua" )
+dofile_once( "mods/mnee/_penman.lua" )
 
 table.insert( actions,
 {

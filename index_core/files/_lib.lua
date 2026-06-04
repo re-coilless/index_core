@@ -5,7 +5,17 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
--- make sure game runs at 30fps min with all spells wand displayed on screen in dev.exe
+-- controller support
+-- cutscene capable gmod that hides the vast majority of ui
+-- finalize documentation
+
+-- transition to event-based item table
+-- garbage collector that checks section of the full table to confirm that it exists
+-- update marker checker
+-- on_data_once and on_data
+-- make sure the system is aware of interframe preservation
+
+------------------------------------------------------
 
 -- on new status effect, translate the icon to the left
 -- add a way to do custom shader edge effect (blink or continuous) for any status effect
@@ -16,15 +26,11 @@ index.M = index.M or {} -- interframe memory values
 -- wand pickup + pickup inv
 -- instead of full phantom invs, just do a straightforward phantom slot implementation
 
-------------------------------------------------------
-
 -- bag.xml insert in the chest (display contents on hover tooltip and allow dragging from and to it)
 
--- cutscene capable gmod that hides the vast majority of ui
 -- custom mnee frontend for index
 -- dragger gets active on hovering with lmb down instead of waiting for button to go down
 -- two slots can be highlighted at once
--- finalize documentation
 
 ------------------------------------------------------		 [BACKEND]		------------------------------------------------------
 
@@ -508,10 +514,19 @@ function index.inv_boy( info, in_hand )
 
 	local hooman = EntityGetRootEntity( item_id )
 	local is_free = hooman == item_id --thanks Lamia
-	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_world", is_free )
-	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_inventory", not( is_free ))
-	EntitySetComponentsWithTagEnabled( item_id, "enabled_in_hand", in_hand )
-	EntitySetComponentsWithTagEnabled( item_id, "not_enabled_in_wand", not( in_wand ))
+	for i,comp in ipairs( EntityGetAllComponents( item_id )) do
+		local world_check, inv_check, hand_check = false, false, false
+		if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
+			world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
+			inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
+			hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
+		end
+		EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
+	end
+	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_world", is_free )
+	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_inventory", not( is_free ))
+	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_hand", in_hand )
+	-- EntitySetComponentsWithTagEnabled( item_id, "not_enabled_in_wand", not( in_wand ))
 
 	if( is_free ) then return end
 	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end
@@ -568,7 +583,7 @@ function index.set_to_slot( info, is_player )
 						if( s ) then return end
 						local is_fancy = type( i ) == "string"
 						if( is_fancy and pen.t.get( valid_invs, i ) == 0 ) then return end
-
+						
 						local temp_slot = is_fancy and { k, i == "quickest" and -1 or -2 } or { i, k }
 						if( index.inv_check( info, { inv_id = inv_id, inv_slot = temp_slot })) then
 							if( temp_slot[2] < 0 ) then temp_slot[2] = temp_slot[2] + 1 end
@@ -868,12 +883,9 @@ function index.get_items()
 			if( k == 2 ) then xD.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child )
 				if( EntityHasTag( child, "not_an_item" )) then return end
-				pen.get_delta_time( "item_time" )
 				local new_info = index.get_item_info( child, inv_info, item_tbl )
-				pen.c.item_time = ( pen.c.item_time or 0 ) + pen.get_delta_time( "item_time" )
 				if( not( pen.vld( new_info.id, true ))) then return end
 
-				pen.get_delta_time( "proc_time" )
 				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
 					index.cat_callback( new_info, "on_processed", {})
 					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
@@ -883,11 +895,22 @@ function index.get_items()
 				index.cat_callback( new_info, "on_processed_forced", {})
 				index.register_item_pic( new_info )
 				item_tbl[ new_info.id ] = new_info
-				pen.c.proc_time = ( pen.c.proc_time or 0 ) + pen.get_delta_time( "proc_time" )
 			end, inv_info.sort )
 		end
 	end
 	xD.item_list = item_tbl
+end
+
+---Ensures index.set_to_slot call is working adequately.
+function index.slot_sorter( tbl )
+	return pen.t.order( tbl, function( a, b )
+		local _,a_slot = ComponentGetValue2( tbl[a].ItemC, "inventory_slot" )
+		local _,b_slot = ComponentGetValue2( tbl[b].ItemC, "inventory_slot" )
+		if( a_slot == -5 and b_slot == -5 ) then return a < b end
+		if( a_slot == -5 ) then return false end
+		if( b_slot == -5 ) then return true end
+		return a < b
+	end)
 end
 
 ---Briefly reenables ItemPickUpperComponent to allow for vanilla-compatible pickups.
@@ -1091,7 +1114,7 @@ function index.new_dragger_shell( did, info, pic_x, pic_y, pic_w, pic_h )
 	
 	local d_x, d_y = xM.dragger_x or pic_x, xM.dragger_y or pic_y
 	local new_x, new_y, drag_state, clicked, r_clicked, is_hovered = pen.new.dragger( did,
-		pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h, pen.Z.TIPS, { no_offs = true, no_dragging = xD.shift_action })
+		pic_x - pic_w/2, pic_y - pic_h/2, pic_w, pic_h, pen.Z.TIPS, { no_offs = true, no_dragging = xD.shift_action, jpad = true })
 	if( not( is_hovered ) and ( drag_state == 0 or drag_state == 1 )) then return pic_x, pic_y, drag_state end
 	if( pen.vld( xM.dragger_buffer[1], true ) and xM.dragger_buffer[1] ~= did ) then return pic_x, pic_y, drag_state end
 	if( not( pen.vld( xM.dragger_buffer[1], true ))) then xM.dragger_buffer = { did, xD.frame_num } end
@@ -1354,7 +1377,8 @@ function index.tipping( pic_x, pic_y, pic_z, dims, text, data, func )
 	pic_z = pen.ght( pic_z or { pen.Z.TIPS_FRONT, pen.Z.BACKGROUND - 5 })
 	clicked, r_clicked, data.is_active = pen.new.interface( pic_x, pic_y, dims[1], dims[2], pic_z[1], data )
 	if( data.is_active ) then
-		if( pen.vld( pic_z[2])) then pen.new.pixel( pic_x, pic_y, pic_z[2], pen.P.VNL.RUNIC, dims[1], dims[2], 0.75 ) end
+		if( pen.vld( pic_z[2])) then
+			pen.new.pixel( pic_x, pic_y, pic_z[2], pen.P.VNL.RUNIC, dims[1], dims[2], 0.75 ) end
 	else return false, false, false end
 
 	local tip_x, tip_y = unpack( data.pos or { 0, 0 })
@@ -1559,7 +1583,7 @@ function index.new_wand_tip( info, tid, pic_x, pic_y, pic_z, is_simple )
 				if( pen.vld( stat.desc )) then
 					tip = { tip.." = "..value, pen.magic_translate( pen.ghf( stat.desc or "", info ))} end
 				local is_hovered = index.tipping( t_x - 1, t_y, { pic_z, pic_z + 1 }, { 55, 7.5 }, tip, { tid = "wtt_stat",
-					is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1, pos = { t_x + ( info.in_world and 55 or -1 ), t_y + 9 }})
+					is_left = info.in_world, fully_featured = true, pic_z = pic_z - 1, pos = { t_x + ( info.in_world and 55 or -1 ), t_y + 9 }}) --, jpad = "wtt_stat_"..info.id.."_"..stat.name 
 				if( is_hovered ) then clr, alpha = "YELLOW", 1 end
 			end
 

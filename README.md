@@ -3,6 +3,7 @@ A complete and utter inventory rewrite for the purposes of total conversion modd
 
 LOAD ORDER:
 + (dependency) [M-Nee](https://github.com/re-coilless/mnee)
++ (dependency) [HermeS Vector](https://github.com/re-coilless/vector_core)
 + [HermeS Index EXQ](https://github.com/re-coilless/index_core)
 + (addon) [Twin-Linked](https://github.com/re-coilless/Twin-Linked)
 + (addon) [HermeS Marshall](https://github.com/re-coilless/mrshll_core)
