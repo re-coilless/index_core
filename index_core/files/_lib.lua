@@ -9,12 +9,6 @@ index.M = index.M or {} -- interframe memory values
 -- cutscene capable gmod that hides the vast majority of ui
 -- finalize documentation
 
--- transition to event-based item table
--- garbage collector that checks section of the full table to confirm that it exists
--- update marker checker
--- on_data_once and on_data
--- make sure the system is aware of interframe preservation
-
 ------------------------------------------------------
 
 -- on new status effect, translate the icon to the left
@@ -770,6 +764,13 @@ end
 ---@return ItemInfo
 function index.get_item_info( item_id, inv_info, item_list )
 	local xD = index.D
+	
+	-- transition to event-based item table
+	-- garbage collector that checks section of the full table to confirm that it exists
+	-- update marker checker
+	-- on_data_once and on_data
+	-- make sure the system is aware of interframe preservation
+
 	local info = { id = item_id }
 	if( pen.vld( inv_info )) then info.inv_id, info.inv_kind = inv_info.id, inv_info.kind end
 	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
