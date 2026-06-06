@@ -416,36 +416,38 @@ local ITEM_CATS = {
             local name = index.get_entity_name( item_id, item_comp, EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" ))
             return pen.vld( name ) and name or default_name
         end,
+        on_data_once = function( info, wip_item_list )
+            info.wand_info = {
+                shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
+                actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
+                deck_capacity = ComponentObjectGetValue2( info.AbilityC, "gun_config", "deck_capacity" ),
+                spread_degrees = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "spread_degrees" ),
+                mana_max = ComponentGetValue2( info.AbilityC, "mana_max" ),
+                mana_charge_speed = ComponentGetValue2( info.AbilityC, "mana_charge_speed" ),
+
+                never_reload = ComponentGetValue2( info.AbilityC, "never_reload" ),
+                reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) +
+                                ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
+                delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
+
+                speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
+                lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
+                bounces = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "bounces" ),
+
+                crit_chance = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_chance" ),
+                crit_mult = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
+
+                damage_electricity_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_electricity_add" ),
+                damage_explosion_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_explosion_add" ),
+                damage_fire_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_fire_add" ),
+                damage_melee_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_melee_add" ),
+                damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
+            }
+
+            return info
+        end,
         on_data = function( info, wip_item_list )
             local xD = index.D
-            info.wand_info = pen.cache({ "index_wand_info", info.id }, function()
-                return {
-                    shuffle_deck_when_empty = ComponentObjectGetValue2( info.AbilityC, "gun_config", "shuffle_deck_when_empty" ),
-                    actions_per_round = ComponentObjectGetValue2( info.AbilityC, "gun_config", "actions_per_round" ),
-                    deck_capacity = ComponentObjectGetValue2( info.AbilityC, "gun_config", "deck_capacity" ),
-                    spread_degrees = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "spread_degrees" ),
-                    mana_max = ComponentGetValue2( info.AbilityC, "mana_max" ),
-                    mana_charge_speed = ComponentGetValue2( info.AbilityC, "mana_charge_speed" ),
-
-                    never_reload = ComponentGetValue2( info.AbilityC, "never_reload" ),
-                    reload_time = ComponentObjectGetValue2( info.AbilityC, "gun_config", "reload_time" ) +
-                                    ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "reload_time" ),
-                    delay_time = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "fire_rate_wait" ),
-
-                    speed_multiplier = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "speed_multiplier" ),
-                    lifetime_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "lifetime_add" ),
-                    bounces = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "bounces" ),
-
-                    crit_chance = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_chance" ),
-                    crit_mult = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_critical_multiplier" ),
-
-                    damage_electricity_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_electricity_add" ),
-                    damage_explosion_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_explosion_add" ),
-                    damage_fire_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_fire_add" ),
-                    damage_melee_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_melee_add" ),
-                    damage_projectile_add = ComponentObjectGetValue2( info.AbilityC, "gunaction_config", "damage_projectile_add" ),
-                }
-            end, { force_update = info.update or xD.Controls.inv[2] or xD.just_fired })
             
             info.wand_info.delay_frame = math.max(
                 ComponentGetValue2( info.AbilityC, "mNextFrameUsable" ) - xD.frame_num, 0 )
@@ -539,7 +541,7 @@ local ITEM_CATS = {
                 for i,col in ipairs( xD.slot_state[ info.id ]) do
                     pen.t.loop( col, function( e, slot )
                         if( not( slot )) then return end
-                        local spell_info = xD.item_list[ slot ] or {}
+                        local spell_info = xM.item_memo[ slot ] or {}
                         if( not( spell_info.is_spell and pen.vld( spell_info.spell_info ))) then return end
 
                         if( spell_info.charges > 0 ) then
@@ -599,14 +601,13 @@ local ITEM_CATS = {
             end
             return name..( cap or "" )
         end,
-        on_data = function( info, wip_item_list )
+        on_data_once = function( info, wip_item_list )
             info.is_true_potion = pen.vld( EntityGetFirstComponentIncludingDisabled( info.id, "PotionComponent" ), true )
 
             info.MatterC = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialInventoryComponent" )
             info.matter_info = {
                 may_drink = ComponentGetValue2( info.ItemC, "drinkable" ),
-                volume = ComponentGetValue2( info.MatterC, "max_capacity" ),
-                matter = { pen.get_matter( ComponentGetValue2( info.MatterC, "count_per_material_type" ))}}
+                volume = ComponentGetValue2( info.MatterC, "max_capacity" )}
             info.SuckerC = EntityGetFirstComponentIncludingDisabled( info.id, "MaterialSuckerComponent" )
             if( pen.vld( info.SuckerC, true )) then
                 info.bottle_info = {
@@ -625,6 +626,12 @@ local ITEM_CATS = {
                     ComponentGetValue2( info.SprayC, "event_name" )}
             else info.SprayC = nil end
 
+            return info
+        end,
+        on_data = function( info, wip_item_list )
+            info.matter_info.matter = {
+                pen.get_matter( ComponentGetValue2( info.MatterC, "count_per_material_type" ))}
+            
             if( info.is_true_potion ) then
                 info.name, info.fullness = index.get_potion_name( info.id, info.raw_name,
                     math.max( info.matter_info.matter[1], 0 ), info.matter_info.volume, info.matter_info.matter[2]) end
@@ -811,35 +818,32 @@ local ITEM_CATS = {
             if( EntityHasTag( item_id, "card_action" )) then return true end
             return pen.vld( EntityGetFirstComponentIncludingDisabled( item_id, "ItemActionComponent" ), true )
         end,
-        on_data = function( info, wip_item_list )
-            local xD = index.D
+        on_data_once = function( info, wip_item_list )
             if( info.is_permanent ) then info.charges = -1 end
 
-            local cached = pen.cache({ "index_spell_info", info.id }, function()
-                local act_comp = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
-                local spell_id = ComponentGetValue2( act_comp, "action_id" )
-                local spell_info = pen.get_spell_info( spell_id )
-                return {
-                    act_comp, spell_id, spell_info,
-                    pen.capitalizer( GameTextGetTranslatedOrNot( spell_info.name )),
-                    index.full_stopper( GameTextGetTranslatedOrNot( spell_info.description )),
-                }
-            end, { force_update = info.update or xD.Controls.inv[2]})
-
-            info.ActionC, info.spell_id = cached[1], cached[2]
-            info.spell_info, info.tip_name, info.desc = cached[3], cached[4], cached[5]
+            info.ActionC = EntityGetFirstComponentIncludingDisabled( info.id, "ItemActionComponent" )
+            info.spell_id = ComponentGetValue2( info.ActionC, "action_id" )
+            info.spell_info = pen.get_spell_info( info.spell_id )
+            info.tip_name_raw = pen.capitalizer( GameTextGetTranslatedOrNot( info.spell_info.name ))
+            info.desc = index.full_stopper( GameTextGetTranslatedOrNot( info.spell_info.description ))
+            info.tip_name = string.upper( info.tip_name_raw )
             info.pic = info.spell_info.sprite
+
+            return info
+        end,
+        on_data = function( info, wip_item_list )
+            local xD = index.D
             
             info.name = info.tip_name
             if( info.charges >= 0 ) then
-                info.name = table.concat({ info.name, " (", info.charges, ")" }) end
-            info.tip_name = string.upper( info.tip_name )
+                info.name = table.concat({ info.tip_name_raw, " (", info.charges, ")" })
+            end
             
             local parent_id = EntityGetParent( info.id )
             if( pen.vld( parent_id, true ) and pen.vld( xD.invs[ parent_id ])) then
                 parent_id = wip_item_list[ parent_id ] or {}
                 if( parent_id.is_wand ) then info.in_wand = parent_id.id end
-            end
+            else info.in_wand = nil end
 
             local may_use = pen.vld( info.AbilityC, true )
             may_use = may_use and GameGetGameEffectCount( xD.player_id, "ABILITY_ACTIONS_MATERIALIZED" ) > 0

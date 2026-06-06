@@ -5,6 +5,9 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
+--breaks if you throw out the wand after picking up stuff
+--make sure twin-linked works
+
 -- controller support
 -- cutscene capable gmod that hides the vast majority of ui
 -- finalize documentation
@@ -401,7 +404,7 @@ end
 ---@param input? table Leaving this as nil returns the function itself, the provided table will be unpacked to populate callback arguements.
 ---@param fallback? value Default output if no callback was executed.
 ---@param do_default? boolean Leaving empty will execute category callback if no item one was detected, setting as false/true will prevent/force this behavior no matter the item status.
----@return values|function
+---@return values
 function index.cat_callback( info, callback, input, fallback, do_default )
 	local xD = index.D
 	local func_local = info[ callback ]
@@ -424,7 +427,7 @@ end
 ---@param inv_cat number -1 is quick only (is_quickest changes this), -0.5 is quick and quickest, 0 is everything, 0.5 is full only, 1 is nothing
 ---@param is_quickest? boolean [DFT: false ]
 ---@return table inv_kinds
-function index.get_valid_invs( inv_cat, is_quickest ) --allow implementing custom checks or just allow making this string
+function index.get_valid_invs( inv_cat, is_quickest ) --allow implementing custom checks or just allow making this a string
 	local inv_kinds = {}
 	if( math.floor( inv_cat ) == 0 ) then table.insert( inv_kinds, "full" ) end
 	if( math.ceil( inv_cat ) == 0 ) then table.insert( inv_kinds, "quick" ); table.insert( inv_kinds, "quickest" ) end
@@ -507,8 +510,8 @@ function index.inv_boy( info, in_hand )
 	end
 
 	local hooman = EntityGetRootEntity( item_id )
-	local is_free = hooman == item_id --thanks Lamia
-	for i,comp in ipairs( EntityGetAllComponents( item_id )) do
+	local is_free = hooman == item_id
+	for i,comp in ipairs( EntityGetAllComponents( item_id )) do --this has huge performance impact
 		local world_check, inv_check, hand_check = false, false, false
 		if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
 			world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
@@ -517,10 +520,6 @@ function index.inv_boy( info, in_hand )
 		end
 		EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
 	end
-	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_world", is_free )
-	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_inventory", not( is_free ))
-	-- EntitySetComponentsWithTagEnabled( item_id, "enabled_in_hand", in_hand )
-	-- EntitySetComponentsWithTagEnabled( item_id, "not_enabled_in_wand", not( in_wand ))
 
 	if( is_free ) then return end
 	if( in_hand and pen.vld( pen.get_item_owner( item_id, true ), true )) then return end
@@ -655,16 +654,16 @@ end
 ---@param item_id entity_id
 ---@param slot_data SlotData
 function index.slot_swap( item_id, slot_data )
-	local xD = index.D
+    local xD, xM = index.D, index.M
 	local reset, infos = { 0, 0 }, {}
-	infos[1] = xD.item_list[ item_id ] or {}
-	infos[2] = xD.item_list[ slot_data.id ] or {}
+	infos[1] = xM.item_memo[ item_id ] or {}
+	infos[2] = xM.item_memo[ slot_data.id ] or {}
 	local parent1, parent2 = EntityGetParent( item_id ), slot_data.inv_id
 	
 	pen.t.loop({ parent1, parent2 }, function( i, p )
 		local inv_info = xD.invs[ p or 0 ] or {}
 		if( not( pen.vld( inv_info.update ))) then return end
-		local parent_info = xD.item_list[ p ] or inv_info
+		local parent_info = xM.item_memo[ p ] or inv_info
 		if( inv_info.update( parent_info, infos[( i + 1 )%2 + 1 ], infos[ i%2 + 1 ], slot_data )) then
 			table.insert( reset, pen.get_item_owner( p ))
 		end
@@ -760,146 +759,135 @@ end
 ---Assembles an exhaustive list of item properties.
 ---@param item_id entity_id
 ---@param inv_info InventoryInfo
----@param item_list? table WIP table of all the items within the system.
+---@param will_cache boolean
 ---@return ItemInfo
-function index.get_item_info( item_id, inv_info, item_list )
-	local xD = index.D
+function index.get_item_info( item_id, inv_info, will_cache )
+    local xD, xM = index.D, index.M
 	
-	-- transition to event-based item table
-	-- garbage collector that checks section of the full table to confirm that it exists
-	-- update marker checker
-	-- on_data_once and on_data
-	-- make sure the system is aware of interframe preservation
+	local info = {}
+	local will_update = EntityHasTag( item_id, "index_update" )
+	if( will_update ) then
+		xM.item_memo[ item_id ] = nil
+		EntityRemoveTag( item_id, "index_update" )
+	end
 
-	local info = { id = item_id }
-	if( pen.vld( inv_info )) then info.inv_id, info.inv_kind = inv_info.id, inv_info.kind end
-	local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
-	if( not( pen.vld( item_comp, true ))) then return {} end
-	
-	info.update = EntityHasTag( info.id, "index_update" )
-	if( info.update ) then EntityRemoveTag( info.id, "index_update" ) end
-	
-	local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
-	if( pen.vld( abil_comp, true  )) then
-		info.AbilityC = abil_comp
-		-- info.charges = {
-		-- 	ComponentGetValue2( abil_comp, "shooting_reduces_amount_in_inventory" ),
-		-- 	ComponentGetValue2( abil_comp, "max_amount_in_inventory" ),
-		-- 	ComponentGetValue2( abil_comp, "amount_in_inventory" ),
-		-- }
+	if( not( pen.vld( xM.item_memo[ item_id ]))) then
+		info.id = item_id
+		local item_comp = EntityGetFirstComponentIncludingDisabled( item_id, "ItemComponent" )
+		if( not( pen.vld( item_comp, true ))) then return {} end
 
-		info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
-		info.is_throwing = ComponentGetValue2( abil_comp, "throw_as_item" )
-		info.uses_rmb = EntityHasTag( item_id, "index_has_rbm" ) or info.is_throwing
-		if( info.is_throwing ) then
-			pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "LuaComponent" ), function( i, comp )
-				local path = ComponentGetValue2( comp, "script_kick" )
-				if( not( pen.vld( path ))) then return end
-				info.is_kicking = true
-				return true
-			end)
+		local abil_comp = EntityGetFirstComponentIncludingDisabled( item_id, "AbilityComponent" )
+		if( pen.vld( abil_comp, true  )) then
+			info.AbilityC = abil_comp
+			info.pic = ComponentGetValue2( abil_comp, "sprite_file" )
+			info.is_throwing = ComponentGetValue2( abil_comp, "throw_as_item" )
+			info.uses_rmb = EntityHasTag( item_id, "index_has_rbm" ) or info.is_throwing
+			if( info.is_throwing ) then
+				pen.t.loop( EntityGetComponentIncludingDisabled( item_id, "LuaComponent" ), function( i, comp )
+					local path = ComponentGetValue2( comp, "script_kick" )
+					if( not( pen.vld( path ))) then return end
+					info.is_kicking = true
+					return true
+				end)
+			end
 		end
-	end
+		
+		info.ItemC = item_comp
+		local inv_name = pen.magic_storage( item_id, "index_inv_cat", "value_string" )
+		info.inv_cat = index.INV_CATS[ inv_name or ComponentGetValue2( item_comp, "preferred_inventory" )] or 0
+		
+		local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
+		if( pen.vld( ui_pic )) then info.pic = ui_pic end
+		
+		info.desc = index.full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
+		-- info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
+		info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
+		
+		info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
+		info.is_permanent = ComponentGetValue2( item_comp, "permanently_attached" )
+		info.is_locked = info.is_permanent
+		if( EntityHasTag( item_id, "index_unlocked" )) then
+			info.is_locked = false
+		elseif( EntityHasTag( item_id, "index_locked" )) then
+			info.is_locked = true
+		end
+
+		local callback_list = {
+			-- "on_check", "on_info_name",
+			
+			"ctrl_script",
+			"on_data_once", "on_data",
+			"on_processed", "on_processed_forced", 
+			"on_inventory", "on_slot_check", "on_slot",
+
+			"on_swap", "on_tip",
+			"on_equip", "on_action",
+			"on_pickup", "on_drop",
+
+			"on_gui_pause", "on_gui_world" }
+		for k,callback in ipairs( callback_list ) do
+			local func_path = pen.magic_storage( item_id, callback, "value_string" )
+			if( pen.vld( func_path )) then info[ callback ] = dofile_once( func_path ) end
+		end
+
+		for k,cat in ipairs( xD.item_cats ) do
+			if( cat.on_check( item_id )) then
+				info.cat = k
+				info.is_wand = cat.is_wand or false
+				info.is_potion = cat.is_potion or false
+				info.is_spell = cat.is_spell or false
+				info.is_quickest = cat.is_quickest or false
+				info.is_hidden = cat.is_hidden or false
+				info.deep_processing = cat.deep_processing or false
+				break
+			end
+		end
+
+		if( not( pen.vld( info.cat ))) then return {} end
+		info.name, info.raw_name = index.get_entity_name( item_id, item_comp, abil_comp )
+		if( not( pen.vld( info.name ))) then info.name = xD.item_cats[ info.cat ].name end
+		info.name = pen.capitalizer( info.name )
+
+		info = index.cat_callback( info, "on_data_once", { xM.item_memo or {}}, { info })
+		if( will_cache ) then xM.item_memo[ item_id ] = info end
+	else info = xM.item_memo[ item_id ] end
+	info.update = will_update
 	
-	info.ItemC = item_comp
-	local inv_name = pen.magic_storage( item_id, "index_inv_cat", "value_string" )
-	info.inv_cat = index.INV_CATS[ inv_name or ComponentGetValue2( item_comp, "preferred_inventory" )] or 0
-	
-	local ui_pic = ComponentGetValue2( item_comp, "ui_sprite" )
-	if( pen.vld( ui_pic )) then info.pic = ui_pic end
-	
-	info.desc = index.full_stopper( GameTextGetTranslatedOrNot( ComponentGetValue2( item_comp, "ui_description" )))
-	-- info.is_stackable = ComponentGetValue2( item_comp, "is_stackable" )
-	info.is_consumable = ComponentGetValue2( item_comp, "is_consumable" )
-	
-	info.is_frozen = ComponentGetValue2( item_comp, "is_frozen" )
-	info.is_permanent = ComponentGetValue2( item_comp, "permanently_attached" )
-	info.is_locked = info.is_permanent
-	if( EntityHasTag( item_id, "index_unlocked" )) then
-		info.is_locked = false
-	elseif( EntityHasTag( item_id, "index_locked" )) then
-		info.is_locked = true
-	end
+	if( pen.vld( inv_info )) then
+		info.inv_id, info.inv_kind = inv_info.id, inv_info.kind
+	else info.inv_id, info.inv_kind = nil, nil end
 
 	info.charges = pen.magic_storage( item_id, "index_charges", "value_int" )
-	info.charges = info.charges	or ComponentGetValue2( item_comp, "uses_remaining" )
+	info.charges = info.charges	or ComponentGetValue2( info.ItemC, "uses_remaining" )
 
-	local callback_list = {
-		-- "on_check", "on_info_name",
-		
-		"on_data", "ctrl_script",
-		"on_processed", "on_processed_forced", 
-		"on_inventory", "on_slot_check", "on_slot",
-
-		"on_swap", "on_tip",
-		"on_equip", "on_action",
-		"on_pickup", "on_drop",
-
-		"on_gui_pause", "on_gui_world" }
-	for k,callback in ipairs( callback_list ) do
-		info[ callback ] = pen.cache({ "callback_tbl", item_id, callback }, function()
-			local func_path = pen.magic_storage( item_id, callback, "value_string" )
-			if( pen.vld( func_path )) then return dofile_once( func_path ) end
-		end)
-	end
-
-	for k,cat in ipairs( xD.item_cats ) do
-		if( cat.on_check( item_id )) then
-			info.cat = k
-			info.is_wand = cat.is_wand or false
-			info.is_potion = cat.is_potion or false
-			info.is_spell = cat.is_spell or false
-			info.is_quickest = cat.is_quickest or false
-			info.is_hidden = cat.is_hidden or false
-			info.deep_processing = cat.deep_processing or false
-			break
-		end
-	end
-
-	info.name, info.raw_name = pen.cache({ "index_item_name", info.id }, function()
-		return index.get_entity_name( item_id, item_comp, abil_comp )
-	end, { force_update = info.update or xD.Controls.inv[2]})
-
-	if( not( pen.vld( info.cat ))) then
-		return {}
-	elseif( not( pen.vld( info.name ))) then
-		info.name = xD.item_cats[ info.cat ].name
-	end
-	info.name = pen.capitalizer( info.name )
-	
-	-- dofile_once( "data/scripts/gun/gun.lua" )
-	-- dofile_once( "data/scripts/gun/gun_enums.lua" )
-	-- dofile_once( "data/scripts/gun/gun_actions.lua" )
-	info = index.cat_callback( info, "on_data", { item_list or {}}, { info })
+	info = index.cat_callback( info, "on_data", { xM.item_memo or {}}, { info })
 	info.in_hand = pen.get_item_owner( pen.vld( info.in_wand, true ) and info.in_wand or item_id, true )
+
 	return info
 end
 
 ---An index.get_item_info wrapper that processes every single item in player's posession.
 function index.get_items()
-	local xD = index.D
-	local item_tbl = {}
+    local xD, xM = index.D, index.M
 	for k,inv_tbl in ipairs({ "invs", "invs_i" }) do
 		for i,inv_info in pairs( xD[ inv_tbl ]) do
 			if( k == 2 ) then xD.invs[i] = inv_info end
 			pen.child_play( inv_info.id, function( parent, child )
 				if( EntityHasTag( child, "not_an_item" )) then return end
-				local new_info = index.get_item_info( child, inv_info, item_tbl )
-				if( not( pen.vld( new_info.id, true ))) then return end
+				local info = index.get_item_info( child, inv_info, true )
+				if( not( pen.vld( info.id, true ))) then xM.item_memo[ item_id ] = nil; return end
 
-				if( not( EntityHasTag( new_info.id, "index_processed" ))) then
-					index.cat_callback( new_info, "on_processed", {})
-					ComponentSetValue2( new_info.ItemC, "inventory_slot", -5, -5 )
-					EntityAddTag( new_info.id, "index_processed" )
+				if( not( EntityHasTag( info.id, "index_processed" ))) then
+					index.cat_callback( info, "on_processed", {})
+					ComponentSetValue2( info.ItemC, "inventory_slot", -5, -5 )
+					EntityAddTag( info.id, "index_processed" )
 				end
 				
-				index.cat_callback( new_info, "on_processed_forced", {})
-				index.register_item_pic( new_info )
-				item_tbl[ new_info.id ] = new_info
+				index.cat_callback( info, "on_processed_forced", {})
+				index.register_item_pic( info )
 			end, inv_info.sort )
 		end
 	end
-	xD.item_list = item_tbl
 end
 
 ---Ensures index.set_to_slot call is working adequately.
@@ -1458,8 +1446,8 @@ function index.new_wand_tip( info, tid, pic_x, pic_y, pic_z, is_simple )
 	
 	local spells = { p = {}, n = {}}
 	pen.t.loop( EntityGetAllChildren( info.id ), function( i, spell )
-		local kid_info = xD.item_list[ spell ] or {}
-		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_info( spell, info, xD.item_list ) end
+		local kid_info = xM.item_memo[ spell ] or {}
+		if( not( pen.vld( kid_info.id, true ))) then kid_info = index.get_item_info( spell, info ) end
 		if( pen.vld( kid_info.id, true )) then table.insert( spells[ kid_info.is_permanent and "p" or "n" ], kid_info ) end
 	end)
 	for field,tbl in pairs( spells ) do
@@ -2199,7 +2187,7 @@ function index.new_slot( pic_x, pic_y, slot_data, info, is_active, can_drag, is_
 		
 		xD.dragger.wont_drop = true
 		if( not( can_drag )) then return end
-		local dragged_data = xD.item_list[ xD.dragger.item_id ] or {}
+		local dragged_data = xM.item_memo[ xD.dragger.item_id ] or {}
 		if( not( pen.vld( dragged_data ) and index.swap_check( dragged_data, info, slot_data ))) then return end
 
 		if( xD.dragger.swap_now ) then
@@ -2462,7 +2450,7 @@ function index.new_wand( pic_x, pic_y, info, in_hand, can_tinker )
 					inv_id = info.id, id = slot,
 				}, can_tinker, true, false )
 
-				if(( xD.item_list[ slot ] or {}).is_permanent ) then
+				if(( xM.item_memo[ slot ] or {}).is_permanent ) then
 					pen.new.image( slot_x + 1, slot_y + h - 7, pen.Z.ICONS_FRONT,
 						"data/ui_gfx/inventory/icon_gun_permanent_actions.png", { has_shadow = true })
 				end
@@ -2490,6 +2478,9 @@ index.GLOBAL_DRAGGER_SWAP_NOW = "INDEX_GLOBAL_DRAGGER_SWAP_NOW" --is true when t
 index.GLOBAL_DRAGGER_ITEM_ID = "INDEX_GLOBAL_DRAGGER_ITEM_ID" --the entity id of the dragged item
 index.GLOBAL_DRAGGER_INV_CAT = "INDEX_GLOBAL_DRAGGER_INV_CAT" --the numerical inventory category of the dragged item
 index.GLOBAL_DRAGGER_IS_QUICKEST = "INDEX_GLOBAL_DRAGGER_IS_QUICKEST" --whether the inventory the item is being dragged from is quickest
+
+index.GLOBAL_ITEM_MEMO_TIMER = "INDEX_GLOBAL_ITEM_MEMO_TIMER" --the minimal delay before the item info will be automatically refreshed
+index.GLOBAL_GARBAGE_COUNT = "INDEX_GLOBAL_GARBAGE_COUNT" --the maximum amount of items to be considered by garbage collector every frame
 
 index.GLOBAL_PLAYER_OFF_Y = "INDEX_GLOBAL_PLAYER_OFF_Y" --player center offset in y axis
 index.GLOBAL_THROW_POS_RAD = "INDEX_GLOBAL_THROW_POS_RAD" --radius of valid throw position

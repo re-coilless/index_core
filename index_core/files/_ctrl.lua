@@ -16,6 +16,8 @@ xM.pinned_tips = xM.pinned_tips or {} --tooltips that are prevented from closing
 xM.mouse_memo = xM.mouse_memo or {} --for getting pointer delta
 xM.mouse_memo_world = xM.mouse_memo_world or {} --for getting pointer delta in-world
 
+xM.item_memo = xM.item_memo or {} --cached item info storage
+
 local frame_num = GameGetFrameNum()
 local ctrl_bodies = EntityGetWithTag( "index_ctrl" )
 if( not( pen.vld( ctrl_bodies ))) then return pen.new.builder( false ) end
@@ -40,6 +42,9 @@ if( gg( index.GLOBAL_SYNC_SETTINGS, false )) then
 end
 
 pen.c.index_settings = pen.c.index_settings or {
+    item_memo_timer = gg( index.GLOBAL_ITEM_MEMO_TIMER, 600 ),
+    garbage_count = gg( index.GLOBAL_GARBAGE_COUNT, 10 ),
+    
     player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
@@ -200,7 +205,7 @@ index.D = {
     shift_action = index.get_input( "shift_action", true ),
     hide_slot_tips = index.get_input( "hide_slot_tips", true ),
 
-    item_list = {}, slot_state = {},
+    slot_state = {},
     invs = {}, invs_i = {}, invs_e = {},
     invs_p = { q = pen.get_child( hooman, "inventory_quick" ), f = pen.get_child( hooman, "inventory_full" )},
     inv_quick_size = ComponentGetValue2( inv_comp, "quick_inventory_slots" ) - pen.c.index_settings.inv_quickest_size,
@@ -283,10 +288,35 @@ end
 
 
 
+--garbage collector
+local cnt = 0
+local cnt_min = xM.item_memo_i or 0
+for i,info in pairs( xM.item_memo ) do
+    local is_real = pen.vld( info.id, true )
+    is_real = is_real and EntityGetIsAlive( info.id )
+    if( not( is_real )) then xM.item_memo[i] = nil end
+end
+for i,info in pen.t.order( xM.item_memo ) do
+    cnt = cnt + 1
+    if( cnt > cnt_min ) then
+        if( info.item_memo_timer ~= nil ) then
+            if( info.item_memo_timer < xD.frame_num ) then xM.item_memo[i] = nil end
+        else xM.item_memo[i].item_memo_timer = xD.frame_num + pen.c.index_settings.item_memo_timer end
+        if(( cnt - cnt_min ) == pen.c.index_settings.garbage_count ) then
+            xM.item_memo_i = cnt
+            cnt = -1
+            break
+        end
+    end
+end
+if( cnt ~= -1 ) then xM.item_memo_i = 0 end
+
+
+
 --item data init
 index.get_items( hooman )
 if( pen.vld( xD.active_item, true )) then
-    xD.active_info = xD.item_list[ xD.active_item ] or {}
+    xD.active_info = xM.item_memo[ xD.active_item ] or {}
     if( pen.vld( xD.active_info.id, true )) then
         if( pen.vld( xD.active_info.AbilityC, true )) then
             xM.shot_count = xM.shot_count or {}
@@ -317,17 +347,18 @@ end
 
 
 
-local get_out = {}
-for i,info in index.slot_sorter( xD.item_list ) do
-    xD.item_list[i] = index.set_to_slot( info )
-    if( not( pen.vld( info.inv_slot ))) then table.insert( get_out, i ) end
+--slot registration
+for i,info in index.slot_sorter( xM.item_memo ) do
+    if( pen.vld( info.inv_id, true )) then
+        print(info.name)
+        index.set_to_slot( info )
 
-    local skip_man = false
-    local ctrl_func = index.cat_callback( info, "ctrl_script" )
-    if( pen.vld( ctrl_func )) then skip_man = ctrl_func( info ) end
-    if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
+        local skip_man = false
+        local ctrl_func = index.cat_callback( info, "ctrl_script" )
+        if( pen.vld( ctrl_func )) then skip_man = ctrl_func( info ) end
+        if( not( skip_man )) then index.inv_man( info, pen.vld( info.in_hand, true ), info.deep_processing ) end
+    end
 end
-for i = #get_out,1,-1 do xD.item_list[ get_out[i]] = nil end
 
 
 

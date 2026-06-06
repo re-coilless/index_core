@@ -175,9 +175,17 @@ function OnPlayerSpawned( hooman )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 
 	if( true ) then
-		EntityLoad( "data/entities/items/pickup/potion.xml", x + 10, y )
-		EntityLoad( "data/entities/items/pickup/potion.xml", x + 20, y )
-		EntityLoad( "data/entities/items/pickup/potion.xml", x + 30, y )
+		EntityLoad( "data/entities/items/wand_level_04_better.xml", x - 20, y - 20 )
+		EntityLoad( "data/entities/items/wand_unshuffle_04.xml", x, y - 20 )
+		EntityLoad( "data/entities/items/wand_petri.xml", x + 20, y - 20 )
+
+		EntityLoad( "data/entities/items/wand_level_05_better.xml", x - 20, y )
+		EntityLoad( "data/entities/items/wand_unshuffle_05.xml", x, y )
+		EntityLoad( "data/entities/items/wand_ruusu.xml", x + 20, y )
+
+		EntityLoad( "data/entities/items/wand_level_06_better.xml", x - 20, y + 20 )
+		EntityLoad( "data/entities/items/wand_unshuffle_06.xml", x, y + 20 )
+		EntityLoad( "data/entities/items/wand_unshuffle_10.xml", x + 20, y + 20 )
 	end
 
 	if( false ) then
