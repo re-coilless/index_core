@@ -292,9 +292,9 @@ end
 local cnt = 0
 local cnt_min = xM.item_memo_i or 0
 for i,info in pairs( xM.item_memo ) do
-    local is_real = pen.vld( info.id, true )
-    is_real = is_real and EntityGetIsAlive( info.id )
-    if( not( is_real )) then xM.item_memo[i] = nil end
+    if( pen.vld( info.id, true ) and EntityGetIsAlive( info.id )) then
+        xM.item_memo[i].inv_id = nil
+    else xM.item_memo[i] = nil end
 end
 for i,info in pen.t.order( xM.item_memo ) do
     cnt = cnt + 1
@@ -349,8 +349,7 @@ end
 
 --slot registration
 for i,info in index.slot_sorter( xM.item_memo ) do
-    if( pen.vld( info.inv_id, true )) then
-        print(info.name)
+    if( pen.vld( xD.slot_state[ info.inv_id or -1 ])) then
         index.set_to_slot( info )
 
         local skip_man = false

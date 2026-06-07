@@ -5,9 +5,6 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
---breaks if you throw out the wand after picking up stuff
---make sure twin-linked works
-
 -- controller support
 -- cutscene capable gmod that hides the vast majority of ui
 -- finalize documentation
@@ -854,15 +851,12 @@ function index.get_item_info( item_id, inv_info, will_cache )
 	info.update = will_update
 	
 	if( pen.vld( inv_info )) then
-		info.inv_id, info.inv_kind = inv_info.id, inv_info.kind
-	else info.inv_id, info.inv_kind = nil, nil end
-
+		info.inv_id, info.inv_kind = inv_info.id, inv_info.kind end
 	info.charges = pen.magic_storage( item_id, "index_charges", "value_int" )
 	info.charges = info.charges	or ComponentGetValue2( info.ItemC, "uses_remaining" )
-
 	info = index.cat_callback( info, "on_data", { xM.item_memo or {}}, { info })
 	info.in_hand = pen.get_item_owner( pen.vld( info.in_wand, true ) and info.in_wand or item_id, true )
-
+	
 	return info
 end
 
@@ -890,7 +884,7 @@ function index.get_items()
 	end
 end
 
----Ensures index.set_to_slot call is working adequately.
+---Ensures that already processed items have a priority and maintains a chronological order.
 function index.slot_sorter( tbl )
 	return pen.t.order( tbl, function( a, b )
 		local _,a_slot = ComponentGetValue2( tbl[a].ItemC, "inventory_slot" )
@@ -1055,7 +1049,7 @@ end
 ---Outputs the message both through vanilla and Index channels.
 ---@param msg string|table
 ---@param is_special? boolean [DFT: false ]
-function index.print( msg, is_special ) --send message through globals if index>d.player_id is nil
+function index.print( msg, is_special ) --send message through global if index.D.player_id is nil
 	is_special = is_special or false
 	( is_special and GamePrintImportant or GamePrint )( unpack( pen.ght( msg )))
 	if( not( index.D.custom_logging )) then return end

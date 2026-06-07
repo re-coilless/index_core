@@ -85,7 +85,6 @@ end
 -- is_manual_pause = is_manual_pause or false
 -- magic_pause = magic_pause or function() return end
 
---DO NOT forget to write special thanks to dextercd + thanks to ryyst for magic numbers + thanks to copi for akashic records spell insights + thanks to copi, spoopy and tRAINEDbYdOG for testing
 --what about making a custom pause menu through noitapatcher
 
 function OnPausePreUpdate()
@@ -174,7 +173,7 @@ function OnPlayerSpawned( hooman )
 	local inv_comp = EntityGetFirstComponentIncludingDisabled( hooman, "Inventory2Component" )
 	if( pen.vld( inv_comp, true )) then ComponentSetValue2( inv_comp, "quick_inventory_slots", 8 ) end
 
-	if( true ) then
+	if( false ) then
 		EntityLoad( "data/entities/items/wand_level_04_better.xml", x - 20, y - 20 )
 		EntityLoad( "data/entities/items/wand_unshuffle_04.xml", x, y - 20 )
 		EntityLoad( "data/entities/items/wand_petri.xml", x + 20, y - 20 )
