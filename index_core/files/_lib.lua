@@ -1,3 +1,5 @@
+if( index ~= nil ) then return end
+
 dofile_once( "mods/mnee/lib.lua" )
 dofile_once( "data/scripts/lib/utilities.lua" )
 
@@ -5,7 +7,9 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
+-- fullstopper is fucked with pit tablet
 -- controller support
+-- localization
 -- cutscene capable gmod that hides the vast majority of ui
 -- finalize documentation
 
