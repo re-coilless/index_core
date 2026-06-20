@@ -1046,7 +1046,8 @@ end
 ---@param pic_z number
 ---@return number pic_z
 function index.slot_z( dragged_id, pic_z )
-	if( pen.vld( index.M.pinned_tips[ "slot" ])) then return pic_z end
+	local pin_id = index.M.pinned_tips[ "slot" ]
+	if( pen.vld( pin_id ) and pin_id[1] ~= dragged_id ) then return pic_z end
 	return index.D.dragger.item_id == dragged_id and pen.Z.HOVER or pic_z
 end
 
