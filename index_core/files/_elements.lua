@@ -436,7 +436,7 @@ function index.dft.bossbar( screen_w, screen_h, xys )
         in_world = ( in_world or custom.in_world )
         if( xD.boss_bar_mode ~= 1 ) then in_world = xD.boss_bar_mode == 2 end
         if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y )
-            bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id, true )).max_y + 10 end
+            bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id )).max_y + 10 end
         local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.Z.WORLD_UI + 10, enemy_id, {
             custom = custom,
             centered = true, in_world = in_world, is_boss = is_boss,

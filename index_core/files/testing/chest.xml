@@ -35,16 +35,7 @@
         fade_out_time="0.75"
     ></LightComponent>
     
-    <VariableStorageComponent
-		name="index_inv_kind"
-		value_string="|universal|"
-	></VariableStorageComponent>
-    <VariableStorageComponent
-		name="index_inv_size"
-		value_string="|2|2|"
-	></VariableStorageComponent>
-    <VariableStorageComponent
-		name="index_inv_gui"
-		value_string="mods/index_core/files/testing/default_inv.lua"
-	></VariableStorageComponent>
+    <VariableStorageComponent name="index_inv_kind" value_string="|universal|" />
+    <VariableStorageComponent name="index_inv_size" value_string="|2|2|" />
+    <VariableStorageComponent name="index_inv_gui" value_string="mods/index_core/files/testing/default_inv.lua" />
 </Entity>
