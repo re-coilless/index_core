@@ -2,39 +2,9 @@ dofile_once( "mods/index_core/files/_lib.lua" )
 
 index.dft = index.dft or {}
 
-function index.dft.struct( screen_w, screen_h, inv )
-    local xD = index.D
-    if( pen.vld( inv.inv )) then xD.xys.inv_root, xD.xys.inv = inv.inv( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.applets )) then xD.xys.applets_l, xD.xys.applets_r = inv.applets( screen_w, screen_h, xD.xys ) end
-    
-    local bars = inv.bars or {}
-    if( pen.vld( bars.hp )) then xD.xys.hp = bars.hp( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.air )) then xD.xys.air = bars.air( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.flight )) then xD.xys.flight = bars.flight( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( bars.bossbar )) then xD.xys.bossbar = bars.bossbar( screen_w, screen_h, xD.xys ) end
+-------------------------------------------------------     [UTILS]     -------------------------------------------------------
 
-    local actions = bars.action or {}
-    if( pen.vld( actions.mana )) then xD.xys.mana = actions.mana( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( actions.reload )) then xD.xys.reload = actions.reload( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( actions.delay )) then xD.xys.delay = actions.delay( screen_w, screen_h, xD.xys ) end
-
-    if( pen.vld( inv.gold )) then xD.xys.gold = inv.gold( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.orbs )) then xD.xys.orbs = inv.orbs( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.info )) then xD.xys.info = inv.info( screen_w, screen_h, xD.xys ) end
-    
-    local icons = inv.icons or {}
-    if( pen.vld( icons.ingestions )) then xD.xys.ingestions = icons.ingestions( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.stains )) then xD.xys.stains = icons.stains( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.effects )) then xD.xys.effects = icons.effects( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( icons.perks )) then xD.xys.perks = icons.perks( screen_w, screen_h, xD.xys ) end
-
-    if( pen.vld( inv.pickup )) then inv.pickup( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.gmodder )) then inv.gmodder( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.logger )) then inv.logger( screen_w, screen_h, xD.xys ) end
-    if( pen.vld( inv.extra )) then inv.extra( screen_w, screen_h, xD.xys ) end
-end
-
-function index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h, xys )
+function index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h )
     local xD, xM = index.D, index.M
 
     local full_depth = 1
@@ -83,17 +53,142 @@ function index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h, xys )
     return full_depth
 end
 
-function index.dft.inv( screen_w, screen_h, xys )
+function index.dft.slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
     local xD, xM = index.D, index.M
-    local root_x, root_y = unpack( xys.inv or { 19, 20 })
+	local info = slot_data.idata or {}
+	if( not( slot_data.id )) then
+		slot_data.id = -1
+		info = { id = slot_data.id, in_hand = 0 }
+	elseif( not( pen.vld( info.id, true ))) then
+		info = xM.item_memo[ slot_data.id ] or {}
+	end
+	if( pen.vld( slot_data.id, true )) then
+		if( EntityHasTag( info.id, "index_unlocked" )) then
+			can_drag = true
+		elseif( info.is_locked ) then can_drag = false end
+	elseif( EntityHasTag( xD.dragger.item_id, "index_unlocked" )) then
+		local inv_info = xM.item_memo[ slot_data.inv_id ] or {}
+		if( not( pen.vld( inv_info.id, true )) or not( inv_info.is_frozen )) then can_drag = true end
+	end
+	
+	local w, h, clicked, r_clicked, is_hovered = xD.slot_func(
+		pic_x, pic_y, slot_data, info, pen.vld( info.in_hand, true ), can_drag, is_full, is_quick )
+	if( pen.vld( info.cat )) then
+		index.cat_callback( info, "on_inventory", {
+			pic_x, pic_y, {
+				can_drag = can_drag,
+				is_dragged = pen.vld( xD.dragger.item_id, true ) and xD.dragger.item_id == info.id,
+				in_hand = pen.vld( info.in_hand, true ),
+				is_quick = is_quick,
+				is_full = is_full,
+			}, { w + 1, h + 1 }
+		})
+	end
+	
+	return w, h
+end
+
+function index.dft.pickup_ending( x, y, screen_w, screen_h, pos )
+    local xD = index.D
+    if( not( pen.vld( xD.sampo, true ))) then return end
+
+    local msg, clr = GameTextGet( "$hint_endingmcguffin_use", "[USE]" ), nil
+    local sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_underground" )
+    if( not( pen.vld( sampo_spot, true ))) then
+        sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_mountain" )
+        if( pen.vld( sampo_spot, true )) then
+            local ng_num = tonumber( SessionNumbersGetValue( "NEW_GAME_PLUS_COUNT" ))
+            local check_num, going_ng = ng_num + 5, false
+            if( xD.orbs < 33 ) then
+                local seven_eleven = xD.orbs > ORB_COUNT_IN_WORLD and check_num >= ORB_COUNT_IN_WORLD and xD.orbs >= check_num
+                local eleven_seven = xD.orbs >= check_num and xD.orbs < ORB_COUNT_IN_WORLD
+                if( seven_eleven or eleven_seven ) then
+                    going_ng, msg = true, "+"
+                    if( ng_num < 5 ) then
+                        for i = 1,ng_num do msg = msg.."+" end
+                    else msg = msg.."("..( ng_num + 1 )..")" end
+                    msg = GameTextGet( "$hint_endingmcguffin_enter_newgameplus", "[USE]", msg )
+                end
+            end
+            
+            if( not( going_ng )) then
+                if( xD.orbs == 11 ) then
+                    clr = pen.P.VNL.YELLOW
+                elseif( xD.orbs > 32 ) then
+                    clr = pen.P.VNL.RUNIC
+                else clr = pen.P.VNL.RED end
+            end
+        end
+    elseif( xD.orbs > 11 ) then clr = pen.P.VNL.RED end
+    
+    if( pen.vld( sampo_spot, true )) then
+        local sampo_x, sampo_y = EntityGetTransform( xD.sampo )
+        local spot_x, spot_y = EntityGetTransform( sampo_spot )
+        if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
+            index.new_pickup_tip( screen_h, screen_w, xys, {
+                id = sampo_spot,
+                desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
+                txt = "[COMPLETE]",
+                color = { pen.P.VNL.RUNIC, clr },
+            })
+        end
+    end
+end
+
+function index.dft.drop( item_id )
+    local xD, xM = index.D, index.M
+    local dude = EntityGetRootEntity( item_id )
+    if( dude ~= xD.player_id ) then return index.play_sound( "error" ) end
+    index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
+    
+    local do_default = true
+    local info = xM.item_memo[ item_id ] or {}
+    local callback = index.cat_callback( info, "on_drop" )
+    if( pen.vld( callback )) then do_default = callback( info, false ) end
+    
+    local inv_info = xD.invs[ info.inv_id ] or {}
+    if( pen.vld( inv_info.update ) and inv_info.update( xM.item_memo[ p ] or inv_info, info, {})) then
+        local reset_id = pen.get_item_owner( p, true )
+        if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
+    end
+
+    if( do_default ) then
+        index.drop_item( info, xD.player_xy[1], xD.player_xy[2],
+            xM.gentle_drop and 0 or xD.throw_force, not( xD.no_action_on_drop )) end
+    if( pen.vld( callback )) then callback( info, true ) end
+end
+
+-------------------------------------------------------     [STRUCT]     -------------------------------------------------------
+
+function index.dft.spacer( xD, xM, screen_w, screen_h, pos )
+    return { 0, 10 }
+end
+function index.dft.tip_anchor( xD, xM, screen_w, screen_h, pos )
+    xD.xys.world_tip = { pos[1] - 44, pos[2]} --save between frames
+end
+
+function index.dft.struct( screen_w, screen_h, hud, layout )
+    local xD, xM, delta = index.D, index.M, { 0, 0 }
+    for _,zone in ipairs({ "top_left", "top_right", "bottom_left", "bottom_right", "centered" }) do
+        pen.t.loop( layout[ zone ], function( i, id )
+            if( not( pen.vld( hud[ id ]))) then return end
+            local k, pos = i > 2 and -1 or 1, xD.xys[ zone ]
+            delta, xD.xys[ id ] = hud[ id ]( xD, xM, screen_w, screen_h, xD.xys[ id ] or pos )
+            if( pen.vld( delta )) then xD.xys[ zone ] = { pos[1] + delta[1], pos[2] + k*delta[2]} end
+        end)
+    end
+end
+
+function index.dft.inv( xD, xM, screen_w, screen_h, pos )
+    local root_x, root_y = unpack( pos )
     local pic_x, pic_y = root_x, root_y
     
     local function check_shortcut( id, is_quickest )
         if( id <= 4 ) then return index.get_input(( is_quickest and "quickest_" or "quick_" )..id ) end
     end
     
-    local full_depth = index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h, xys )
-    xys.inv_root, xys.inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
+    local full_depth = index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h )
+    xD.xys.inv_root, xD.xys.inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
 
     local cat_wands = pic_x
     local w, h, step = 0, 0, 1
@@ -141,55 +236,448 @@ function index.dft.inv( screen_w, screen_h, xys )
     end
 
     pic_y = pic_y + h
-    xD.xys.inv_root_orig = { root_x, root_y }
-    xD.xys.inv_orig = { pic_x, pic_y }
+    xD.xD.xys.inv_root_orig = { root_x, root_y }
+    xD.xD.xys.inv_orig = { pic_x, pic_y }
     if( xD.is_opened ) then
         root_x, root_y = root_x - 3, root_y - 3
         pic_x, pic_y = pic_x + 3 - step, pic_y + 3
     end
+    xD.xys.inv_root = { root_x, root_y }
+    xD.xys.inv = { pic_x, pic_y }
 
     -- if( InputIsKeyJustDown( 41--[[escape]])) then xD.inv_toggle = xD.is_opened else
     if( xD.Controls.inv[2]) then xD.inv_toggle = true end
     return { root_x, root_y }, { pic_x, pic_y }
 end
 
-function index.dft.slot( pic_x, pic_y, slot_data, can_drag, is_full, is_quick )
-    local xD, xM = index.D, index.M
-	local info = slot_data.idata or {}
-	if( not( slot_data.id )) then
-		slot_data.id = -1
-		info = { id = slot_data.id, in_hand = 0 }
-	elseif( not( pen.vld( info.id, true ))) then
-		info = xM.item_memo[ slot_data.id ] or {}
-	end
-	if( pen.vld( slot_data.id, true )) then
-		if( EntityHasTag( info.id, "index_unlocked" )) then
-			can_drag = true
-		elseif( info.is_locked ) then can_drag = false end
-	elseif( EntityHasTag( xD.dragger.item_id, "index_unlocked" )) then
-		local inv_info = xM.item_memo[ slot_data.inv_id ] or {}
-		if( not( pen.vld( inv_info.id, true )) or not( inv_info.is_frozen )) then can_drag = true end
-	end
-	
-	local w, h, clicked, r_clicked, is_hovered = xD.slot_func(
-		pic_x, pic_y, slot_data, info, pen.vld( info.in_hand, true ), can_drag, is_full, is_quick )
-	if( pen.vld( info.cat )) then
-		index.cat_callback( info, "on_inventory", {
-			pic_x, pic_y, {
-				can_drag = can_drag,
-				is_dragged = pen.vld( xD.dragger.item_id, true ) and xD.dragger.item_id == info.id,
-				in_hand = pen.vld( info.in_hand, true ),
-				is_quick = is_quick,
-				is_full = is_full,
-			}, { w + 1, h + 1 }
-		})
-	end
-	
-	return w, h
+function index.dft.hp( xD, xM, screen_w, screen_h, pos )
+    local data = xD.DamageModel
+    local pic_x, pic_y = unpack( pos )
+
+    local pain_flash = 0
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( not( ComponentGetIsEnabled( data.comp ))) then return end
+        if( data.hp_max <= 0 ) then return end
+        
+        local bar_data = index.new_hp(
+            pic_x, pic_y, pen.Z.MAIN - 5, xD.player_id, { dmg_data = data })
+        pain_flash = bar_data.red_shift
+
+        local hp_max_text, hp_text = pen.get_short_num( bar_data.hp_max ), pen.get_short_num( bar_data.hp )
+        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
+        
+        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
+        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
+        pic_y = pic_y + 10
+    end)
+    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
+
+    return pos, { pic_x, pic_y }
 end
 
-function index.dft.applets( screen_w, screen_h, xys )
-    local xD = index.D
+function index.dft.air( xD, xM, screen_w, screen_h, pos )
+    local data = xD.DamageModel
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( not( ComponentGetIsEnabled( data.comp ))) then return end
+        if( not( data.can_air ) or data.air/data.air_max > 0.9 ) then return end
+
+        pen.new.text( pic_x + 3, pic_y - 1, pen.Z.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
+        xD.bar_func( pic_x, pic_y,
+            pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.P.VNL.MANA, nil, 0.75 )
+
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        pic_y = pic_y + 8
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.flight( xD, xM, screen_w, screen_h, pos )
+    local data = xD.CharacterData
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( data.flight_always or data.flight_max == 0 ) then return end
+
+        if( xM.flight_shake == nil ) then
+            if( xD.Controls.fly[1] and data.flight < 1 ) then
+                xM.flight_shake = xD.frame_num
+            end
+        end
+
+        local shake_frame = xD.frame_num - ( xM.flight_shake or xD.frame_num )
+        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
+        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
+            pen.P.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_perc( data.flight, data.flight_max, 2 )
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        if( shake_frame >= 20 ) then xM.flight_shake = nil end
+        pic_y = pic_y + 8
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.mana( xD, xM, screen_w, screen_h, pos )
+    local data = xD.active_info
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data.id, true ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        xM.mana_shake = xM.mana_shake or {}
+
+        local value = { 0, 0 }
+        local potion_info = {}
+        local throw_it_back = nil
+        if( pen.vld( data.wand_info )) then
+            local mana = data.wand_info.mana
+            local mana_max = data.wand_info.mana_max
+            value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
+            if( xM.mana_shake[ xD.active_item ] == nil ) then
+                if( xD.no_mana ) then xM.mana_shake[ xD.active_item ] = xD.frame_num end
+            end
+
+            local shake_frame = xD.frame_num - ( xM.mana_shake[ xD.active_item ] or xD.frame_num )
+            throw_it_back = xM.mana_shake[ xD.active_item ] ~= nil and -shake_frame or nil
+            if( shake_frame >= 20 ) then xM.mana_shake[ xD.active_item ] = nil end
+        elseif( pen.vld( data.matter_info ) and data.matter_info.volume >= 0 ) then
+            value = { math.max( data.matter_info.matter[1], 0 ), data.matter_info.volume }
+            potion_info = { pic = "data/ui_gfx/hud/potion.png" }
+            if( xD.fancy_potion_bar ) then
+                potion_info.color = pen.magic_uint( GameGetPotionColorUint( xD.active_item ))
+                potion_info.alpha = 0.8
+            end
+        end
+        
+        if( value[1] < 0 or value[2] <= 0 ) then return end
+        
+        local ratio = math.min( value[1]/value[2], 1 )
+        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, potion_info.pic or "data/ui_gfx/hud/mana.png", { has_shadow = true })
+        if( pen.vld( potion_info.color )) then
+            pen.new.pixel( pic_x - 40, pic_y + 1, pen.Z.MAIN - 4.9, pen.P.WHITE, math.min( 40*ratio + 0.5, 40 ), 2 ) end
+        xD.bar_func( pic_x, pic_y,
+            pen.Z.MAIN - 5, { 40, 2, 40*ratio }, potion_info.color or pen.P.VNL.MANA, throw_it_back, potion_info.alpha )
+        
+        local tip = ""
+        if( pen.vld( potion_info )) then
+            tip = data.name..( pen.vld( data.fullness ) and "\n"..data.fullness or "" )
+        else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_perc( value[1], value[2]) end
+
+        local tip_x, tip_y = unpack( xys.hp )
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        pic_y = pic_y + 8
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.reload( xD, xM, screen_w, screen_h, pos )
+    local data = xD.active_info
+    local pic_x, pic_y = unpack( pos )
+    local is_real = pen.vld( data.wand_info )
+
+    xM.reload_max = xM.reload_max or {}
+    xM.reload_shake = xM.reload_shake or {}
+    
+    pen.hallway( function()
+        if( not( is_real )) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( data.wand_info.never_reload ) then return end
+
+        local reloading = data.wand_info.reload_frame
+        local reloading_full = xM.reload_max[ xD.active_item ]
+        if(( reloading_full or -1 ) < reloading ) then reloading_full = reloading end
+        xM.reload_max[ xD.active_item ] = reloading_full
+        
+        if( reloading_full <= xD.reload_threshold ) then return end
+        
+        local reloading_shake = xM.reload_shake[ xD.active_item ]
+        local it_is_time = xD.just_fired_real and reloading_full ~= reloading
+        if( not( pen.vld( reloading_shake )) and it_is_time ) then reloading_shake = xD.frame_num end
+        xM.reload_shake[ xD.active_item ] = reloading_shake
+        
+        local shake_frame = xD.frame_num - ( reloading_shake or xD.frame_num )
+        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
+        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
+            { 40, 2, 40*reloading/reloading_full }, pen.P.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        if( shake_frame >= 20 ) then xM.reload_shake[ xD.active_item ] = nil end
+        pic_y = pic_y + 8
+    end)
+
+    local is_done = (( data.wand_info or {}).reload_frame or 0 ) == 0 
+    if( not( is_real ) or is_done ) then xM.reload_max[ xD.active_item ] = nil end
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.delay( xD, xM, screen_w, screen_h, pos )
+    local data = xD.active_info
+    local pic_x, pic_y = unpack( pos )
+    local is_real = pen.vld( data.wand_info, true )
+    
+    xM.delay_max = xM.delay_max or {}
+    xM.delay_shake = xM.delay_shake or {}
+
+    pen.hallway( function()
+        if( not( is_real )) then return end
+        if( xD.gmod.menu_capable ) then return end
+
+        local delay = data.wand_info.delay_frame
+        local delay_full = xM.delay_max[ xD.active_item ]
+        if(( delay_full or -1 ) < delay ) then delay_full = delay end
+        xM.delay_max[ xD.active_item ] = delay_full
+        
+        if( delay_full <= xD.reload_threshold ) then return end
+        
+        local delay_shake = xM.delay_shake[ xD.active_item ]
+        local it_is_time = xD.just_fired_real and delay_full ~= delay
+        if( not( pen.vld( delay_shake )) and it_is_time ) then delay_shake = xD.frame_num end
+        xM.delay_shake[ xD.active_item ] = delay_shake
+        
+        local shake_frame = xD.frame_num - ( delay_shake or xD.frame_num )
+        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
+        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
+            { 40, 2, 40*delay/delay_full }, pen.P.VNL.CAST, pen.vld( delay_shake ) and -shake_frame or nil )
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        if( shake_frame >= 20 ) then xM.delay_shake[ xD.active_item ] = nil end
+        pic_y = pic_y + 8
+    end)
+    
+    local is_done = (( data.wand_info or {}).delay_frame or 0 ) == 0 
+    if( not( is_real ) or is_done ) then xM.delay_max[ xD.active_item ] = nil end
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.gold( xD, xM, screen_w, screen_h, pos )
+    local data = xD.Wallet
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        if( data.money < 0 ) then return end
+        
+        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp", data.money/1000 ))
+        
+        local tip_x, tip_y = unpack( xys.hp )
+        local v = pen.get_short_num( le_money )
+        local money_string = " "..(( data.money_always or xD.short_gold ) and v or le_money ).."$"
+        local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "\n$", money_string )
+        local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.Z.TIPS,
+            { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        
+        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
+        pen.new.image( pic_x + 2.5, pic_y - 1.5, pen.Z.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+
+        pic_y = pic_y + 8
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.orbs( xD, xM, screen_w, screen_h, pos )
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( xD.gmod.menu_capable ) then return end
+        if( xD.orbs <= 0 ) then return end
+        pic_y = pic_y + 1
+        
+        local v = tostring( xD.orbs )
+        local tip_x, tip_y = unpack( xys.hp )
+        local tip = GameTextGet( "$hud_orbs", v )
+        local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.Z.TIPS,
+            { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+
+        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
+        pen.new.image( pic_x + 3, pic_y, pen.Z.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
+        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
+
+        pic_y = pic_y + 8
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.ingestions( xD, xM, screen_w, screen_h, pos )
+    local pic_x, pic_y = 0, 0
+    if( not( pen.vld( xD.xys.ingestions ))) then
+        pic_y = pic_y + xD.effect_icon_spacing
+        local orb_x, orb_y = unpack( pos )
+        pic_x, orb_y = orb_x, orb_y + 5
+        if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
+    else pic_x, pic_y = unpack( xD.xys.ingestions ) end
+
+    local data = xD.icon_data.ings
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+        pic_y = pic_y + 3
+
+        for i,info in ipairs( data ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 1 )
+            pic_x, pic_y = pic_x, pic_y + step_y - 1
+        end
+
+        pic_y = pic_y + 4
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.stains( xD, xM, screen_w, screen_h, pos )
+    local data = xD.icon_data.stains
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+
+        for i,info in ipairs( data ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 2 )
+            pic_x, pic_y = pic_x, pic_y + step_y
+        end
+
+        pic_y = pic_y + 3
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.effects( xD, xM, screen_w, screen_h, pos )
+    local data = xD.icon_data.misc
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+
+        for i,info in ipairs( data ) do
+            if( info.amount < 2 ) then info.txt = "" end
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 3 )
+            pic_x, pic_y = pic_x, pic_y + step_y
+        end
+
+        pic_y = pic_y + 3
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.perks( xD, xM, screen_w, screen_h, pos )
+    local data = xD.perk_data
+    local pic_x, pic_y = unpack( pos )
+    pen.hallway( function()
+        if( not( pen.vld( data ))) then return end
+        if( xD.gmod.menu_capable ) then return end
+
+        local perk_tbl_short, extra_perk = {}, {
+            pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
+            txt = "", desc = "", other_perks = {},
+            tip = function( pic_x, pic_y, pic_z, perks ) --add hover tips
+                for i,pic in ipairs( perks ) do
+                    local drift_x = 14*(( i - 1 )%10 )
+                    local drift_y = 14*math.floor(( i - 1 )/10 )
+                    pen.new.image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic )
+                end
+            end,
+        }
+
+        if( #data > xD.max_perks ) then
+            for i,info in ipairs( data ) do
+                if( #perk_tbl_short >= xD.max_perks ) then
+                    for k = 1,( info.count or 1 ) do table.insert( extra_perk.other_perks, info.pic ) end
+                else table.insert( perk_tbl_short, info ) end
+            end
+            table.insert( perk_tbl_short, extra_perk )
+        else perk_tbl_short = data end
+        
+        for i,info in ipairs( perk_tbl_short ) do
+            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 4 )
+            pic_x, pic_y = pic_x, pic_y + step_y - 2
+        end
+
+        pic_y = pic_y + 5
+    end)
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.logger( xD, xM, screen_w, screen_h, pos )
+    local log = GlobalsGetValue( index.GLOBAL_CUSTOM_LOG, "" )
+    if( log ~= "" ) then
+        for v in string.gmatch( pen.DIV_0..log, pen.ptrn( 0 )) do table.insert( xM.log, v ) end
+        GlobalsSetValue( index.GLOBAL_CUSTOM_LOG, "" )
+    end
+
+    if( not( pen.vld( xM.log ))) then return end
+    if( not( xD.custom_logging )) then return end
+
+    --input to function as a console
+    --special messages should be displayed all at once
+    --a setting to have no scrollbar and just display n messages at a time (continuuosly purge the list, so it contains no more than a screen-full)
+    --clear button + pos dragger + setting to pick how many messages are displayed at once
+
+    local frame_num = GameGetFrameNum()
+    xM.logger_memo = xM.logger_memo or {}
+    xM.logger_memo.max_l = xM.logger_memo.max_l or 100
+    local length = math.min( screen_w - 30, xM.logger_memo.max_l + 10 )
+    xM.logger_memo.shake = xM.logger_memo.shake or { 0, 0 }
+
+    local k, accum = #xM.log, 0
+    local last_num, last_msg = 0, ""
+    for i = math.max( k - 1000, 1 ), k do
+        local msg = xM.log[i]
+        if( pen.vld( msg )) then
+            if( last_msg == msg ) then
+                xM.log[i], accum = "", accum + 1
+                if( i == k ) then xM.logger_memo.shake = { last_num, frame_num } end
+            else last_num, last_msg = i, msg end
+        else accum = accum + 1 end
+    end
+
+    local height = 55
+    local text_height = 9*( #xM.log - accum )
+    local is_small = text_height < height
+
+    local pic_z = pen.Z.MAIN_OVERLAY
+    local pic_x, pic_y = unpack( pos )
+    pen.new.scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
+        local h = 0
+        local pos_y = is_small and ( height - text_height ) or scroll_pos[1]
+        for i = math.max( k - 1000, 1 ), k do
+            if( pen.vld( xM.log[i])) then
+                if( pos_y > -10 and pos_y < ( height + 1 )) then
+                    local pos_x = 0
+                    if( xM.logger_memo.shake[1] == i ) then
+                        local drift = math.max(( xM.logger_memo.shake[2] + 30 ) - frame_num, 0 )
+                        pos_x = pen.animate({ 0, 5 }, drift, { ease_out = "sin", frames = 30 })
+                    end
+                    
+                    local dims = pen.new.text_shad( pos_x, pos_y, pic_z,
+                        xM.log[i], { fully_featured = true, line_offset = -2 })
+                    if( dims[1] > xM.logger_memo.max_l ) then xM.logger_memo.max_l = dims[1] end
+                end
+                pos_y, h = pos_y + 9, h + 9
+            end
+        end
+        return { h + 1, 1 }
+    end, {
+        scroll_step = 9,
+        forced_zone = { 20 },
+        is_left = ( pic_x < screen_w/2 ),
+        hide_bar = true, bottom_start = true
+    })
+
+    return pos, { pic_x, pic_y }
+end
+
+function index.dft.applets( xD, xM, screen_w, screen_h, pos )
     local data = xD.applets
     local pic_x_l, pic_x_r, pic_y = 0, screen_w, 4
 
@@ -286,93 +774,15 @@ function index.dft.applets( screen_w, screen_h, xys )
             if( xD.gmod.show_full and #data.r > 1 ) then pic_x_r = applet_setup( pic_x_r, 2 ) end
         elseif( #data.l > 1 ) then pic_x_l = applet_setup( pic_x_l, 1 ) end
     end)
-    return { pic_x_l, pic_y }, { pic_x_r, pic_y }
+
+    xD.xys.applets_l = { pic_x_l, pic_y }
+    xD.xys.applets_r = { pic_x_r, pic_y }
+    return pos
 end
 
-function index.dft.hp( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.DamageModel
-    local pic_x, pic_y = unpack( xys.hp or { screen_w - 41, 20 })
-
-    local pain_flash = 0
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        if( not( ComponentGetIsEnabled( data.comp ))) then return end
-        if( data.hp_max <= 0 ) then return end
-        
-        local bar_data = index.new_hp(
-            pic_x, pic_y, pen.Z.MAIN - 5, xD.player_id, { dmg_data = data })
-        pain_flash = bar_data.red_shift
-
-        local hp_max_text, hp_text = pen.get_short_num( bar_data.hp_max ), pen.get_short_num( bar_data.hp )
-        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
-        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
-        
-        local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
-        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
-        pic_y = pic_y + 10
-    end)
-    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
-
-    return { pic_x, pic_y }
-end
-
-function index.dft.air( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.DamageModel
-    local pic_x, pic_y = unpack( xys.air or xys.hp )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        if( not( ComponentGetIsEnabled( data.comp ))) then return end
-        if( not( data.can_air ) or data.air/data.air_max > 0.9 ) then return end
-
-        pen.new.text( pic_x + 3, pic_y - 1, pen.Z.MAIN, "o2", { is_huge = false, has_shadow = true, alpha = 0.9 })
-        xD.bar_func( pic_x, pic_y,
-            pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.P.VNL.MANA, nil, 0.75 )
-
-        local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        pic_y = pic_y + 8
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.flight( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
-    local data = xD.CharacterData
-    local pic_x, pic_y = unpack( xys.flight or xys.air )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        if( data.flight_always or data.flight_max == 0 ) then return end
-
-        if( xM.flight_shake == nil ) then
-            if( xD.Controls.fly[1] and data.flight < 1 ) then
-                xM.flight_shake = xD.frame_num
-            end
-        end
-
-        local shake_frame = xD.frame_num - ( xM.flight_shake or xD.frame_num )
-        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/jetpack.png", { has_shadow = true })
-        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
-            pen.P.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
-        
-        local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_perc( data.flight, data.flight_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then xM.flight_shake = nil end
-        pic_y = pic_y + 8
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.bossbar( screen_w, screen_h, xys )
-    local xD = index.D
+function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )
     local x, y = unpack( xD.player_xy )
-    local pic_x, pic_y = unpack( xys.bossbar or { screen_w/2, screen_h - 23 })
+    local pic_x, pic_y = screen_w/2, screen_h - 23
     pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy_id )
         local bar_comp = EntityGetFirstComponent( enemy_id, "HealthBarComponent" )
         if( not( pen.vld( bar_comp, true ))) then return end
@@ -446,199 +856,10 @@ function index.dft.bossbar( screen_w, screen_h, xys )
         
         if( not( in_world )) then pic_y = pic_y - ( h + 6 ) end
     end)
-    return { pic_x, pic_y }
+    return pos, { pic_x, pic_y }
 end
 
-function index.dft.mana( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
-    local data = xD.active_info
-    local pic_x, pic_y = unpack( xys.mana or xys.flight )
-    pen.hallway( function()
-        if( not( pen.vld( data.id, true ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        xM.mana_shake = xM.mana_shake or {}
-
-        local value = { 0, 0 }
-        local potion_info = {}
-        local throw_it_back = nil
-        if( pen.vld( data.wand_info )) then
-            local mana = data.wand_info.mana
-            local mana_max = data.wand_info.mana_max
-            value = { math.min( math.max( mana, 0 ), mana_max ), mana_max }
-            if( xM.mana_shake[ xD.active_item ] == nil ) then
-                if( xD.no_mana ) then xM.mana_shake[ xD.active_item ] = xD.frame_num end
-            end
-
-            local shake_frame = xD.frame_num - ( xM.mana_shake[ xD.active_item ] or xD.frame_num )
-            throw_it_back = xM.mana_shake[ xD.active_item ] ~= nil and -shake_frame or nil
-            if( shake_frame >= 20 ) then xM.mana_shake[ xD.active_item ] = nil end
-        elseif( pen.vld( data.matter_info ) and data.matter_info.volume >= 0 ) then
-            value = { math.max( data.matter_info.matter[1], 0 ), data.matter_info.volume }
-            potion_info = { pic = "data/ui_gfx/hud/potion.png" }
-            if( xD.fancy_potion_bar ) then
-                potion_info.color = pen.magic_uint( GameGetPotionColorUint( xD.active_item ))
-                potion_info.alpha = 0.8
-            end
-        end
-        
-        if( value[1] < 0 or value[2] <= 0 ) then return end
-        
-        local ratio = math.min( value[1]/value[2], 1 )
-        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, potion_info.pic or "data/ui_gfx/hud/mana.png", { has_shadow = true })
-        if( pen.vld( potion_info.color )) then
-            pen.new.pixel( pic_x - 40, pic_y + 1, pen.Z.MAIN - 4.9, pen.P.WHITE, math.min( 40*ratio + 0.5, 40 ), 2 ) end
-        xD.bar_func( pic_x, pic_y,
-            pen.Z.MAIN - 5, { 40, 2, 40*ratio }, potion_info.color or pen.P.VNL.MANA, throw_it_back, potion_info.alpha )
-        
-        local tip = ""
-        if( pen.vld( potion_info )) then
-            tip = data.name..( pen.vld( data.fullness ) and "\n"..data.fullness or "" )
-        else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_perc( value[1], value[2]) end
-
-        local tip_x, tip_y = unpack( xys.hp )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        pic_y = pic_y + 8
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.reload( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
-    local data = xD.active_info
-    local pic_x, pic_y = unpack( xys.reload or xys.mana )
-    local is_real = pen.vld( data.wand_info )
-
-    xM.reload_max = xM.reload_max or {}
-    xM.reload_shake = xM.reload_shake or {}
-    
-    pen.hallway( function()
-        if( not( is_real )) then return end
-        if( xD.gmod.menu_capable ) then return end
-        if( data.wand_info.never_reload ) then return end
-
-        local reloading = data.wand_info.reload_frame
-        local reloading_full = xM.reload_max[ xD.active_item ]
-        if(( reloading_full or -1 ) < reloading ) then reloading_full = reloading end
-        xM.reload_max[ xD.active_item ] = reloading_full
-        
-        if( reloading_full <= xD.reload_threshold ) then return end
-        
-        local reloading_shake = xM.reload_shake[ xD.active_item ]
-        local it_is_time = xD.just_fired_real and reloading_full ~= reloading
-        if( not( pen.vld( reloading_shake )) and it_is_time ) then reloading_shake = xD.frame_num end
-        xM.reload_shake[ xD.active_item ] = reloading_shake
-        
-        local shake_frame = xD.frame_num - ( reloading_shake or xD.frame_num )
-        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
-            { 40, 2, 40*reloading/reloading_full }, pen.P.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
-        
-        local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then xM.reload_shake[ xD.active_item ] = nil end
-        pic_y = pic_y + 8
-    end)
-
-    local is_done = (( data.wand_info or {}).reload_frame or 0 ) == 0 
-    if( not( is_real ) or is_done ) then xM.reload_max[ xD.active_item ] = nil end
-    return { pic_x, pic_y }
-end
-
-function index.dft.delay( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
-    local data = xD.active_info
-    local pic_x, pic_y = unpack( xys.delay or xys.reload )
-    local is_real = pen.vld( data.wand_info, true )
-    
-    xM.delay_max = xM.delay_max or {}
-    xM.delay_shake = xM.delay_shake or {}
-
-    pen.hallway( function()
-        if( not( is_real )) then return end
-        if( xD.gmod.menu_capable ) then return end
-
-        local delay = data.wand_info.delay_frame
-        local delay_full = xM.delay_max[ xD.active_item ]
-        if(( delay_full or -1 ) < delay ) then delay_full = delay end
-        xM.delay_max[ xD.active_item ] = delay_full
-        
-        if( delay_full <= xD.reload_threshold ) then return end
-        
-        local delay_shake = xM.delay_shake[ xD.active_item ]
-        local it_is_time = xD.just_fired_real and delay_full ~= delay
-        if( not( pen.vld( delay_shake )) and it_is_time ) then delay_shake = xD.frame_num end
-        xM.delay_shake[ xD.active_item ] = delay_shake
-        
-        local shake_frame = xD.frame_num - ( delay_shake or xD.frame_num )
-        pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/fire_rate_wait.png", { has_shadow = true })
-        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
-            { 40, 2, 40*delay/delay_full }, pen.P.VNL.CAST, pen.vld( delay_shake ) and -shake_frame or nil )
-        
-        local tip_x, tip_y = unpack( xys.hp )
-        local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        if( shake_frame >= 20 ) then xM.delay_shake[ xD.active_item ] = nil end
-        pic_y = pic_y + 8
-    end)
-    
-    local is_done = (( data.wand_info or {}).delay_frame or 0 ) == 0 
-    if( not( is_real ) or is_done ) then xM.delay_max[ xD.active_item ] = nil end
-    return { pic_x, pic_y }
-end
-
-function index.dft.gold( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.Wallet
-    local pic_x, pic_y = unpack( xys.gold or xys.delay )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        if( data.money < 0 ) then return end
-        
-        local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp", data.money/1000 ))
-        
-        local tip_x, tip_y = unpack( xys.hp )
-        local v = pen.get_short_num( le_money )
-        local money_string = " "..(( data.money_always or xD.short_gold ) and v or le_money ).."$"
-        local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "\n$", money_string )
-        local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.Z.TIPS,
-            { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        
-        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
-        pen.new.image( pic_x + 2.5, pic_y - 1.5, pen.Z.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
-        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
-
-        pic_y = pic_y + 8
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.orbs( screen_w, screen_h, xys )
-    local xD = index.D
-    local pic_x, pic_y = unpack( xys.orbs or xys.gold )
-    pen.hallway( function()
-        if( xD.gmod.menu_capable ) then return end
-        if( xD.orbs <= 0 ) then return end
-        pic_y = pic_y + 1
-        
-        local v = tostring( xD.orbs )
-        local tip_x, tip_y = unpack( xys.hp )
-        local tip = GameTextGet( "$hud_orbs", v )
-        local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.Z.TIPS,
-            { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-
-        local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
-        pen.new.image( pic_x + 3, pic_y, pen.Z.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
-        pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
-
-        pic_y = pic_y + 8
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.info( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
+function index.dft.info( xD, xM, screen_w, screen_h, pos )
     local function do_info( p_x, p_y, txt, alpha, is_right, hover_func )
         local offset_x = 0
         txt = pen.capitalizer( txt )
@@ -758,167 +979,17 @@ function index.dft.info( screen_w, screen_h, xys )
             return is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         end)
     end)
-    return { pic_x, pic_y }
+    return pos, { pic_x, pic_y }
 end
 
-function index.dft.ingestions( screen_w, screen_h, xys )
-    local xD = index.D
-    local pic_x, pic_y = unpack( xys.hp )
-    if( not( pen.vld( xys.ingestions ))) then
-        pic_y = pic_y + xD.effect_icon_spacing
-        local orb_x, orb_y = unpack( xys.orbs )
-        pic_x, orb_y = orb_x, orb_y + 5
-        if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
-    else pic_x, pic_y = unpack( xys.ingestions ) end
-
-    local data = xD.icon_data.ings
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-        pic_y = pic_y + 3
-
-        for i,info in ipairs( data ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 1 )
-            pic_x, pic_y = pic_x, pic_y + step_y - 1
-        end
-
-        pic_y = pic_y + 4
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.stains( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.icon_data.stains
-    local pic_x, pic_y = unpack( xys.stains or xys.ingestions )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-
-        for i,info in ipairs( data ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 2 )
-            pic_x, pic_y = pic_x, pic_y + step_y
-        end
-
-        pic_y = pic_y + 3
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.effects( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.icon_data.misc
-    local pic_x, pic_y = unpack( xys.effects or xys.stains )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-
-        for i,info in ipairs( data ) do
-            if( info.amount < 2 ) then info.txt = "" end
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 3 )
-            pic_x, pic_y = pic_x, pic_y + step_y
-        end
-
-        pic_y = pic_y + 3
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.perks( screen_w, screen_h, xys )
-    local xD = index.D
-    local data = xD.perk_data
-    local pic_x, pic_y = unpack( xys.perks or xys.effects )
-    pen.hallway( function()
-        if( not( pen.vld( data ))) then return end
-        if( xD.gmod.menu_capable ) then return end
-
-        local perk_tbl_short, extra_perk = {}, {
-            pic = "data/ui_gfx/perk_icons/perks_hover_for_more.png",
-            txt = "", desc = "", other_perks = {},
-            tip = function( pic_x, pic_y, pic_z, perks ) --add hover tips
-                for i,pic in ipairs( perks ) do
-                    local drift_x = 14*(( i - 1 )%10 )
-                    local drift_y = 14*math.floor(( i - 1 )/10 )
-                    pen.new.image( pic_x - 3 + drift_x, pic_y - 1 + drift_y, pic_z, pic )
-                end
-            end,
-        }
-
-        if( #data > xD.max_perks ) then
-            for i,info in ipairs( data ) do
-                if( #perk_tbl_short >= xD.max_perks ) then
-                    for k = 1,( info.count or 1 ) do table.insert( extra_perk.other_perks, info.pic ) end
-                else table.insert( perk_tbl_short, info ) end
-            end
-            table.insert( perk_tbl_short, extra_perk )
-        else perk_tbl_short = data end
-        
-        for i,info in ipairs( perk_tbl_short ) do
-            local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 4 )
-            pic_x, pic_y = pic_x, pic_y + step_y - 2
-        end
-
-        pic_y = pic_y + 5
-    end)
-    return { pic_x, pic_y }
-end
-
-function index.dft.pickup_ending( x, y, screen_w, screen_h, xys )
-    local xD = index.D
-    if( not( pen.vld( xD.sampo, true ))) then return end
-
-    local msg, clr = GameTextGet( "$hint_endingmcguffin_use", "[USE]" ), nil
-    local sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_underground" )
-    if( not( pen.vld( sampo_spot, true ))) then
-        sampo_spot = EntityGetClosestWithTag( x, y, "ending_sampo_spot_mountain" )
-        if( pen.vld( sampo_spot, true )) then
-            local ng_num = tonumber( SessionNumbersGetValue( "NEW_GAME_PLUS_COUNT" ))
-            local check_num, going_ng = ng_num + 5, false
-            if( xD.orbs < 33 ) then
-                local seven_eleven = xD.orbs > ORB_COUNT_IN_WORLD and check_num >= ORB_COUNT_IN_WORLD and xD.orbs >= check_num
-                local eleven_seven = xD.orbs >= check_num and xD.orbs < ORB_COUNT_IN_WORLD
-                if( seven_eleven or eleven_seven ) then
-                    going_ng, msg = true, "+"
-                    if( ng_num < 5 ) then
-                        for i = 1,ng_num do msg = msg.."+" end
-                    else msg = msg.."("..( ng_num + 1 )..")" end
-                    msg = GameTextGet( "$hint_endingmcguffin_enter_newgameplus", "[USE]", msg )
-                end
-            end
-            
-            if( not( going_ng )) then
-                if( xD.orbs == 11 ) then
-                    clr = pen.P.VNL.YELLOW
-                elseif( xD.orbs > 32 ) then
-                    clr = pen.P.VNL.RUNIC
-                else clr = pen.P.VNL.RED end
-            end
-        end
-    elseif( xD.orbs > 11 ) then clr = pen.P.VNL.RED end
-    
-    if( pen.vld( sampo_spot, true )) then
-        local sampo_x, sampo_y = EntityGetTransform( xD.sampo )
-        local spot_x, spot_y = EntityGetTransform( sampo_spot )
-        if(( math.abs( sampo_x - spot_x ) + math.abs( sampo_y - spot_y )) < 32 ) then
-            index.new_pickup_tip( screen_h, screen_w, xys, {
-                id = sampo_spot,
-                desc = { pen.capitalizer( GameTextGet( "$biome_boss_victoryroom" )), msg },
-                txt = "[COMPLETE]",
-                color = { pen.P.VNL.RUNIC, clr },
-            })
-        end
-    end
-end
-
-function index.dft.pickup( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
+function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
     local data = xD.ItemPickUpper
     if( not( pen.vld( data ))) then return end
 
     local x, y = unpack( xD.player_xy )
     y = y - xD.player_core_off
 
-    index.dft.pickup_ending( x, y, screen_w, screen_h, xys )
+    index.dft.pickup_ending( x, y, screen_w, screen_h, pos )
 
     local entities = EntityGetInRadius( x, y, xD.pickup_distance )
     if( not( pen.vld( entities ))) then return end
@@ -1130,33 +1201,11 @@ function index.dft.pickup( screen_w, screen_h, xys )
             xM.skip_next_action = false
         end
     end
+
+    return pos, { pic_x, pic_y }
 end
 
-function index.dft.drop( item_id )
-    local xD, xM = index.D, index.M
-    local dude = EntityGetRootEntity( item_id )
-    if( dude ~= xD.player_id ) then return index.play_sound( "error" ) end
-    index.play_sound({ "data/audio/Desktop/ui.bank", "ui/item_remove" })
-    
-    local do_default = true
-    local info = xM.item_memo[ item_id ] or {}
-    local callback = index.cat_callback( info, "on_drop" )
-    if( pen.vld( callback )) then do_default = callback( info, false ) end
-    
-    local inv_info = xD.invs[ info.inv_id ] or {}
-    if( pen.vld( inv_info.update ) and inv_info.update( xM.item_memo[ p ] or inv_info, info, {})) then
-        local reset_id = pen.get_item_owner( p, true )
-        if( pen.vld( reset_id, true )) then pen.reset_active_item( reset_id ) end
-    end
-
-    if( do_default ) then
-        index.drop_item( info, xD.player_xy[1], xD.player_xy[2],
-            xM.gentle_drop and 0 or xD.throw_force, not( xD.no_action_on_drop )) end
-    if( pen.vld( callback )) then callback( info, true ) end
-end
-
-function index.dft.gmodder( screen_w, screen_h, xys )
-    local xD = index.D
+function index.dft.gmodder( xD, xM, screen_w, screen_h, pos )
     local data = xD.gmod
     if( not( xD.is_opened )) then return end
     if( not( pen.vld( data ))) then return end
@@ -1199,95 +1248,29 @@ function index.dft.gmodder( screen_w, screen_h, xys )
     pen.new.image( pic_x - 2, pic_y - 10, pic_z,
         "data/ui_gfx/keyboard_cursor.png", { color = arrow_right_c, alpha = arrow_right_a })
 
-    if( xD.global_mode == new_mode ) then return end
-
-    local go_ahead = true
-    while( go_ahead ) do
-        if( new_mode > #xD.gmods ) then new_mode = 1 elseif( new_mode < 1 ) then new_mode = #xD.gmods end
-        go_ahead = xD.gmods[ new_mode ].is_hidden or false
-        if( go_ahead ) then new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 ) end
-    end
-
-    index.play_sound( gonna_reset and "reset" or "click" )
-    GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( new_mode ))
-end
-
-function index.dft.logger( screen_w, screen_h, xys )
-    local xD, xM = index.D, index.M
-
-    local log = GlobalsGetValue( index.GLOBAL_CUSTOM_LOG, "" )
-    if( log ~= "" ) then
-        for v in string.gmatch( pen.DIV_0..log, pen.ptrn( 0 )) do table.insert( xM.log, v ) end
-        GlobalsSetValue( index.GLOBAL_CUSTOM_LOG, "" )
-    end
-
-    if( not( pen.vld( xM.log ))) then return end
-    if( not( xD.custom_logging )) then return end
-
-    --input to function as a console
-    --special messages should be displayed all at once
-    --a setting to have no scrollbar and just display n messages at a time (continuuosly purge the list, so it contains no more than a screen-full)
-    --clear button + pos dragger + setting to pick how many messages are displayed at once
-
-    local frame_num = GameGetFrameNum()
-    xM.logger_memo = xM.logger_memo or {}
-    xM.logger_memo.max_l = xM.logger_memo.max_l or 100
-    local length = math.min( screen_w - 30, xM.logger_memo.max_l + 10 )
-    xM.logger_memo.shake = xM.logger_memo.shake or { 0, 0 }
-
-    local k, accum = #xM.log, 0
-    local last_num, last_msg = 0, ""
-    for i = math.max( k - 1000, 1 ), k do
-        local msg = xM.log[i]
-        if( pen.vld( msg )) then
-            if( last_msg == msg ) then
-                xM.log[i], accum = "", accum + 1
-                if( i == k ) then xM.logger_memo.shake = { last_num, frame_num } end
-            else last_num, last_msg = i, msg end
-        else accum = accum + 1 end
-    end
-
-    local height = 55
-    local text_height = 9*( #xM.log - accum )
-    local is_small = text_height < height
-
-    local pic_z = pen.Z.MAIN_OVERLAY
-    local pic_x, pic_y = unpack( xys.logger or { 20, screen_h - height - 2 })
-    pen.new.scroller( "index_logger", pic_x, pic_y, pic_z, length, height, function( scroll_pos )
-        local h = 0
-        local pos_y = is_small and ( height - text_height ) or scroll_pos[1]
-        for i = math.max( k - 1000, 1 ), k do
-            if( pen.vld( xM.log[i])) then
-                if( pos_y > -10 and pos_y < ( height + 1 )) then
-                    local pos_x = 0
-                    if( xM.logger_memo.shake[1] == i ) then
-                        local drift = math.max(( xM.logger_memo.shake[2] + 30 ) - frame_num, 0 )
-                        pos_x = pen.animate({ 0, 5 }, drift, { ease_out = "sin", frames = 30 })
-                    end
-                    
-                    local dims = pen.new.text_shad( pos_x, pos_y, pic_z,
-                        xM.log[i], { fully_featured = true, line_offset = -2 })
-                    if( dims[1] > xM.logger_memo.max_l ) then xM.logger_memo.max_l = dims[1] end
-                end
-                pos_y, h = pos_y + 9, h + 9
-            end
+    if( xD.global_mode ~= new_mode ) then
+        local go_ahead = true
+        while( go_ahead ) do
+            if( new_mode > #xD.gmods ) then new_mode = 1 elseif( new_mode < 1 ) then new_mode = #xD.gmods end
+            go_ahead = xD.gmods[ new_mode ].is_hidden or false
+            if( go_ahead ) then new_mode = new_mode + ( arrow_left_a == 1 and -1 or 1 ) end
         end
-        return { h + 1, 1 }
-    end, {
-        scroll_step = 9,
-        forced_zone = { 20 },
-        is_left = ( pic_x < screen_w/2 ),
-        hide_bar = true, bottom_start = true
-    })
+
+        index.play_sound( gonna_reset and "reset" or "click" )
+        GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( new_mode ))
+    end
+
+    return pos, { pic_x, pic_y }
 end
 
-function index.dft.extra( screen_w, screen_h, xys )
-    local xD = index.D
+function index.dft.extra( xD, xM, screen_w, screen_h, pos )
     if( not( pen.vld( xD.invs_e ))) then return end
     for i,extra_inv in ipairs( xD.invs_e ) do
         local x, y = EntityGetTransform( extra_inv )
         local pic_x, pic_y = pen.world2gui( x, y )
         local inv_info = xD.invs[ extra_inv ]
-        inv_info.func( pic_x, pic_y, inv_info, xys, xD.slot_func )
+        pos = inv_info.func( pic_x, pic_y, inv_info, pos, xD.slot_func )
     end
+
+    return pos
 end

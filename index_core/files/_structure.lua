@@ -942,38 +942,34 @@ local ITEM_CATS = {
     },
 }
 
-local GUI_STRUCT = {
+local GUI_MODULES = {
     tip = pen.new.tip, bar = index.new_bar,
     box = index.new_box, icon = index.new_icon,
     slot = index.new_slot, wand = index.new_wand,
 
     structure = index.dft.struct,
+    tip_anchor = index.dft.tip_anchor,
+    spacer = index.dft.spacer,
 
     inv = index.dft.inv,
     applets = index.dft.applets,
-
-    bars = {
-        hp = index.dft.hp,
-        air = index.dft.air,
-        flight = index.dft.flight,
-        bossbar = index.dft.bossbar,
-        action = {
-            mana = index.dft.mana,
-            reload = index.dft.reload,
-            delay = index.dft.delay,
-        },
-    },
+    bossbar = index.dft.bossbar,
+    
+    bars_hp = index.dft.hp,
+    bars_air = index.dft.air,
+    bars_flight = index.dft.flight,
+    bars_wand_mana = index.dft.mana,
+    bars_wand_reload = index.dft.reload,
+    bars_wand_delay = index.dft.delay,
 
     gold = index.dft.gold,
     orbs = index.dft.orbs,
     info = index.dft.info,
     
-    icons = {
-        ingestions = index.dft.ingestions,
-        stains = index.dft.stains,
-        effects = index.dft.effects,
-        perks = index.dft.perks,
-    },
+    icons_ingestions = index.dft.ingestions,
+    icons_stains = index.dft.stains,
+    icons_effects = index.dft.effects,
+    icons_perks = index.dft.perks,
 
     pickup = index.dft.pickup,
     drop = index.dft.drop,
@@ -989,10 +985,50 @@ local GUI_STRUCT = {
     },
 }
 
+local GUI_STRUCT = {
+    top_left = {
+        { 19, 20 }, --starting coords, negative means from the other edge
+        "inv",
+    },
+    top_right = {
+        { -41, 20 },
+        "bars_hp",
+        "tip_anchor",
+        "bars_air",
+        "bars_flight",
+        "bars_wand_mana",
+        "bars_wand_reload",
+        "bars_wand_delay",
+        "gold",
+        "orbs",
+        "spacer",
+        "icons_ingestions",
+        "icons_stains",
+        "icons_effects",
+        "icons_perks",
+    },
+    bottom_left = {
+        { 10, -10 },
+        "logger",
+    },
+    bottom_right = {
+        { -10, -10 },
+    },
+    centered = {
+        { 0.5, -10 }, --from 0 to 1 means a ratio of the screen size
+        "applets",
+        "bars_bossbar",
+        "info",
+        "pickup",
+        "gmodder",
+        "extra",
+    },
+}
+
 index.STRUCT = {
     GLOBAL_MODES, GLOBAL_MUTATORS, APPLETS,
     BOSS_BARS, WAND_STATS, SPELL_STATS, MATTER_DESCS,
-    ITEM_CATS, GUI_STRUCT
+    ITEM_CATS, GUI_MODULES, GUI_STRUCT
 }
 
 --<{> MAGIC APPEND MARKER <}>--

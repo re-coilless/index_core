@@ -162,7 +162,7 @@ local mtr_action = pen.c.index_settings.info_mtr_state ~= 2 or index.get_input( 
 
 local global_modes, global_mutators, applets,
     boss_bars, wand_stats, spell_stats, matter_desc,
-    item_cats, inv = unpack( pen.c.index_struct )
+    item_cats, hud, layout = unpack( pen.c.index_struct )
 
 index.D = {
     xys = {}, gmod = {},
@@ -171,10 +171,10 @@ index.D = {
     item_cats = item_cats, boss_bars = boss_bars,
     wand_stats = wand_stats, spell_stats = spell_stats,
     
-    tip_func = inv.tip, bar_func = inv.bar,
-    box_func = inv.box, icon_func = inv.icon,
-    slot_func = inv.slot, wand_func = inv.wand,
-    pick_func = inv.pickup, drop_func = inv.drop,
+    tip_func = hud.tip, bar_func = hud.bar,
+    box_func = hud.box, icon_func = hud.icon,
+    slot_func = hud.slot, wand_func = hud.wand,
+    pick_func = hud.pickup, drop_func = hud.drop,
     
     player_id = hooman,
     player_xy = { 0, 0 },
@@ -274,9 +274,9 @@ xD.invs[ xD.invs_p.q ] = index.get_inv_info(
     xD.invs_p.q, { xD.inv_quickest_size, xD.inv_quick_size }, nil,
     function( inv_info ) return {( inv_info.inv_slot[2] == -2 ) and "quick" or "quickest" } end)
 xD.invs[ xD.invs_p.f ] = index.get_inv_info( xD.invs_p.f, xD.inv_full_size )
-pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv )
+pen.t.loop( EntityGetWithTag( "index_inventory" ), function( i, inv_id )
     local xD = index.D
-    xD.invs[ inv ] = index.get_inv_info( inv ); table.insert( xD.invs_e, inv )
+    xD.invs[ inv_id ] = index.get_inv_info( inv_id ); table.insert( xD.invs_e, inv_id )
 end)
 
 if( pen.vld( xD.active_item, true )) then --just fix this with phantom "hand" item
@@ -390,12 +390,12 @@ end
 --rendering pass
 local global_callback = xD.gmod.custom_func
 if( xD.gmod.allow_shooting ) then xD.no_inv_shooting = false end
-if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, false ) end
+if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, xD.xys, hud, false ) end
 
-if( not( xD.gmod.nuke_default )) then inv.structure( screen_w, screen_h, inv ) end
+if( not( xD.gmod.nuke_default )) then hud.structure( screen_w, screen_h, hud, layout ) end
 
 if( not( xD.gmod.nuke_custom )) then
-    for cid,cfunc in pen.t.order( inv.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
+    for cid,cfunc in pen.t.order( hud.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
 end
 
 if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
@@ -404,7 +404,7 @@ if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     ComponentSetValue2( iui_comp, "mActive", not( xD.is_opened ))
 elseif( xD.gmod.force_inv_open and not( xD.is_opened )) then ComponentSetValue2( iui_comp, "mActive", true ) end
 if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, pen.Z.NON_CLICK ) end
-if( pen.vld( global_callback )) then inv = global_callback( screen_w, screen_h, xD.xys, inv, true ) end
+if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, xD.xys, hud, true ) end
 
 
 
@@ -455,8 +455,8 @@ if( xM.is_dragging or xD.dragger.item_id ~= 0 ) then
         if( not( xM.is_dragging ) or xD.dragger.swap_now ) then
             if( xD.dragger.swap_now and xD.dragger.item_id > 0 ) then
                 if( not( gg( index.GLOBAL_DRAGGER_EXTERNAL, false ))) then
-                    if( not( xD.dragger.wont_drop ) and pen.vld( inv.drop )) then
-                        inv.drop( xD.dragger.item_id )
+                    if( not( xD.dragger.wont_drop ) and pen.vld( hud.drop )) then
+                        hud.drop( xD.dragger.item_id )
                     else index.play_sound( "error" ) end
 
                 else GlobalsSetValue( index.GLOBAL_DRAGGER_EXTERNAL, "bool0" ) end

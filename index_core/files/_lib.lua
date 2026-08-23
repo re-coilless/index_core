@@ -7,6 +7,7 @@ index = index or {}
 index.D = index.D or {} -- frame-iterated data
 index.M = index.M or {} -- interframe memory values
 
+-- structure should allow for insertion of new modules, make the system procedural with load order
 -- fullstopper is fucked with pit tablet
 -- controller support
 -- localization
@@ -512,13 +513,14 @@ function index.inv_boy( info, in_hand )
 
 	local hooman = EntityGetRootEntity( item_id )
 	local is_free = hooman == item_id
-	for i,comp in ipairs( EntityGetAllComponents( item_id )) do --this has huge performance impact
+	for i,comp in ipairs( EntityGetAllComponents( item_id )) do
 		local world_check, inv_check, hand_check = false, false, false
 		if( not( ComponentHasTag( comp, "not_enabled_in_wand" ) and in_wand )) then
 			world_check = ComponentHasTag( comp, "enabled_in_world" ) and is_free
 			inv_check = ComponentHasTag( comp, "enabled_in_inventory" ) and not( is_free )
 			hand_check = ComponentHasTag( comp, "enabled_in_hand" ) and in_hand
 		end
+
 		EntitySetComponentIsEnabled( item_id, comp, world_check or inv_check or hand_check )
 	end
 
