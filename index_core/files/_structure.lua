@@ -987,7 +987,7 @@ local GUI_MODULES = {
 
 local GUI_STRUCT = {
     top_left = {
-        { 19, 20 }, --starting coords, negative means from the other edge
+        { 19, 20 },
         "inv",
     },
     top_right = {
@@ -1015,7 +1015,7 @@ local GUI_STRUCT = {
         { -10, -10 },
     },
     centered = {
-        { 0.5, -10 }, --from 0 to 1 means a ratio of the screen size
+        { 0.5, -20 },
         "applets",
         "bars_bossbar",
         "info",

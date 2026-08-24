@@ -1371,9 +1371,8 @@ function index.tipping( pic_x, pic_y, pic_z, dims, text, data, func )
 			pen.new.pixel( pic_x, pic_y, pic_z[2], pen.P.VNL.RUNIC, dims[1], dims[2], 0.75 ) end
 	else return false, false, false end
 
-	local tip_x, tip_y = unpack( data.pos or { 0, 0 })
-	local ref_pos = xD.xys.hp or { xD.screen_dims[1] - 41, 30 }
-	if( tip_x == ( ref_pos[1] - 44 ) and tip_y == ref_pos[2]) then data.tid = data.tid or "hud" end
+	local tip_x, tip_y = unpack( data.pos or xD.xys.tip_anchor )
+	if( not( pen.vld( data.pos ))) then data.tid = data.tid or "hud" end
 	( func or xD.tip_func )( text, data )
 	return data.is_active, clicked, r_clicked
 end
@@ -1420,8 +1419,7 @@ function index.new_world_tip( info, tid, pic_x, pic_y, tip_func, no_space, cant_
 		pic_x, pic_y = pic_x + 15, pic_y + 15
 		tid = tid or "worldtip"
 	else
-		pic_x, pic_y = unpack( xD.xys.world_tip or xD.xys.hp )
-		pic_x = pic_x - 44
+		pic_x, pic_y = unpack( xD.xys.tip_anchor )
 		tid = tid or "hud"
 	end
 	
@@ -2490,9 +2488,9 @@ index.GLOBAL_THROW_FORCE = "INDEX_GLOBAL_THROW_FORCE" --force applied to thrown 
 
 index.GLOBAL_QUICKEST_SIZE = "INDEX_GLOBAL_QUICKEST_SIZE" --the size of the wand inventory
 index.GLOBAL_SLOT_SPACING = "INDEX_GLOBAL_SLOT_SPACING" --distance between individual slots
-index.GLOBAL_EFFECT_SPACING = "INDEX_GLOBAL_EFFECT_SPACING" --distance between individual effect icons
 index.GLOBAL_MIN_EFFECT_DURATION = "INDEX_GLOBAL_MIN_EFFECT_DURATION" --minimal duration required for the efect to appear as an icon
 index.GLOBAL_SPELL_ANIM_FRAMES = "INDEX_GLOBAL_SPELL_ANIM_FRAMES" --the speed of spell swaying anim
+index.GLOBAL_SPACER_SIZE = "INDEX_GLOBAL_SPACER_SIZE" --distance between individual effect icons
 
 index.GLOBAL_LOW_HP_FLASHING_THRESHOLD = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD" --maximal hp value at which the flashing starts
 index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN" --additional threshold correction for extreme max hps

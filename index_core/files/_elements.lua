@@ -161,16 +161,30 @@ end
 -------------------------------------------------------     [STRUCT]     -------------------------------------------------------
 
 function index.dft.spacer( xD, xM, screen_w, screen_h, pos )
-    return { 0, 10 }
+    return { 0, xD.spacer_size }
 end
+
 function index.dft.tip_anchor( xD, xM, screen_w, screen_h, pos )
-    xD.xys.world_tip = { pos[1] - 44, pos[2]} --save between frames
+    xM.tip_anchor_memo = xM.tip_anchor_memo or { -2*screen_w, -2*screen_h }
+    xD.xys.tip_anchor = xD.xys.tip_anchor or { unpack( xM.tip_anchor_memo )}
+    xM.tip_anchor_memo = { pos[1] - 44, pos[2]}
 end
 
 function index.dft.struct( screen_w, screen_h, hud, layout )
     local xD, xM, delta = index.D, index.M, { 0, 0 }
-    for _,zone in ipairs({ "top_left", "top_right", "bottom_left", "bottom_right", "centered" }) do
-        pen.t.loop( layout[ zone ], function( i, id )
+    for i,zone in ipairs({ "top_left", "top_right", "bottom_left", "bottom_right", "centered" }) do
+        pen.t.loop( layout[ zone ], function( e, id )
+            if( e == 1 ) then
+                xD.xys[ zone ] = {}
+                return pen.t.loop( id, function( k, v )
+                    if( v < 0 ) then
+                        xD.xys[ zone ][k] = v + ( k == 1 and screen_w or screen_h )
+                    elseif( v < 1 ) then
+                        xD.xys[ zone ][k] = v*( k == 1 and screen_w or screen_h )
+                    else xD.xys[ zone ][k] = v end
+                end)
+            end
+
             if( not( pen.vld( hud[ id ]))) then return end
             local k, pos = i > 2 and -1 or 1, xD.xys[ zone ]
             delta, xD.xys[ id ] = hud[ id ]( xD, xM, screen_w, screen_h, xD.xys[ id ] or pos )
@@ -189,7 +203,7 @@ function index.dft.inv( xD, xM, screen_w, screen_h, pos )
     
     local full_depth = index.dft.inv_bg( pic_x, pic_y, screen_w, screen_h )
     xD.xys.inv_root, xD.xys.inv = { root_x - 3, root_y - 3 }, { root_x + 2, root_y + 26 }
-
+    
     local cat_wands = pic_x
     local w, h, step = 0, 0, 1
     for i,slot in ipairs( xD.slot_state[ xD.invs_p.q ].quickest ) do
@@ -254,33 +268,31 @@ function index.dft.hp( xD, xM, screen_w, screen_h, pos )
     local data = xD.DamageModel
     local pic_x, pic_y = unpack( pos )
 
-    local pain_flash = 0
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
         if( not( ComponentGetIsEnabled( data.comp ))) then return end
         if( data.hp_max <= 0 ) then return end
         
-        local bar_data = index.new_hp(
-            pic_x, pic_y, pen.Z.MAIN - 5, xD.player_id, { dmg_data = data })
-        pain_flash = bar_data.red_shift
+        local bar_data = index.new_hp( pic_x, pic_y, pen.Z.MAIN - 5, xD.player_id, { dmg_data = data })
 
         local hp_max_text, hp_text = pen.get_short_num( bar_data.hp_max ), pen.get_short_num( bar_data.hp )
         pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/health.png", { has_shadow = true })
         pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, hp_text, { is_huge = false, has_shadow = true, alpha = 0.9 })
         
         local tip = index.hud_text_fix( "$hud_health" )..( xD.short_hp and hp_text.."/"..hp_max_text or bar_data.hp.."/"..bar_data.hp_max )
-        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { pos = { pic_x - 44, pic_y + 10 }, is_left = true })
-        pic_y = pic_y + 10
+        index.tipping( pic_x - ( bar_data.length + 2 ), pic_y - 1, nil, { bar_data.length + 4, 8 }, tip, { is_left = true })
     end)
-    GameSetPostFxParameter( "low_health_indicator_alpha_proper", xD.hp_flashing_intensity*pain_flash, 0, 0, 0 )
+    GameSetPostFxParameter( "low_health_indicator_alpha_proper",
+        xD.hp_flashing_intensity*bar_data.red_shift, 0, 0, 0 )
 
-    return pos, { pic_x, pic_y }
+    return { 0, 10 }, { pic_x, pic_y }
 end
 
 function index.dft.air( xD, xM, screen_w, screen_h, pos )
     local data = xD.DamageModel
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -291,17 +303,17 @@ function index.dft.air( xD, xM, screen_w, screen_h, pos )
         xD.bar_func( pic_x, pic_y,
             pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.air, 0 )/data.air_max }, pen.P.VNL.MANA, nil, 0.75 )
 
-        local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_air" )..index.hud_num_perc( data.air, data.air_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        pic_y = pic_y + 8
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { is_left = true })
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.flight( xD, xM, screen_w, screen_h, pos )
     local data = xD.CharacterData
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -318,18 +330,18 @@ function index.dft.flight( xD, xM, screen_w, screen_h, pos )
         xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5, { 40, 2, 40*math.max( data.flight, 0 )/data.flight_max },
             pen.P.VNL.FLIGHT, xM.flight_shake ~= nil and shake_frame or nil )
         
-        local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_jetpack" )..index.hud_num_perc( data.flight, data.flight_max, 2 )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { is_left = true })
         if( shake_frame >= 20 ) then xM.flight_shake = nil end
-        pic_y = pic_y + 8
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.mana( xD, xM, screen_w, screen_h, pos )
     local data = xD.active_info
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data.id, true ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -371,21 +383,19 @@ function index.dft.mana( xD, xM, screen_w, screen_h, pos )
         if( pen.vld( potion_info )) then
             tip = data.name..( pen.vld( data.fullness ) and "\n"..data.fullness or "" )
         else tip = index.hud_text_fix( "$hud_wand_mana" )..index.hud_num_perc( value[1], value[2]) end
-
-        local tip_x, tip_y = unpack( xys.hp )
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        pic_y = pic_y + 8
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { is_left = true })
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.reload( xD, xM, screen_w, screen_h, pos )
     local data = xD.active_info
     local pic_x, pic_y = unpack( pos )
-    local is_real = pen.vld( data.wand_info )
 
     xM.reload_max = xM.reload_max or {}
     xM.reload_shake = xM.reload_shake or {}
+    local is_real = pen.vld( data.wand_info )
     
     pen.hallway( function()
         if( not( is_real )) then return end
@@ -406,28 +416,27 @@ function index.dft.reload( xD, xM, screen_w, screen_h, pos )
         
         local shake_frame = xD.frame_num - ( reloading_shake or xD.frame_num )
         pen.new.image( pic_x + 3, pic_y - 1, pen.Z.MAIN, "data/ui_gfx/hud/reload.png", { has_shadow = true })
-        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
-            { 40, 2, 40*reloading/reloading_full }, pen.P.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
+        xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5, { 40, 2, 40*reloading/reloading_full },
+            pen.P.VNL.CAST, pen.vld( reloading_shake ) and -shake_frame or nil )
         
-        local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$hud_wand_reload" )..string.format( "%.2f", reloading/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { is_left = true })
         if( shake_frame >= 20 ) then xM.reload_shake[ xD.active_item ] = nil end
-        pic_y = pic_y + 8
     end)
 
     local is_done = (( data.wand_info or {}).reload_frame or 0 ) == 0 
     if( not( is_real ) or is_done ) then xM.reload_max[ xD.active_item ] = nil end
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.delay( xD, xM, screen_w, screen_h, pos )
     local data = xD.active_info
     local pic_x, pic_y = unpack( pos )
-    local is_real = pen.vld( data.wand_info, true )
     
     xM.delay_max = xM.delay_max or {}
     xM.delay_shake = xM.delay_shake or {}
+    local is_real = pen.vld( data.wand_info, true )
 
     pen.hallway( function()
         if( not( is_real )) then return end
@@ -450,21 +459,21 @@ function index.dft.delay( xD, xM, screen_w, screen_h, pos )
         xD.bar_func( pic_x, pic_y, pen.Z.MAIN - 5,
             { 40, 2, 40*delay/delay_full }, pen.P.VNL.CAST, pen.vld( delay_shake ) and -shake_frame or nil )
         
-        local tip_x, tip_y = unpack( xys.hp )
         local tip = index.hud_text_fix( "$inventory_castdelay" )..string.format( "%.2f", delay/60 ).."s"
-        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+        index.tipping( pic_x - 42, pic_y - 1, nil, { 44, 6 }, tip, { is_left = true })
         if( shake_frame >= 20 ) then xM.delay_shake[ xD.active_item ] = nil end
-        pic_y = pic_y + 8
     end)
     
     local is_done = (( data.wand_info or {}).delay_frame or 0 ) == 0 
     if( not( is_real ) or is_done ) then xM.delay_max[ xD.active_item ] = nil end
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.gold( xD, xM, screen_w, screen_h, pos )
     local data = xD.Wallet
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -472,72 +481,62 @@ function index.dft.gold( xD, xM, screen_w, screen_h, pos )
         
         local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp", data.money/1000 ))
         
-        local tip_x, tip_y = unpack( xys.hp )
         local v = pen.get_short_num( le_money )
         local money_string = " "..(( data.money_always or xD.short_gold ) and v or le_money ).."$"
         local tip = string.gsub( index.hud_text_fix( "$hud_gold" ), "\n$", money_string )
         local is_hovered = index.tipping( pic_x + 2.5, pic_y - 1, pen.Z.TIPS,
-            { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
-        
+            { 10.5 + pen.get_text_dims( v, true ), 8 }, tip, { is_left = true })
         local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
+
         pen.new.image( pic_x + 2.5, pic_y - 1.5, pen.Z.MAIN, "data/ui_gfx/hud/money.png", { color = c, has_shadow = true })
         pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
-
-        pic_y = pic_y + 8
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 8 }, { pic_x, pic_y }
 end
 
 function index.dft.orbs( xD, xM, screen_w, screen_h, pos )
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( xD.gmod.menu_capable ) then return end
         if( xD.orbs <= 0 ) then return end
         pic_y = pic_y + 1
         
         local v = tostring( xD.orbs )
-        local tip_x, tip_y = unpack( xys.hp )
         local tip = GameTextGet( "$hud_orbs", v )
         local is_hovered = index.tipping( pic_x + 2, pic_y - 1, pen.Z.TIPS,
-            { 11 + pen.get_text_dims( v, true ), 8 }, tip, { pos = { tip_x - 44, tip_y }, is_left = true })
+            { 11 + pen.get_text_dims( v, true ), 8 }, tip, { is_left = true })
 
         local c = is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         pen.new.image( pic_x + 3, pic_y, pen.Z.MAIN, "data/ui_gfx/hud/orbs.png", { color = c, has_shadow = true })
         pen.new.text( pic_x + 13, pic_y, pen.Z.MAIN, v, { color = c, is_huge = false, has_shadow = true, alpha = 0.9 })
-
-        pic_y = pic_y + 8
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 9 }, { pic_x, pic_y }
 end
 
 function index.dft.ingestions( xD, xM, screen_w, screen_h, pos )
-    local pic_x, pic_y = 0, 0
-    if( not( pen.vld( xD.xys.ingestions ))) then
-        pic_y = pic_y + xD.effect_icon_spacing
-        local orb_x, orb_y = unpack( pos )
-        pic_x, orb_y = orb_x, orb_y + 5
-        if(( pic_y - orb_y ) < 0 ) then pic_y = orb_y end
-    else pic_x, pic_y = unpack( xD.xys.ingestions ) end
-
     local data = xD.icon_data.ings
+    local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
-        pic_y = pic_y + 3
 
         for i,info in ipairs( data ) do
             local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 1 )
             pic_x, pic_y = pic_x, pic_y + step_y - 1
         end
-
-        pic_y = pic_y + 4
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 10 }, { pic_x, pic_y }
 end
 
 function index.dft.stains( xD, xM, screen_w, screen_h, pos )
     local data = xD.icon_data.stains
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -546,15 +545,15 @@ function index.dft.stains( xD, xM, screen_w, screen_h, pos )
             local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 2 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
-
-        pic_y = pic_y + 3
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 10 }, { pic_x, pic_y }
 end
 
 function index.dft.effects( xD, xM, screen_w, screen_h, pos )
     local data = xD.icon_data.misc
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -564,15 +563,15 @@ function index.dft.effects( xD, xM, screen_w, screen_h, pos )
             local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 3 )
             pic_x, pic_y = pic_x, pic_y + step_y
         end
-
-        pic_y = pic_y + 3
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 10 }, { pic_x, pic_y }
 end
 
 function index.dft.perks( xD, xM, screen_w, screen_h, pos )
     local data = xD.perk_data
     local pic_x, pic_y = unpack( pos )
+
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
@@ -602,10 +601,9 @@ function index.dft.perks( xD, xM, screen_w, screen_h, pos )
             local step_x, step_y = xD.icon_func( pic_x, pic_y, pen.Z.MAIN, info, 4 )
             pic_x, pic_y = pic_x, pic_y + step_y - 2
         end
-
-        pic_y = pic_y + 5
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 12 }, { pic_x, pic_y }
 end
 
 function index.dft.logger( xD, xM, screen_w, screen_h, pos )
@@ -674,7 +672,7 @@ function index.dft.logger( xD, xM, screen_w, screen_h, pos )
         hide_bar = true, bottom_start = true
     })
 
-    return pos, { pic_x, pic_y }
+    return { 0, height }, { pic_x, pic_y }
 end
 
 function index.dft.applets( xD, xM, screen_w, screen_h, pos )
@@ -777,12 +775,12 @@ function index.dft.applets( xD, xM, screen_w, screen_h, pos )
 
     xD.xys.applets_l = { pic_x_l, pic_y }
     xD.xys.applets_r = { pic_x_r, pic_y }
-    return pos
 end
 
 function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )
     local x, y = unpack( xD.player_xy )
-    local pic_x, pic_y = screen_w/2, screen_h - 23
+    local pic_x, pic_y = unpack( pos )
+
     pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy_id )
         local bar_comp = EntityGetFirstComponent( enemy_id, "HealthBarComponent" )
         if( not( pen.vld( bar_comp, true ))) then return end
@@ -856,7 +854,8 @@ function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )
         
         if( not( in_world )) then pic_y = pic_y - ( h + 6 ) end
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, pos[2] - pic_y }, { pic_x, pic_y }
 end
 
 function index.dft.info( xD, xM, screen_w, screen_h, pos )
@@ -947,6 +946,7 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
 
         do_info( pic_x, pic_y, info, fading, is_obstructed )
     end)
+
     pen.hallway( function()
         if( xD.gmod.menu_capable ) then return end
 
@@ -979,7 +979,8 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
             return is_hovered and pen.P.VNL.YELLOW or pen.P.WHITE
         end)
     end)
-    return pos, { pic_x, pic_y }
+
+    return { 0, 0 }, { pic_x, pic_y }
 end
 
 function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
@@ -989,7 +990,7 @@ function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
     local x, y = unpack( xD.player_xy )
     y = y - xD.player_core_off
 
-    index.dft.pickup_ending( x, y, screen_w, screen_h, pos )
+    index.dft.pickup_ending( x, y, screen_w, screen_h )
 
     local entities = EntityGetInRadius( x, y, xD.pickup_distance )
     if( not( pen.vld( entities ))) then return end
@@ -1151,7 +1152,7 @@ function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
                 pickup_info.info, nil, pic_x, pic_y, index.cat_callback( pickup_info.info, "on_tip" ), no_space, cant_buy )
         end
         
-        if( not( ignore_default )) then index.new_pickup_tip( screen_h, screen_w, xys, pickup_info ) end
+        if( not( ignore_default )) then index.new_pickup_tip( screen_h, screen_w, pickup_info ) end
         if( pen.vld( pickup_info.id, true ) and xD.Controls.act[2]) then
             local pkp_x, pkp_y = EntityGetTransform( pickup_info.id )
             local anim_x, anim_y = pen.world2gui( pkp_x, pkp_y )
@@ -1180,8 +1181,7 @@ function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
         if( will_show ) then
             local func_path = pen.magic_storage( info.id, "index_message", "value_string" )
             local message_func = pen.vld( func_path ) and dofile_once( func_path ) or index.new_pickup_tip
-            message_func( screen_h, screen_w, xys, {
-                id = info.id, txt = "[USE]",
+            message_func( screen_h, screen_w, { id = info.id, txt = "[USE]",
                 desc = { pen.capitalizer( info.name ), string.gsub( info.desc, "$0", "[USE]" )},
             })
         end
@@ -1201,8 +1201,6 @@ function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
             xM.skip_next_action = false
         end
     end
-
-    return pos, { pic_x, pic_y }
 end
 
 function index.dft.gmodder( xD, xM, screen_w, screen_h, pos )
@@ -1218,9 +1216,8 @@ function index.dft.gmodder( xD, xM, screen_w, screen_h, pos )
     elseif( xys.applets_r[1] <= ( pic_x + 5 )) then return end
     if( pen.vld( xys.gmodder )) then pic_x, pic_y = unpack( xys.gmodder ) end
     
-    local pic_z = pen.Z.MAIN_OVERLAY
-
     local new_mode = xD.global_mode
+    local pic_z = pen.Z.MAIN_OVERLAY
     local arrow_left_c, arrow_right_c = nil, nil
     local gonna_reset, gonna_highlight, arrow_left_a, arrow_right_a = false, false, 0.3, 0.3
     local clicked, r_clicked, is_hovered = pen.new.interface( pic_x - ( 11 + w ), pic_y - 11, 15, 10, pic_z )
@@ -1260,7 +1257,7 @@ function index.dft.gmodder( xD, xM, screen_w, screen_h, pos )
         GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( new_mode ))
     end
 
-    return pos, { pic_x, pic_y }
+    return { 0, 0 }, { pic_x, pic_y }
 end
 
 function index.dft.extra( xD, xM, screen_w, screen_h, pos )
@@ -1269,8 +1266,6 @@ function index.dft.extra( xD, xM, screen_w, screen_h, pos )
         local x, y = EntityGetTransform( extra_inv )
         local pic_x, pic_y = pen.world2gui( x, y )
         local inv_info = xD.invs[ extra_inv ]
-        pos = inv_info.func( pic_x, pic_y, inv_info, pos, xD.slot_func )
+        inv_info.func( pic_x, pic_y, inv_info, pos, xD.slot_func )
     end
-
-    return pos
 end

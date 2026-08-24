@@ -52,9 +52,9 @@ pen.c.index_settings = pen.c.index_settings or {
     
     inv_quickest_size = gg( index.GLOBAL_QUICKEST_SIZE, 4 ),
     inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|3|9|" )),
-    effect_icon_spacing = gg( index.GLOBAL_EFFECT_SPACING, 45 ),
     min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
     spell_anim_frames = gg( index.GLOBAL_SPELL_ANIM_FRAMES, 120 ),
+    spacer_size = gg( index.GLOBAL_SPACER_SIZE, 45 ),
 
     hp_threshold = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD, 1 ),
     hp_threshold_min = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN, 0.2 ),
