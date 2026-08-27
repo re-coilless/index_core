@@ -6,6 +6,7 @@ local GLOBAL_MODES = {
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
         
+        -- is_sticky = false,
         -- menu_capable = false, is_hidden = false, show_fullest = false,
         -- can_see = false, allow_shooting = false, force_inv_open = false,
         -- allow_external_inventories = false, allow_advanced_draggables = false,
@@ -23,7 +24,7 @@ local GLOBAL_MODES = {
     {
         name = "CUSTOM_MENU", color = pen.P.VNL.DAMAGE,
         desc = "Clears space to the right and limits interactions.",
-        menu_capable = true, is_hidden = true, force_inv_open = true,
+        menu_capable = true, is_hidden = true, force_inv_open = true, is_sticky = true,
     },
 }
 
@@ -521,7 +522,7 @@ local ITEM_CATS = {
             if( not( xD.is_opened )) then return end
             if( not( state_tbl.is_quick )) then return end
             if( not( xD.gmod.allow_wand_editing )) then return end
-            pic_x, pic_y = unpack( pen.vld( xD.xys.wands ) and xD.xys.wands or xD.xys.inv )
+            pic_x, pic_y = unpack( pen.vld( xD.xys.wands ) and xD.xys.wands or xD.xys.inv_wands )
             w, h = xD.wand_func( pic_x - 3*pen.b2n( state_tbl.in_hand ), pic_y + 2, info, state_tbl.in_hand )
             xD.xys.wands = { pic_x, pic_y + h }
         end,
@@ -946,10 +947,10 @@ local GUI_MODULES = {
     tip = pen.new.tip, bar = index.new_bar,
     box = index.new_box, icon = index.new_icon,
     slot = index.new_slot, wand = index.new_wand,
-
+    
+    buffer = index.dft.buffer,
     structure = index.dft.struct,
-    tip_anchor = index.dft.tip_anchor,
-    spacer = index.dft.spacer,
+    tip_anchor_init = index.dft.tip_anchor_init,
 
     inv = index.dft.inv,
     applets = index.dft.applets,
@@ -978,8 +979,12 @@ local GUI_MODULES = {
     extra = index.dft.extra,
 
     custom = {
-        aa_readme = function( screen_w, screen_h, xys ) --allow appending to README
-            --? menu where all the controls will be described (+ some quick settings and settings refresh button; put README menu in custom)
+        aa_readme = function( screen_w, screen_h, pos ) --allow appending to README
+            --? menu where all the controls will be described (+ some quick settings and settings refresh button)
+            return { 0, 0 }
+        end,
+        zz_credits = function( screen_w, screen_h, pos ) --allow appending to README
+            --support for various categories and fancy effects
             return { 0, 0 }
         end,
     },
@@ -987,13 +992,17 @@ local GUI_MODULES = {
 
 local GUI_STRUCT = {
     top_left = {
+        order_id = 10,
+
         { 19, 20 },
         "inv",
     },
     top_right = {
+        order_id = 20,
+
         { -41, 20 },
         "bars_hp",
-        "tip_anchor",
+        "tip_anchor_init",
         "bars_air",
         "bars_flight",
         "bars_wand_mana",
@@ -1001,25 +1010,34 @@ local GUI_STRUCT = {
         "bars_wand_delay",
         "gold",
         "orbs",
-        "spacer",
+        "buffer",
         "icons_ingestions",
         "icons_stains",
         "icons_effects",
         "icons_perks",
     },
     bottom_left = {
+        order_id = 30,
+        reverse_y = true,
+
         { 10, -10 },
         "logger",
     },
     bottom_right = {
+        order_id = 40,
+        reverse_y = true,
+
         { -10, -10 },
     },
     centered = {
+        order_id = 50,
+        reverse_y = true,
+
         { 0.5, -20 },
         "applets",
-        "bars_bossbar",
         "info",
         "pickup",
+        "bars_bossbar",
         "gmodder",
         "extra",
     },

@@ -1,4 +1,4 @@
-return function( pic_x, pic_y, inv_info, xys, slot_func )
+return function( pic_x, pic_y, inv_info, pos, slot_func )
     local xD, inv_id = index.D, inv_info.id
     if( EntityGetRootEntity( inv_id ) ~= inv_id ) then return end
     if( xD.is_opened and xD.gmod.allow_external_inventories ) then

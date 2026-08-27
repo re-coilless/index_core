@@ -44,7 +44,6 @@ end
 pen.c.index_settings = pen.c.index_settings or {
     item_memo_timer = gg( index.GLOBAL_ITEM_MEMO_TIMER, 600 ),
     garbage_count = gg( index.GLOBAL_GARBAGE_COUNT, 10 ),
-    
     player_core_off = gg( index.GLOBAL_PLAYER_OFF_Y, -7 ),
     throw_pos_rad = gg( index.GLOBAL_THROW_POS_RAD, 10 ),
     throw_pos_size = gg( index.GLOBAL_THROW_POS_SIZE, 10 ),
@@ -54,7 +53,6 @@ pen.c.index_settings = pen.c.index_settings or {
     inv_spacings = pen.t.pack( gg( index.GLOBAL_SLOT_SPACING, "|3|9|" )),
     min_effect_duration = gg( index.GLOBAL_MIN_EFFECT_DURATION, 0.001 ),
     spell_anim_frames = gg( index.GLOBAL_SPELL_ANIM_FRAMES, 120 ),
-    spacer_size = gg( index.GLOBAL_SPACER_SIZE, 45 ),
 
     hp_threshold = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD, 1 ),
     hp_threshold_min = gg( index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN, 0.2 ),
@@ -363,6 +361,8 @@ end
 
 --gmods and applets init
 xD.gmod = xD.gmods[ xD.global_mode ]
+if( xD.Controls.inv[2] and not( xD.gmod.is_sticky )) then
+    GlobalsSetValue( index.GLOBAL_GLOBAL_MODE, tostring( 1 )) end
 xD.gmod.name, xD.gmod.desc = pen.magic_translate( xD.gmod.name ), pen.magic_translate( xD.gmod.desc )
 for i,mut in ipairs( global_mutators ) do mut() end
 
@@ -380,7 +380,7 @@ if( xD.applets.done == nil ) then
             else xD.applets.l_state, xM.applets_l_drift = false, xD.applets_l_drift end
         end,
     }
-
+    
     table.insert( xD.applets.l, close_applets )
     table.insert( xD.applets.r, close_applets )
 end
@@ -390,12 +390,16 @@ end
 --rendering pass
 local global_callback = xD.gmod.custom_func
 if( xD.gmod.allow_shooting ) then xD.no_inv_shooting = false end
-if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, xD.xys, hud, false ) end
+if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, hud, false ) end
 
+xM.tip_anchor_memo = xM.tip_anchor_memo or { 2*screen_w, 2*screen_h }
+xD.xys.tip_anchor = xD.xys.tip_anchor or { unpack( xM.tip_anchor_memo )}
 if( not( xD.gmod.nuke_default )) then hud.structure( screen_w, screen_h, hud, layout ) end
 
 if( not( xD.gmod.nuke_custom )) then
-    for cid,cfunc in pen.t.order( hud.custom ) do xD.xys[ cid ] = cfunc( screen_w, screen_h, xD.xys ) end
+    for cid,cfunc in pen.t.order( hud.custom ) do
+        xD.xys[ cid ] = cfunc( xD, xM, screen_w, screen_h, xD.xys[ cid ])
+    end
 end
 
 if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
@@ -404,7 +408,7 @@ if( xD.inv_toggle and not( xD.gmod.force_inv_open )) then
     ComponentSetValue2( iui_comp, "mActive", not( xD.is_opened ))
 elseif( xD.gmod.force_inv_open and not( xD.is_opened )) then ComponentSetValue2( iui_comp, "mActive", true ) end
 if( xD.no_inv_shooting and xD.is_opened ) then pen.new.interface( -5, -5, screen_w + 10, screen_h + 10, pen.Z.NON_CLICK ) end
-if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, xD.xys, hud, true ) end
+if( pen.vld( global_callback )) then hud = global_callback( screen_w, screen_h, hud, true ) end
 
 
 

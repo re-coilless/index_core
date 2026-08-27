@@ -444,7 +444,7 @@ end
 ---@param kind_func? fun( inv_info:InventoryInfo ): inv_kinds:table Dynamically returns inv kinds. 
 ---@param check_func? fun( inv_info:InventoryInfo, item_info:ItemInfo ): is_fit:boolean Dynamically checks insert viability.
 ---@param update_func? fun( inv_info:InventoryInfo, item_info_old:ItemInfo, item_info_new:ItemInfo ): will_reset:boolean Runs on any item modification event.
----@param gui_func? fun( pic_x:number, pic_y:number, inv_info:InventoryInfo, xys:XYS, slot_func:function ) Custom GUI render call, only works for external inventories.
+---@param gui_func? fun( pic_x:number, pic_y:number, inv_info:InventoryInfo, slot_func:function ) Custom GUI render call, only works for external inventories.
 ---@param sort_func? fun( a:value, b:value ): will_swap:boolean The means of establishing custom ordering.
 ---@return InventoryInfo
 function index.get_inv_info( inv_id, size, kind, kind_func, check_func, update_func, gui_func, sort_func )
@@ -1314,27 +1314,28 @@ function index.new_hp( pic_x, pic_y, pic_z, entity_id, data )
 end
 
 ---Draws various pickup-related widgets.
----@param screen_h number
----@param screen_w number
----@param xys XYS
 ---@param info ItemInfo
-function index.new_pickup_tip( screen_h, screen_w, xys, info )
+function index.new_pickup_tip( info, zone )
 	info.color = info.color or {}
+	zone = zone or "centered"
 
 	local xD = index.D
 	if( pen.vld( info.desc )) then
 		if( type( info.desc ) ~= "table" ) then
 			info.desc = { info.desc, false } end
 		if( pen.vld( info.desc[1] )) then
+			local pic_x, pic_y = unpack( xD.xys[ zone ])
 			local clr = ( info.desc[2] == true ) and "RED" or "YELLOW"
-			local pic_x, pic_y = unpack( xys.pickup_info or { screen_w/2, screen_h - 44 })
 			local is_elaborate = type( info.desc[2]) == "string" and pen.vld( info.desc[2])
-			pen.new.text( pic_x, pic_y, pen.Z.WORLD_UI, info.desc[1], {
+			
+			local delta = is_elaborate and 24 or 12
+			pen.new.text( pic_x, pic_y - delta, pen.Z.WORLD_UI, info.desc[1], {
 				is_centered_x = true, has_shadow = true, color = info.color[1] or pen.P.VNL[ clr ]})
 			if( is_elaborate ) then
-				pen.new.text( pic_x, pic_y + 12, pen.Z.WORLD_UI, info.desc[2], {
+				pen.new.text( pic_x, pic_y - delta + 12, pen.Z.WORLD_UI, info.desc[2], {
 					is_centered_x = true, has_shadow = true, color = info.color[2] or pen.P.VNL.LGREY })
 			end
+			xD.xys[ zone ] = { pic_x, pic_y - delta }
 		end
 	end
 
@@ -1371,8 +1372,9 @@ function index.tipping( pic_x, pic_y, pic_z, dims, text, data, func )
 			pen.new.pixel( pic_x, pic_y, pic_z[2], pen.P.VNL.RUNIC, dims[1], dims[2], 0.75 ) end
 	else return false, false, false end
 
-	local tip_x, tip_y = unpack( data.pos or xD.xys.tip_anchor )
-	if( not( pen.vld( data.pos ))) then data.tid = data.tid or "hud" end
+	if( data.pos == true ) then
+		data.tid = data.tid or "hud"
+		data.pos = { unpack( xD.xys.tip_anchor )} end
 	( func or xD.tip_func )( text, data )
 	return data.is_active, clicked, r_clicked
 end
@@ -2490,7 +2492,6 @@ index.GLOBAL_QUICKEST_SIZE = "INDEX_GLOBAL_QUICKEST_SIZE" --the size of the wand
 index.GLOBAL_SLOT_SPACING = "INDEX_GLOBAL_SLOT_SPACING" --distance between individual slots
 index.GLOBAL_MIN_EFFECT_DURATION = "INDEX_GLOBAL_MIN_EFFECT_DURATION" --minimal duration required for the efect to appear as an icon
 index.GLOBAL_SPELL_ANIM_FRAMES = "INDEX_GLOBAL_SPELL_ANIM_FRAMES" --the speed of spell swaying anim
-index.GLOBAL_SPACER_SIZE = "INDEX_GLOBAL_SPACER_SIZE" --distance between individual effect icons
 
 index.GLOBAL_LOW_HP_FLASHING_THRESHOLD = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD" --maximal hp value at which the flashing starts
 index.GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN = "INDEX_GLOBAL_LOW_HP_FLASHING_THRESHOLD_MIN" --additional threshold correction for extreme max hps
@@ -2565,9 +2566,6 @@ index.FRAMER = { --https://davidmathlogic.com/colorblind/#%23B95632-%23CC80B6-%2
 ---@alias spell_type
 
 ---@alias effect_kinds
-
----@class XYS
----@field sure
 
 ---@class PicInfo
 ---@field sure
