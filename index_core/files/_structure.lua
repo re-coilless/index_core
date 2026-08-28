@@ -37,6 +37,11 @@ local GLOBAL_MUTATORS, APPLETS = {}, {
         --     pic = "data/ui_gfx/status_indicators/confusion.png",
         --     toggle = function( state ) end,
         -- },
+        -- {
+        --     name = "CREDITS", desc = "Attributions and gratitudes.",
+        --     pic = "data/ui_gfx/status_indicators/heal_ghost.png",
+        --     toggle = function( state ) end,
+        -- },
     },
 }
 
@@ -656,10 +661,14 @@ local ITEM_CATS = {
             local k = h/info.matter_info.volume
             local alpha, delta = state_tbl.is_dragged and 0.7 or 0.9, 0
             local size = k*math.min( info.matter_info.matter[1], info.matter_info.volume )
-            for i,m in ipairs( info.matter_info.matter[2]) do
-                local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2; delta = delta + sz
-                pen.new.pixel( pic_x, pic_y - math.min( delta, h ), pen.Z.MAIN_FRONT +  tonumber( "4."..i ),
-                    pen.get_color_matter( CellFactory_GetName( m[1])), w, sz, alpha )
+            for i,m in ipairs( info.matter_info.matter[2]) do --dynamically determine to brighten or darken
+                local c = pen.magic_rgb( pen.get_color_matter( CellFactory_GetName( m[1])), false, "hsv" )
+                c = pen.magic_rgb({ c[1], math.min( 1.25*c[2], 1 ), math.min( 0.75*c[3], 0.5 )}, true, "hsv" )
+                local sz = math.ceil( 2*math.max( math.min( k*m[2], h ), 0.5 ))/2
+                delta = delta + sz
+                
+                pen.new.pixel( pic_x, pic_y - math.min( delta, h ),
+                    pen.Z.MAIN_FRONT + tonumber( "4."..i ), c, w, sz, alpha )
                 if( delta >= h ) then break end
             end
             
@@ -947,10 +956,10 @@ local GUI_MODULES = {
     tip = pen.new.tip, bar = index.new_bar,
     box = index.new_box, icon = index.new_icon,
     slot = index.new_slot, wand = index.new_wand,
-    
+
     buffer = index.dft.buffer,
     structure = index.dft.struct,
-    tip_anchor_init = index.dft.tip_anchor_init,
+    bars_tip_anchor = index.dft.tip_anchor,
 
     inv = index.dft.inv,
     applets = index.dft.applets,
@@ -979,11 +988,11 @@ local GUI_MODULES = {
     extra = index.dft.extra,
 
     custom = {
-        aa_readme = function( screen_w, screen_h, pos ) --allow appending to README
+        aa_readme = function( screen_w, screen_h, pos ) --allow appending
             --? menu where all the controls will be described (+ some quick settings and settings refresh button)
             return { 0, 0 }
         end,
-        zz_credits = function( screen_w, screen_h, pos ) --allow appending to README
+        zz_credits = function( screen_w, screen_h, pos ) --allow appending
             --support for various categories and fancy effects
             return { 0, 0 }
         end,
@@ -1002,7 +1011,7 @@ local GUI_STRUCT = {
 
         { -41, 20 },
         "bars_hp",
-        "tip_anchor_init",
+        "bars_tip_anchor",
         "bars_air",
         "bars_flight",
         "bars_wand_mana",
@@ -1033,11 +1042,11 @@ local GUI_STRUCT = {
         order_id = 50,
         reverse_y = true,
 
-        { 0.5, -20 },
+        { 0.5, -25 },
         "applets",
         "info",
+        "bossbar",
         "pickup",
-        "bars_bossbar",
         "gmodder",
         "extra",
     },

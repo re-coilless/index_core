@@ -116,10 +116,10 @@ function index.dft.pickup_ending( x, y, screen_w, screen_h )
                     clr = pen.P.VNL.YELLOW
                 elseif( xD.orbs > 32 ) then
                     clr = pen.P.VNL.RUNIC
-                else clr = pen.P.VNL.RED end
+                else clr = pen.P.VNL.DAMAGE end
             end
         end
-    elseif( xD.orbs > 11 ) then clr = pen.P.VNL.RED end
+    elseif( xD.orbs > 11 ) then clr = pen.P.VNL.DAMAGE end
     
     if( pen.vld( sampo_spot, true )) then
         local sampo_x, sampo_y = EntityGetTransform( xD.sampo )
@@ -176,7 +176,7 @@ function index.dft.buffer( xD, xM, screen_w, screen_h, pos )
     return delta
 end
 
-function index.dft.tip_anchor_init( xD, xM, screen_w, screen_h, pos )
+function index.dft.tip_anchor( xD, xM, screen_w, screen_h, pos )
     xD.tip_anchor_drift = xD.tip_anchor_drift or { 0, 0 }
     xM.tip_anchor_memo = { pos[1] + xD.tip_anchor_drift[1], pos[2] + xD.tip_anchor_drift[2]}
 end
@@ -949,7 +949,18 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
         local no_matter = xD.info_mtr_state == 3 and matter == 0
         local txt = GameTextGetTranslatedOrNot( no_matter and "$mat_air" or CellFactory_GetUIName( matter ))
         
-        pic_x, pic_y = unpack( xD.xys.matter_info or xD.xys.gold )
+        if( not( pen.vld( xD.xys.matter_info ))) then
+            local got_bar = false
+            pic_x, pic_y = unpack( xD.xys[ pen.t.loop( pen.c.index_struct[10].top_right, function( i,v )
+                if( type( i ) ~= "number" or type( v ) ~= "string" ) then return end
+                local is_bar = string.find( v, "^bars_" ) ~= nil
+                
+                if( got_bar ) then
+                    if( not( is_bar )) then return v end
+                elseif( is_bar ) then got_bar = true end
+            end) or "gold" ])
+        else pic_x, pic_y = unpack( xD.xys.matter_info ) end
+
         do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
             local _,_,is_hovered = pen.new.interface( pic_x + 2 - offset_x, pic_y - 1, offset_x, 8, pen.Z.TIPS )
             if( is_hovered ) then xM.mtr_prb = { matter, xD.frame_num + 300 } end
@@ -959,6 +970,89 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
     end)
     
     return { 0, 0 }
+end
+
+function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )
+    local x, y = unpack( xD.player_xy )
+    local pic_x, pic_y = unpack( pos )
+    local delta = { 0, 0 }
+
+    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy_id )
+        local bar_comp = EntityGetFirstComponent( enemy_id, "HealthBarComponent" )
+        if( not( pen.vld( bar_comp, true ))) then return end
+        
+        local b_x, b_y = EntityGetTransform( enemy_id )
+        local distance = math.sqrt(( b_x - x )^2 + ( b_y - y )^2 )
+        if( distance > ComponentGetValue2( bar_comp, "gui_max_distance_visible" )) then return end
+        local in_world, is_boss = ComponentGetValue2( bar_comp, "in_world" ), EntityHasTag( enemy_id, "boss" )
+
+        local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
+            local custom_pos = ( data.custom or {}).pos or {}
+            if( not( data.in_world )) then data.length, data.height = custom_pos[3], custom_pos[4] or data.height end
+            data.color_hp = data.custom.color
+
+            local name = index.get_entity_name( entity_id )
+            local bar_data = index.new_hp( pic_x, pic_y, pic_z, entity_id, data )
+            
+            if( not( data.in_world ) and pen.vld( data.custom.pic )) then
+                local pic_w, pic_h = pen.get_pic_dims( data.custom.pic )
+                local off_x, off_y = custom_pos[5] or 0, custom_pos[6] or 0
+                local t_x, t_y = pic_x - pic_w/2 + off_x, pic_y - 2 + off_y
+                pen.new.image( t_x, t_y, pic_z - 0.1, data.custom.pic )
+                if( pen.vld( data.custom.color_bg )) then
+                    t_x, t_y = t_x + ( custom_pos[1] or 0 ), t_y + ( custom_pos[2] or 0 )
+                    pen.new.pixel( t_x, t_y, pic_z + 0.2, data.custom.color_bg, bar_data.length, bar_data.height )
+                end
+            end
+
+            local rounding = 10
+            local off_name, off_perc = 3, -1
+            local off_text = (( bar_data.height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
+            if( bar_data.hp_max >= 10^6 ) then rounding = 1000 elseif( bar_data.hp_max >= 10^5 ) then rounding = 100 end
+            if( not( data.in_world ) and pen.vld( data.custom.pic )) then off_name, off_perc = 8, -6 end
+
+            if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
+            local t_x = pic_x + ( data.in_world and 0 or ( -bar_data.length/2 + off_name ))
+            local t_y = pic_y + ( data.in_world and ( bar_data.height + 1 ) or off_text )
+            pen.new.text( t_x, t_y, pic_z - 0.1, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
+            
+            local value = pen.rnd( 100*bar_data.hp/bar_data.hp_max, rounding ).."%"
+            t_x, t_y = pic_x + ( data.in_world and 4 or ( bar_data.length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
+            pen.new.text( t_x, t_y, pic_z - 0.1, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
+                color = data.custom.color_text or pen.P.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
+            pen.new.text( t_x, t_y, pic_z + 0.1, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
+            
+            if( pen.vld( data.custom.func_extra ) and not( in_world )) then
+                data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data ) end
+            return bar_data.length, bar_data.height
+        end
+
+        local custom = xD.boss_bars[ EntityGetFilename( enemy_id )] or {}
+        local pics = EntityGetComponent( enemy_id, "SpriteComponent", "health_bar" )
+        if( pen.vld( pics ) and pen.vld( custom )) then
+            for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy_id, pic, false ) end
+        elseif( pen.vld( pics )) then return end
+
+        local func_path = pen.magic_storage( enemy_id, "index_bar", "value_string" )
+        if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
+
+        local bar_x, bar_y = pic_x, pic_y
+        in_world = ( in_world or custom.in_world )
+        if( xD.boss_bar_mode ~= 1 ) then in_world = xD.boss_bar_mode == 2 end
+        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y )
+            bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id )).max_y + 10 end
+        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.Z.WORLD_UI + 10, enemy_id, {
+            custom = custom,
+            centered = true, in_world = in_world, is_boss = is_boss,
+            low_hp = 0, low_hp_min = 0, only_slider = pen.vld( custom ) and not( in_world ),
+            length_mult = in_world and 0.75 or 2, height = in_world and 9 or 13,
+        })
+        
+        delta = { 0, pos[2] - pic_y + 3 }
+        if( not( in_world )) then pic_y = pic_y - ( h + 9 ) end
+    end)
+
+    return delta, { pic_x, pic_y }
 end
 
 function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
@@ -1180,88 +1274,6 @@ function index.dft.pickup( xD, xM, screen_w, screen_h, pos )
             xM.skip_next_action = false
         end
     end
-end
-
-function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )
-    local x, y = unpack( xD.player_xy )
-    local pic_x, pic_y = unpack( pos )
-
-    pen.t.loop( EntityGetInRadiusWithTag( x, y, 1000, "hittable" ), function( i, enemy_id )
-        local bar_comp = EntityGetFirstComponent( enemy_id, "HealthBarComponent" )
-        if( not( pen.vld( bar_comp, true ))) then return end
-        
-        local b_x, b_y = EntityGetTransform( enemy_id )
-        local distance = math.sqrt(( b_x - x )^2 + ( b_y - y )^2 )
-        if( distance > ComponentGetValue2( bar_comp, "gui_max_distance_visible" )) then return end
-        local in_world, is_boss = ComponentGetValue2( bar_comp, "in_world" ), EntityHasTag( enemy_id, "boss" )
-
-        local bar_func = function( pic_x, pic_y, pic_z, entity_id, data )
-            local custom_pos = ( data.custom or {}).pos or {}
-            if( not( data.in_world )) then data.length, data.height = custom_pos[3], custom_pos[4] or data.height end
-            data.color_hp = data.custom.color
-
-            local name = index.get_entity_name( entity_id )
-            local bar_data = index.new_hp( pic_x, pic_y, pic_z, entity_id, data )
-            
-            if( not( data.in_world ) and pen.vld( data.custom.pic )) then
-                local pic_w, pic_h = pen.get_pic_dims( data.custom.pic )
-                local off_x, off_y = custom_pos[5] or 0, custom_pos[6] or 0
-                local t_x, t_y = pic_x - pic_w/2 + off_x, pic_y - 2 + off_y
-                pen.new.image( t_x, t_y, pic_z - 0.1, data.custom.pic )
-                if( pen.vld( data.custom.color_bg )) then
-                    t_x, t_y = t_x + ( custom_pos[1] or 0 ), t_y + ( custom_pos[2] or 0 )
-                    pen.new.pixel( t_x, t_y, pic_z + 0.2, data.custom.color_bg, bar_data.length, bar_data.height )
-                end
-            end
-
-            local rounding = 10
-            local off_name, off_perc = 3, -1
-            local off_text = (( bar_data.height - ({ pen.get_text_dims( "100", true )})[2])/2 + 1 )
-            if( bar_data.hp_max >= 10^6 ) then rounding = 1000 elseif( bar_data.hp_max >= 10^5 ) then rounding = 100 end
-            if( not( data.in_world ) and pen.vld( data.custom.pic )) then off_name, off_perc = 8, -6 end
-
-            if( not( pen.vld( name ))) then name = data.is_boss and "Boss" or "Enemy" end
-            local t_x = pic_x + ( data.in_world and 0 or ( -bar_data.length/2 + off_name ))
-            local t_y = pic_y + ( data.in_world and ( bar_data.height + 1 ) or off_text )
-            pen.new.text( t_x, t_y, pic_z - 0.1, pen.capitalizer( name ), { is_centered_x = data.in_world, has_shadow = true })
-            
-            local value = pen.rnd( 100*bar_data.hp/bar_data.hp_max, rounding ).."%"
-            t_x, t_y = pic_x + ( data.in_world and 4 or ( bar_data.length/2 + off_perc )), pic_y + ( data.in_world and 0.5 or off_text )
-            pen.new.text( t_x, t_y, pic_z - 0.1, value, { is_centered_x = data.in_world, alpha = 0.75, is_right_x = not( data.in_world ),
-                color = data.custom.color_text or pen.P.VNL[ pen.vld( data.custom.pic ) and "ACTION_OTHER" or "BROWN" ]})
-            pen.new.text( t_x, t_y, pic_z + 0.1, value, { is_centered_x = data.in_world, is_right_x = not( data.in_world )})
-            
-            if( pen.vld( data.custom.func_extra ) and not( in_world )) then
-                data.custom.func_extra( pic_x, pic_y, pic_z, entity_id, data ) end
-            return bar_data.length, bar_data.height
-        end
-
-        local custom = xD.boss_bars[ EntityGetFilename( enemy_id )] or {}
-        local pics = EntityGetComponent( enemy_id, "SpriteComponent", "health_bar" )
-        if( pen.vld( pics ) and pen.vld( custom )) then
-            for i,pic in ipairs( pics ) do EntitySetComponentIsEnabled( enemy_id, pic, false ) end
-        elseif( pen.vld( pics )) then return end
-
-        local func_path = pen.magic_storage( enemy_id, "index_bar", "value_string" )
-        if( pen.vld( func_path )) then bar_func = dofile_once( func_path ) end
-
-        local bar_x, bar_y = pic_x, pic_y
-        in_world = ( in_world or custom.in_world )
-        if( xD.boss_bar_mode ~= 1 ) then in_world = xD.boss_bar_mode == 2 end
-        if( in_world ) then bar_x, bar_y = pen.world2gui( b_x, b_y )
-            bar_y = bar_y + ( pen.get_creature_dimensions( enemy_id )).max_y + 10 end
-        local l,h = ( custom.func or bar_func )( bar_x, bar_y, pen.Z.WORLD_UI + 10, enemy_id, {
-            custom = custom,
-            centered = true, in_world = in_world, is_boss = is_boss,
-            low_hp = 0, low_hp_min = 0, only_slider = pen.vld( custom ) and not( in_world ),
-            length_mult = in_world and 0.75 or 2, height = in_world and 9 or 13,
-        })
-        
-        if( not( in_world )) then pic_y = pic_y - ( h + 6 ) end
-    end)
-
-    local delta = { 0, pos[2] - pic_y }
-    return delta, { pic_x, pic_y }
 end
 
 function index.dft.gmodder( xD, xM, screen_w, screen_h, pos )
