@@ -2,6 +2,7 @@ dofile_once( "mods/index_core/files/_elements.lua" )
 
 local GLOBAL_MODES = {
     {
+        id = "dft",
         name = "FULL", color = pen.P.WHITE,
         desc = "Wand editing with minimal obstructions.",
         is_default = true, allow_wand_editing = true, show_full = true,
@@ -12,16 +13,19 @@ local GLOBAL_MODES = {
         -- allow_external_inventories = false, allow_advanced_draggables = false,
     },
     {
+        id = "inv",
         name = "MANAGEMENT", color = pen.P.VNL.YELLOW,
         desc = "Extended inventory management capability.",
         allow_external_inventories = true, show_full = true, show_fullest = true,
     },
     {
+        id = "act",
         name = "INTERACTIVE", color = pen.P.VNL.RUNIC,
         desc = "Dragging actions and in-world interactivity.",
         can_see = true, allow_shooting = true, allow_advanced_draggables = true,
     },
     {
+        id = "mnu",
         name = "CUSTOM_MENU", color = pen.P.VNL.DAMAGE,
         desc = "Clears space to the right and limits interactions.",
         menu_capable = true, is_hidden = true, force_inv_open = true, is_sticky = true,
@@ -972,8 +976,8 @@ local GUI_MODULES = {
     bars_wand_reload = index.dft.reload,
     bars_wand_delay = index.dft.delay,
 
-    gold = index.dft.gold,
-    orbs = index.dft.orbs,
+    nums_gold = index.dft.gold,
+    nums_orbs = index.dft.orbs,
     info = index.dft.info,
     
     icons_ingestions = index.dft.ingestions,
@@ -1017,8 +1021,8 @@ local GUI_STRUCT = {
         "bars_wand_mana",
         "bars_wand_reload",
         "bars_wand_delay",
-        "gold",
-        "orbs",
+        "nums_gold",
+        "nums_orbs",
         "buffer",
         "icons_ingestions",
         "icons_stains",

@@ -202,7 +202,9 @@ function index.dft.struct( screen_w, screen_h, hud, layout )
 
             local pos = xD.xys[ name ]
             local kx, ky = zone.reverse_x and -1 or 1, zone.reverse_y and -1 or 1
-            delta, xD.xys[ id ] = hud[ id ]( xD, xM, screen_w, screen_h, xD.xys[ id ] or pos )
+            if( not( xD.muted[ id ])) then
+                delta, xD.xys[ id ] = hud[ id ]( xD, xM, screen_w, screen_h, xD.xys[ id ] or pos )
+            else delta, xD.xys[ id ] = nil, { xD.xys[ id ] or pos } end
             if( pen.vld( delta )) then xD.xys[ name ] = { pos[1] + kx*delta[1], pos[2] + ky*delta[2]} end
         end)
     end
@@ -511,12 +513,12 @@ function index.dft.gold( xD, xM, screen_w, screen_h, pos )
     local data = xD.Wallet
     local pic_x, pic_y = unpack( pos )
     local delta = { 0, 0 }
-
+    
     pen.hallway( function()
         if( not( pen.vld( data ))) then return end
         if( xD.gmod.menu_capable ) then return end
         if( data.money < 0 ) then return end
-        
+
         local le_money = data.money_always and -1 or math.floor( pen.estimate( "index_gold", data.money, "exp", data.money/1000 ))
         
         local v = pen.get_short_num( le_money )
@@ -958,7 +960,7 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
                 if( got_bar ) then
                     if( not( is_bar )) then return v end
                 elseif( is_bar ) then got_bar = true end
-            end) or "gold" ])
+            end) or "nums_gold" ])
         else pic_x, pic_y = unpack( xD.xys.matter_info ) end
 
         do_info( pic_x + 2, pic_y - 2.5, txt, fading, true, function( offset_x )
@@ -968,8 +970,6 @@ function index.dft.info( xD, xM, screen_w, screen_h, pos )
         end)
         xD.xys.matter_info = { pic_x, pic_y }
     end)
-    
-    return { 0, 0 }
 end
 
 function index.dft.bossbar( xD, xM, screen_w, screen_h, pos )

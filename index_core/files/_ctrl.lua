@@ -188,6 +188,7 @@ index.D = {
 
     global_mode = gg( index.GLOBAL_GLOBAL_MODE, 1 ),
     is_opened = ComponentGetValue2( iui_comp, "mActive" ),
+    muted = {},
 
     frame_num = frame_num,
     screen_dims = { screen_w, screen_h },
@@ -380,7 +381,7 @@ if( xD.applets.done == nil ) then
             else xD.applets.l_state, xM.applets_l_drift = false, xD.applets_l_drift end
         end,
     }
-    
+
     table.insert( xD.applets.l, close_applets )
     table.insert( xD.applets.r, close_applets )
 end
